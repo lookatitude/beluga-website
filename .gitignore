@@ -21,3 +21,12 @@ pnpm-debug.log*
 
 # macOS-specific files
 .DS_Store
+
+# Build-time godoc HTML fetched from the beluga-ai release bundle by
+# scripts/fetch-docs-bundle.sh. Never commit — regenerated each build.
+public/godoc/
+
+# Note: report stubs under src/content/docs/docs/contributing/project-reports/
+# ARE tracked (they own the Starlight frontmatter). fetch-docs-bundle.sh
+# overwrites their bodies at build time; expect local `git status` noise
+# after running a build.

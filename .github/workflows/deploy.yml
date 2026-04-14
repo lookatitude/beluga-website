@@ -1,0 +1,85 @@
+name: Build and Deploy
+
+# Triggers:
+# - push to main (content/config edits in this repo)
+# - repository_dispatch from beluga-ai releases (new godoc / reports)
+# - manual
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [framework-release]
+  workflow_dispatch:
+    inputs:
+      framework_tag:
+        description: "beluga-ai release tag (blank = latest)"
+        required: false
+        default: ""
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  BELUGA_AI_REPO: "lookatitude/beluga-ai"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "yarn"
+
+      - name: Resolve docs bundle tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            TAG="${{ github.event.client_payload.tag }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.framework_tag }}" ]; then
+            TAG="${{ inputs.framework_tag }}"
+          else
+            TAG=$(gh release view --repo "$BELUGA_AI_REPO" --json tagName --jq .tagName)
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using docs bundle from ${BELUGA_AI_REPO}@${TAG}"
+
+      - name: Fetch docs bundle from beluga-ai release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/fetch-docs-bundle.sh "${{ steps.tag.outputs.tag }}"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
