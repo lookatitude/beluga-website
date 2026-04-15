@@ -17,6 +17,15 @@
 # Requirements:
 #   - gh CLI authenticated with read access to lookatitude/beluga-ai
 #   - awk, tar, sha256sum
+#
+# Failure handling:
+#   This script is intentionally soft-fail. If no release exists, the
+#   release is missing docs-bundle.tar.gz, the checksum doesn't match,
+#   or the extract fails, it prints a warning and exits 0 so content-only
+#   website builds (blog posts, feature pages) are never blocked by an
+#   in-progress or broken framework release. The build then runs without
+#   godoc pages and with placeholder report bodies — the same state as a
+#   local dev build that skips this script entirely.
 
 set -euo pipefail
 
@@ -27,25 +36,42 @@ REPORTS_DIR="$ROOT/src/content/docs/docs/contributing/project-reports"
 
 cd "$ROOT"
 
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+warn() { printf 'warning: %s\n' "$*" >&2; }
+
+soft_fail() {
+  warn "$1"
+  warn "continuing without docs bundle: godoc pages will 404 and project-report stubs will keep their placeholder bodies"
+  mkdir -p public/godoc
+  exit 0
+}
+
 if [ -z "$TAG" ]; then
-  TAG=$(gh release view --repo "$REPO" --json tagName --jq .tagName)
+  if ! TAG=$(gh release view --repo "$REPO" --json tagName --jq .tagName 2>/dev/null); then
+    soft_fail "no release found in ${REPO} (or gh CLI failed)"
+  fi
 fi
 
 echo "Fetching docs bundle from ${REPO}@${TAG}..."
 
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+if ! gh release download "$TAG" \
+     --repo "$REPO" \
+     --pattern "docs-bundle.tar.gz" \
+     --pattern "docs-bundle.tar.gz.sha256" \
+     --dir "$TMP" \
+     --clobber; then
+  soft_fail "release ${REPO}@${TAG} is missing docs-bundle.tar.gz"
+fi
 
-gh release download "$TAG" \
-  --repo "$REPO" \
-  --pattern "docs-bundle.tar.gz" \
-  --pattern "docs-bundle.tar.gz.sha256" \
-  --dir "$TMP" \
-  --clobber
+if ! (cd "$TMP" && sha256sum --check docs-bundle.tar.gz.sha256); then
+  soft_fail "checksum mismatch for docs-bundle.tar.gz from ${REPO}@${TAG}"
+fi
 
-(cd "$TMP" && sha256sum --check docs-bundle.tar.gz.sha256)
-
-tar -xzf "$TMP/docs-bundle.tar.gz" -C "$TMP"
+if ! tar -xzf "$TMP/docs-bundle.tar.gz" -C "$TMP"; then
+  soft_fail "failed to extract docs-bundle.tar.gz from ${REPO}@${TAG}"
+fi
 
 # --- godoc ----------------------------------------------------------------
 rm -rf public/godoc
