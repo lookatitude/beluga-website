@@ -8,6 +8,16 @@ Public documentation and marketing site for the Beluga AI framework. Astro 5 + S
 
 This repo was split out of `beluga-ai` (framework) in 2026 — history was preserved with `git filter-repo --subdirectory-filter docs/website`, so every commit here originated in the framework repo's `docs/website/` tree.
 
+## Project scope
+
+This repo owns the **communication layer** of the Beluga project: blog posts, tutorials, guides, marketing pages, and the docs site that wraps framework godocs and reports. It does **not** own framework code, Go patterns, or runnable example programs — those live in `beluga-ai` (framework) and `beluga-examples` (examples) respectively.
+
+When working on cross-repo concerns (a release flow incident, coordinating a framework API change with content updates, shared branch discipline), consult the **workspace wiki** at `../.wiki/index.md` and the workspace `CLAUDE.md` at `../CLAUDE.md` — they are only visible when this repo is checked out inside the multi-repo Beluga workspace. Anything site-specific (Astro config, Starlight overrides, content voice, design system) stays here, in this repo's `.wiki/`.
+
+## Wiki
+
+`.wiki/` holds website-specific knowledge: Starlight override conventions, content voice/style, design-system tokens, and any website-local corrections. Today it is a stub (`.wiki/index.md`) that will grow as content-writing and design agents are added in later phases. For now, read `.wiki/index.md` for routing only — most knowledge still lives in the workspace wiki (cross-cutting) or the framework wiki (Go-side).
+
 ## Common commands
 
 ```bash
