@@ -7,6 +7,25 @@ Write a blog post on: $ARGUMENTS
 
 $ARGUMENTS may be a free-form topic OR a Linear sub-issue ID. If it matches `^LOO-\d+$`, run the Linear pre-flight (fetch sub-issue + parent + brief + merged framework PR; retry-twice fallback — see `/tutorial` for the full pattern). Otherwise skip to Step 1.
 
+### 1b. Validate content-type label (A3)
+
+After fetching the sub-issue, check its labels. If it has a `content:*` label, verify it's `content:blog`:
+
+- Mismatch with `content:tutorial`, `content:guide`, `content:reference`, or `content:landing` → warn and suggest the corresponding command. The drafter is configured for blog structure and voice, not the other content types. User may choose to continue anyway.
+- Missing `content:*` label (predates A3 or created via A1's simpler /plan-content) → proceed as generic blog post; do not block.
+- Matching `content:blog` → proceed normally.
+
+Use the same warning template as `/tutorial`:
+
+```
+Sub-issue <LOO-NN> is labeled content:<actual-type>, but you invoked /blog.
+Content types have different templates and voice targets.
+
+Did you mean to run /<actual-type> <LOO-NN>?
+
+Proceed anyway? (no — stop and re-run; yes — continue as blog ignoring the label)
+```
+
 ## Workflow
 
 ### Step 1 — Source material
