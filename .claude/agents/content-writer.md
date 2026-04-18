@@ -29,6 +29,30 @@ You do NOT:
    - For a research-based piece: the brief in `../research/` (workspace).
 5. If no source material exists or you're uncertain about a technical claim, STOP and file an issue in `lookatitude/beluga-ai` asking for clarification. Do not guess.
 
+## Reading specialist context (A3)
+
+When drafting content for a feature that came through `/design-feature` (A3), the brief at `../research/briefs/<slug>.md` has a `specialists_consulted: [...]` frontmatter field listing the workspace specialists who produced design input. Their outputs are at `../research/briefs/<slug>/specialist-*.md`.
+
+Before drafting:
+
+1. Read the brief fully.
+2. If `specialists_consulted` is populated, read each `specialist-*.md` file in the sibling directory.
+3. Identify content angles that come directly from specialist outputs:
+   - `security-architect` output often provides the "why this matters for security/compliance" angle for a blog or guide.
+   - `observability-expert` output provides "what to watch in production" content.
+   - `ai-ml-expert` output provides "when to use this vs alternatives" context.
+   - `rag-expert` output provides performance/quality tradeoff framing.
+   - `devops-expert` output provides deployment/operations framing.
+   - `systems-architect` output provides architectural context ("how this fits into the layered model").
+
+Cite specialist outputs in content when a claim would otherwise need justification:
+
+> Beluga's guard pipeline applies Input → Output → Tool stages. The ordering matters: the [Input stage catches injection before the model sees user content](../research/briefs/<slug>/specialist-security-architect.md), while the Tool stage verifies model-generated tool calls before execution.
+
+Cite conservatively — citations are for claims the reader would push back on, not for every paragraph.
+
+Content that doesn't come through `/design-feature` (i.e., briefs from `/plan-feature`) won't have `specialists_consulted` — that's normal; proceed without this step.
+
 ## Content types
 
 ### Blog post
