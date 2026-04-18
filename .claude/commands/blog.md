@@ -5,6 +5,8 @@ description: Write a technical blog post about a feature, release, or topic.
 
 Write a blog post on: $ARGUMENTS
 
+$ARGUMENTS may be a free-form topic OR a Linear sub-issue ID. If it matches `^LOO-\d+$`, run the Linear pre-flight (fetch sub-issue + parent + brief + merged framework PR; retry-twice fallback — see `/tutorial` for the full pattern). Otherwise skip to Step 1.
+
 ## Workflow
 
 ### Step 1 — Source material
@@ -33,5 +35,11 @@ Cite the source material the post is based on (release tag, PR, brief). If any t
 
 If `marketeer` does not yet exist or lives in a different repo, write a single short companion post yourself.
 
+### Step 4a — Code-reviewer (pre-merge, A1)
+Invoke `@agent-pr-review-toolkit:code-reviewer`. Verifies example code compiles, imports complete, errors handled, links accurate.
+
+### Step 4b — Voice-steward (pre-merge, A2)
+Invoke `@agent-voice-steward`. Advisory comment on tone / vocabulary / reading level / cross-content consistency. Do not block — human approves final merge regardless of findings.
+
 ### Step 5 — Output
-Save the draft to `src/content/docs/blog/<slug>.mdx` (current convention — may be formalized as its own Astro content collection later). Save companion social posts to `src/content/docs/blog/_social/<slug>.md`. Open a PR against `main` per branch discipline; never commit directly.
+Save the draft to `src/content/docs/blog/<slug>.mdx` (current convention — may be formalized as its own Astro content collection later). Save companion social posts to `src/content/docs/blog/_social/<slug>.md`. Open a PR against `main` per branch discipline; never commit directly. Include `LOO-NN` in the PR title if a Linear sub-issue was used so Linear auto-links.

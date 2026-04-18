@@ -16,7 +16,11 @@ When working on cross-repo concerns (a release flow incident, coordinating a fra
 
 ## Wiki
 
-`.wiki/` holds website-specific knowledge: Starlight override conventions, content voice/style, design-system tokens, and any website-local corrections. Today it is a stub (`.wiki/index.md`) that will grow as content-writing and design agents are added in later phases. For now, read `.wiki/index.md` for routing only — most knowledge still lives in the workspace wiki (cross-cutting) or the framework wiki (Go-side).
+`.wiki/` holds website-specific knowledge: Starlight override conventions, content voice/style, design-system tokens, and any website-local corrections. The authoritative content voice reference lives at `.wiki/style-guide.md` — read it before drafting any blog / tutorial / guide / announcement; the `voice-steward` agent enforces it on content PRs. `.wiki/index.md` is the meta-router; most Go-side knowledge still lives in the framework wiki.
+
+## Voice steward and style guide (A2)
+
+Every content PR invokes `voice-steward` (`.claude/agents/voice-steward.md`) as a pre-merge advisory gate — it reads `.wiki/style-guide.md` and posts a structured review comment covering tone, vocabulary, reading level, and cross-content consistency. It never blocks; the human approves the final merge. Update voice rules via normal PR to `.wiki/style-guide.md` (versioned in the file header). `voice-steward` is wired into `/tutorial`, `/guide`, `/blog`, and `/announce-release` automatically; it can also be invoked manually via `@agent-voice-steward` on any content diff.
 
 ## Common commands
 

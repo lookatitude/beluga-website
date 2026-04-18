@@ -39,6 +39,9 @@ Run `/update-docs` (invokes `@agent-docs-sync`). Review the content-needs report
 ### Step 6 — Landing page refresh
 If any change in the release is user-visible enough to warrant a landing page update (new provider category, new deployment mode, new major feature), `@agent-developer-web` proposes edits to the relevant marketing page or `src/content/docs/docs/start/` page. Keep edits minimal — reuse existing component patterns.
 
+### Step 6a — Voice-steward (pre-merge, A2)
+Invoke `@agent-voice-steward` on the complete announcement bundle (blog + social + any landing-page edits). Advisory comment on tone / voice / cross-content consistency. Do not block — release announcements are time-sensitive; proceed to PR regardless of voice-steward findings, but capture suggestions inline.
+
 ### Step 7 — Output and PR
 Everything lands in a single PR against `main` per branch discipline:
 - `src/content/docs/blog/<tag>-release.mdx`
