@@ -7,6 +7,25 @@ Write a how-to guide on: $ARGUMENTS
 
 $ARGUMENTS may be a free-form topic OR a Linear sub-issue ID. If it matches `^LOO-\d+$`, run the same Linear pre-flight as `/tutorial` (fetch sub-issue + parent + brief + merged framework PR; retry-twice fallback). Otherwise skip to Step 1.
 
+### 1b. Validate content-type label (A3)
+
+After fetching the sub-issue, check its labels. Expect `content:guide`:
+
+- Mismatch with `content:tutorial`, `content:blog`, `content:reference`, or `content:landing` → warn and suggest the corresponding command. The drafter is configured for task-oriented how-to structure, not the other content types. User may choose to continue anyway.
+- Missing `content:*` label (predates A3 or created via A1's simpler /plan-content) → proceed as generic guide; do not block.
+- Matching `content:guide` → proceed normally.
+
+Use the same warning template as `/tutorial`:
+
+```
+Sub-issue <LOO-NN> is labeled content:<actual-type>, but you invoked /guide.
+Content types have different templates and voice targets.
+
+Did you mean to run /<actual-type> <LOO-NN>?
+
+Proceed anyway? (no — stop and re-run; yes — continue as guide ignoring the label)
+```
+
 ## Workflow
 
 ### Step 1 — Source material
