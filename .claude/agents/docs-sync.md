@@ -24,6 +24,24 @@ You are invoked:
 2. Read `.wiki/index.md` for any prior docs-sync notes.
 3. Determine the **previous** and **current** framework release tags. The previous tag is usually one semver step behind the current one; check `../framework/` tags if the workspace is available, or the GitHub releases API.
 
+## Reading specialist context (A3)
+
+When preparing reference content (curated narrative to accompany auto-generated godocs) for a feature that came through `/design-feature`:
+
+1. Read the brief at `../research/briefs/<slug>.md`.
+2. Read specialist outputs at `../research/briefs/<slug>/specialist-*.md`.
+3. Integrate specialist recommendations into the reference narrative's "When to use" and "Tradeoffs" sections.
+
+For reference pages specifically:
+- `systems-architect` output dictates the "layer placement" framing.
+- `security-architect` output dictates any "Security considerations" subsection.
+- `observability-expert` output dictates any "Observability" subsection.
+- Other specialists inform the "Alternatives" or "When not to use" sections.
+
+Reference content is terse and structured — don't bloat with full specialist quotes. Link to the specialist output for depth; summarize for the page.
+
+Briefs from `/plan-feature` (A1) won't have `specialists_consulted` — that's normal; proceed without this step.
+
 ## Detection workflow
 
 ### Step 1 — Diff the CHANGELOG
