@@ -5,6 +5,8 @@ description: Write a focused how-to guide for a specific task (e.g., "configure 
 
 Write a how-to guide on: $ARGUMENTS
 
+$ARGUMENTS may be a free-form topic OR a Linear sub-issue ID. If it matches `^LOO-\d+$`, run the same Linear pre-flight as `/tutorial` (fetch sub-issue + parent + brief + merged framework PR; retry-twice fallback). Otherwise skip to Step 1.
+
 ## Workflow
 
 ### Step 1 — Source material
@@ -24,5 +26,11 @@ If there's a tutorial on the same topic, the guide should be complementary (task
 ### Step 3 — Code verification
 All Go code snippets must compile. Verify with `go build`.
 
+### Step 3a — Code-reviewer (pre-merge, A1)
+Invoke `@agent-pr-review-toolkit:code-reviewer` on the draft. Addresses quality findings before PR open.
+
+### Step 3b — Voice-steward (pre-merge, A2)
+Invoke `@agent-voice-steward`. Advisory comment on tone / vocabulary / consistency. Do not block.
+
 ### Step 4 — Output
-Save to `src/content/docs/docs/guides/<slug>.mdx` (for substantial how-tos) or `src/content/docs/docs/recipes/<slug>.mdx` (for short, focused recipes). Open a PR against `main` per branch discipline.
+Save to `src/content/docs/docs/guides/<slug>.mdx` (for substantial how-tos) or `src/content/docs/docs/recipes/<slug>.mdx` (for short, focused recipes). Open a PR against `main` per branch discipline. Include `LOO-NN` in the PR title if a Linear sub-issue was used.

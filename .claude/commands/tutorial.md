@@ -5,6 +5,15 @@ description: Write a step-by-step tutorial for a framework feature, with a compa
 
 Write a tutorial on: $ARGUMENTS
 
+$ARGUMENTS may be a free-form topic OR a Linear sub-issue ID (e.g., `LOO-47`) labeled `layer:website`. If it matches `^LOO-\d+$` (case-insensitive), run the Linear pre-flight below first; otherwise skip to Step 1.
+
+## Pre-flight (Linear-integrated, A1)
+
+1. Fetch the sub-issue and parent via Linear MCP (`mcp__claude_ai_Linear__get_issue`). Capture titles, descriptions, labels.
+2. From the parent's description, read the workspace brief at `../research/briefs/<slug>.md`.
+3. Find the linked merged framework PR and read it: `gh pr view <num> --repo lookatitude/beluga-ai --json title,body,files`. The merged diff is canonical for API shape in the tutorial.
+4. On Linear MCP failure: retry twice, then proceed with brief + PR context only; flag the gap in the PR description. Do not silently skip.
+
 ## Workflow
 
 ### Step 1 — Source material
@@ -31,7 +40,13 @@ Check whether a runnable example exists in `lookatitude/beluga-examples` for thi
 ### Step 4 — Code verification
 Every Go code snippet in the tutorial must compile. Run `go build` on the complete code section at minimum. If individual steps are meant to be runnable independently, verify each one.
 
+### Step 4a — Code-reviewer (pre-merge, A1)
+Invoke `@agent-pr-review-toolkit:code-reviewer` on the draft. Verifies imports complete, errors handled, links accurate. Address high-confidence findings before opening the PR.
+
+### Step 4b — Voice-steward (pre-merge, A2)
+Invoke `@agent-voice-steward` on the draft. Reads `.wiki/style-guide.md`, posts a review comment on tone / vocabulary / reading level / cross-content consistency. **Advisory only** — do not block on findings; continue to Step 5. Human decides what to act on.
+
 ### Step 5 — Output
-Save to `src/content/docs/docs/guides/<slug>.mdx`. Open a PR against `main` per branch discipline.
+Save to `src/content/docs/docs/guides/<slug>.mdx`. Open a PR against `main` per branch discipline. If a Linear sub-issue ID was used, include `LOO-NN` in the PR title so Linear auto-links.
 
 Link to the companion example prominently (or to the pending issue if the example doesn't exist yet).

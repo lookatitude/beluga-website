@@ -7,10 +7,10 @@
 | Topic | Status |
 |---|---|
 | Starlight override conventions — which components are wired, how they compose | *pending — Phase 3* |
-| Content voice, tone, and style guide | *pending — Phase 3* |
-| Design system tokens, color palette, type scale | *pending — Phase 3* |
-| Blog post / tutorial / guide structural templates | *pending — Phase 3* |
-| SEO / OG image / meta-tag conventions | *pending — Phase 3* |
+| Content voice, tone, and style guide | `style-guide.md` (A2) — enforced by `voice-steward` |
+| Design system tokens, color palette, type scale | *pending* |
+| Blog post / tutorial / guide structural templates | `style-guide.md` — content-type templates section |
+| SEO / OG image / meta-tag conventions | owned by `seo-meta` agent (Phase 3) |
 | Website-local corrections (e.g. upstream Starlight quirks, build issues) | *pending — on-demand* |
 
 ## Where everything else lives
