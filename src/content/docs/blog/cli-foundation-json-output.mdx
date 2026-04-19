@@ -1,0 +1,173 @@
+---
+title: "Beluga v2.10.1 ships a CLI with JSON output"
+description: "Beluga v2.10.1 ships a beluga CLI with go install support, a providers subcommand, and --output json structured output — built for scripts and CI, not just humans."
+date: 2026-04-19
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI CLI, beluga version, beluga providers, Go AI framework, CLI JSON output, CI-ready tooling"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-19T00:00:00Z"
+---
+
+There is now a `beluga` binary. Install it, run it, and a shell script can parse the answer.
+
+```bash
+$ go install github.com/lookatitude/beluga-ai/v2/cmd/beluga@v2.10.1
+$ beluga version
+beluga v2.10.1
+go1.26.2-X:nodwarf5
+providers: llm=3 embedding=2 vectorstore=1 memory=5
+$ beluga providers --output json | jq '.[] | select(.category=="llm") | .providers'
+[
+  "anthropic",
+  "ollama",
+  "openai"
+]
+```
+
+That is the whole shape of what shipped in v2.10.1: one binary, two read-only subcommands, and a JSON output contract on the command that needs to be machine-readable. The scope is deliberately small. The CLI is a foundation, not a feature, and the design decisions that made it small are worth spelling out.
+
+## Why a CLI, and why now
+
+Until this release, Beluga was import-only. If an engineer wanted to know which framework version their program would build against, they read `go.mod`. If they wanted to know which providers were registered, they read source, or started an agent and watched a log line. Neither answer survives a CI pipeline where the container running the check is different from the container running the build.
+
+A CLI changes the question from "what does the code say" to "what does the toolchain report at this exact version." That is the right question for reproducibility. It is also the question that people evaluating the framework actually ask first, and repeatedly: *does this version ship with the provider I need, or do I need to pin an older one?* Having `beluga providers` answer that in under a second, on any machine with a Go toolchain, is worth more than a page of documentation claiming the same thing.
+
+## What shipped
+
+### Installation via `go install`
+
+The CLI lives at [`cmd/beluga/`](https://github.com/lookatitude/beluga-ai/blob/v2.10.1/cmd/beluga) inside the framework repo. Go's module versioning pulls it out as its own installable program:
+
+```bash
+go install github.com/lookatitude/beluga-ai/v2/cmd/beluga@v2.10.1
+```
+
+The `@v2.10.1` pin matters on release day. Go's module proxy takes anywhere from a minute to several hours to index a new tag. During that window, `@latest` can resolve to the previous version while the explicit tag already works. Always pin to the tag being installed when the CLI is just-released.
+
+### `beluga version`
+
+Prints the framework version, the Go toolchain that built the binary, and a one-line provider-count summary, to stdout, one field per line.
+
+```bash
+$ beluga version
+beluga v2.10.1
+go1.26.2-X:nodwarf5
+providers: llm=3 embedding=2 vectorstore=1 memory=5
+```
+
+The first line names the framework. The second surfaces the Go runtime. The third is a quick diagnostic summary — the full provider list lives behind `beluga providers`. Every line goes to stdout. Diagnostics, if any, go to stderr. That separation is the single thing that makes this CLI safe to use in a pipeline.
+
+### `beluga providers`
+
+Lists every provider registered with the framework, grouped by category. The default output is a tab-aligned table for humans:
+
+```bash
+$ beluga providers
+llm          anthropic
+llm          ollama
+llm          openai
+embedding    ollama
+embedding    openai
+vectorstore  inmemory
+memory       archival
+memory       composite
+memory       core
+memory       inmemory
+memory       recall
+```
+
+The JSON output is a sorted, indented array — structured for scripts while still readable when piped to a terminal:
+
+```bash
+$ beluga providers --output json
+[
+  {
+    "category": "llm",
+    "providers": [
+      "anthropic",
+      "ollama",
+      "openai"
+    ]
+  },
+  {
+    "category": "embedding",
+    "providers": [
+      "ollama",
+      "openai"
+    ]
+  },
+  {
+    "category": "vectorstore",
+    "providers": [
+      "inmemory"
+    ]
+  },
+  {
+    "category": "memory",
+    "providers": [
+      "archival",
+      "composite",
+      "core",
+      "inmemory",
+      "recall"
+    ]
+  }
+]
+```
+
+The provider set in v2.10.1 is intentionally curated. `anthropic`, `openai`, and `ollama` for LLM, plus the embedding and vectorstore choices that round out a working first-agent demo. The framework's full provider catalog spans 110 implementations across 19 categories. The CLI's subset is a starting point, not a ceiling; adding providers in later CLI builds is a configuration change, not a redesign.
+
+### `--output json` on a growing surface
+
+`beluga providers` accepts `--output json` (aliased `-o json`), and the flag is defined on the root command as a persistent flag. Future subcommands in the `beluga` family are expected to honour the same flag as they land. A CLI that only produces human-formatted output is a toy. A CLI that produces structured output on every command that needs it is infrastructure.
+
+Observability discipline pushed this further than a convenience flag usually goes: the JSON contract is tested against a stable shape, stdout and stderr are strictly separated, and the exit code reflects the operation, not the formatting. When a command fails, JSON output still means the caller sees a valid error structure on stderr and a non-zero exit on the process — not an empty stdout and a confused script.
+
+## A complete example
+
+Here is a shell snippet that could live in a CI check. A version gate parses the first line of `beluga version`. A provider gate uses the JSON contract of `beluga providers`. No Go code required.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION=$(beluga version | head -n1 | awk '{print $2}')
+if [[ "$VERSION" != "v2.10.1" ]]; then
+  echo "expected v2.10.1, got $VERSION" >&2
+  exit 1
+fi
+
+HAS_OPENAI=$(beluga providers --output json \
+  | jq '[.[] | select(.category=="llm") | .providers[]] | any(. == "openai")')
+if [[ "$HAS_OPENAI" != "true" ]]; then
+  echo "openai provider not registered" >&2
+  exit 1
+fi
+
+echo "gate passed"
+```
+
+That runs anywhere a Go toolchain runs. No service account, no network access, no state. It is the kind of check that is easy to skip when the answer lives only in source code, and easy to write when the answer lives behind a command.
+
+## What's next
+
+The CLI foundation is in place. The S1 slice shipped the binary, the two read-only subcommands, and the JSON contract on `providers`. The slices queued behind it extend the same shape without changing it:
+
+- **S2 — agent lifecycle commands:** `beluga init`, `beluga run`, and friends, to scaffold and invoke an agent without writing boilerplate. Same JSON output, same stdout/stderr discipline.
+- **S3 — configuration commands:** inspect and validate `beluga.yaml` from the CLI, so config errors surface at the command line instead of at program startup.
+- **S4 — deployment commands:** pull the deploy targets documented in the [production deployment guide](/docs/guides/production/deployment/) into first-class subcommands.
+
+Each of those slices builds on the invariant that every machine-facing command prints parseable output on demand. That is the compounding value of getting `--output json` right now.
+
+For step-by-step installation and a walk-through of both subcommands, the [CLI foundation tutorial](/docs/guides/install-beluga-cli/) covers the ground in detail. The framework-side [CLI reference](https://github.com/lookatitude/beluga-ai/blob/v2.10.1/docs/reference/cli.md) documents every flag and exit code.
+
+Install it, pipe it into `jq`, and use it as a gate when a build reports the wrong version.
