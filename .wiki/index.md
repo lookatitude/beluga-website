@@ -11,7 +11,7 @@
 | Design system tokens, color palette, type scale | *pending* |
 | Blog post / tutorial / guide structural templates | `style-guide.md` — content-type templates section |
 | SEO / OG image / meta-tag conventions | owned by `seo-meta` agent (Phase 3) |
-| Website-local corrections (e.g. upstream Starlight quirks, build issues) | *pending — on-demand* |
+| Website-local corrections (e.g. upstream Starlight quirks, build issues) | `corrections.md` — append-only, on-demand |
 
 ## Where everything else lives
 
