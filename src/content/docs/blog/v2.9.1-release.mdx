@@ -1,0 +1,69 @@
+---
+title: "Beluga AI v2.9.1: Specialist Routing and Branch Management"
+description: "Specialist routing via /consult, Linear-integrated branch management via /develop, plus CI automation and wiki housekeeping."
+sidebar:
+  label: "v2.9.1 Release"
+  order: 1
+editUrl: false
+---
+
+Beluga AI v2.9.0 ships two workspace command improvements: specialist routing via `/consult` and Linear-integrated branch management via `/develop`. v2.9.1 (2026-04-19) follows as a stability patch covering CI automation and documentation hygiene.
+
+## Why it matters
+
+When a session hits a domain boundary — a security review, an architectural decision, Go-specific patterns — no clean handoff mechanism existed. The session either attempted the work itself or stalled. Branch naming had a parallel problem: Linear issue tracking required manual cross-referencing that is easy to get wrong at the start of a development task.
+
+v2.9.0 addresses both gaps at the workspace command level, where agents are invoked, rather than at the application code level.
+
+## What shipped in v2.9.0
+
+### `/consult` — specialist routing command
+
+The `/consult` command routes the current Claude Code session to a domain specialist agent and returns control to the calling session when the specialist finishes. The supported specialists include architect, go-developer, and security, among others.
+
+This command is described internally as a "workspace specialist escape hatch." When a session encounters a task that belongs to a different domain, it calls `/consult` with the appropriate specialist name. The specialist receives the session context, performs its work, and hands back. The calling session continues with the specialist's output available.
+
+Example invocation inside a Claude Code session:
+
+```
+/consult security
+```
+
+The workspace configuration defines the specialist list. Sessions should use `/consult` when they need domain input outside their own scope, rather than attempting the work themselves.
+
+### `/develop` extended — Linear MCP pre-flight and label-derived branch naming
+
+The `/develop` command now performs two checks before opening a branch:
+
+**Linear MCP pre-flight:** `/develop` queries the linked Linear issue before creating a branch. If the issue does not exist, is in a terminal state, or is not assigned, the command surfaces that information rather than proceeding silently. This prevents branches from being created against stale or invalid work items.
+
+**Label-derived branch naming:** Branch names are now derived from the Linear issue label, not from free text entered at invocation time. This produces consistent branch names that are traceable back to the issue without manual coordination.
+
+Example: a Linear issue labeled `feature/memory-ttl` produces a branch named from that label rather than whatever text the developer types.
+
+### `dispatch-examples` wired into the release workflow
+
+When a new Beluga AI framework release ships, the release workflow now automatically dispatches the [`beluga-examples`](https://github.com/lookatitude/beluga-examples) repository to rebuild its runnable examples against the new release tag. Previously, the examples repo required a manual trigger after each framework release. The examples are now kept current as part of the standard release flow.
+
+## What shipped in v2.9.1
+
+v2.9.1 contains no Go API changes and no breaking changes. It is a stability patch focused on CI automation and documentation hygiene:
+
+- **CI automation:** CODE-QUALITY.md and SECURITY.md are now auto-updated by CI on each run, removing the need for manual updates to those reports.
+- **Wiki housekeeping:** Stale artifacts removed — specifically VALIDATION_REPORT files, placeholder competitor stubs, and empty draft files that had accumulated in the workspace wiki.
+- **Branch discipline docs:** Branch discipline documentation is now consolidated under a single canonical file, replacing the previous scattered references.
+- **`corrections.md` split by category:** The corrections file has been divided by category, with all C-NNN correction IDs preserved in place. This makes it easier to locate corrections by domain without changing any correction references.
+
+## Breaking changes
+
+None. There are no Go API changes, no interface changes, and no migration steps required for either v2.9.0 or v2.9.1.
+
+## What's next
+
+The `/consult` and `/develop` improvements are part of a broader effort to make workspace commands composable and traceable against project management state. Upcoming work in this area includes tighter integration between the specialist handoff chain and observability output, so teams can audit which specialists were consulted during a development session and what their outputs were.
+
+---
+
+Full changelog: [/docs/contributing/project-reports/changelog/](/docs/contributing/project-reports/changelog/)
+
+Installation: [/docs/start/installation/](/docs/start/installation/)
