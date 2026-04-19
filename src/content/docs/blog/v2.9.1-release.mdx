@@ -1,0 +1,126 @@
+---
+title: "Beluga AI v2.9.1: Automated Example Sync"
+description: "Beluga AI v2.9.1 ships automated example synchronization and improved release infrastructure, keeping the beluga-examples repository always current."
+date: 2026-04-19
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.9.1, release notes, Go AI framework, LLM evaluation, beluga-examples, automated release"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-19T00:00:00Z"
+---
+
+Beluga AI v2.9.1 shipped on 2026-04-19 as a housekeeping patch on top of v2.9.0 (2026-04-18). The substantive changes are in v2.9.0. This post covers what changed across both tags and what it means for your projects.
+
+## The problem with example drift
+
+Every framework that ships code examples eventually faces the same failure mode: the examples compile against the version they were written for and silently break against newer ones. Maintainers notice the drift only after a user files an issue or, worse, after a tutorial starts producing confusing errors in production onboarding.
+
+Beluga has maintained [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) as a companion repository of runnable programs since early in the project. Those examples are linked from guides, blog posts, and the quickstart. Until now, keeping them current required a manual step: someone had to remember to open a PR against `beluga-examples` after every framework release. That step was easy to skip under deadline pressure.
+
+## What shipped in v2.9.0
+
+### Automated example synchronization via `dispatch-examples`
+
+The release workflow in `lookatitude/beluga-ai` now includes a `dispatch-examples` job. When a framework release tag is pushed, the workflow sends a `repository_dispatch` event to `lookatitude/beluga-examples`. That event triggers the examples repo's update workflow against the new tag.
+
+The practical result: every example in `beluga-examples` is tested against the current stable release automatically, and any breakage surfaces as a CI failure before the documentation goes live. The manual follow-up step is gone.
+
+This mirrors the existing `dispatch-website` job that rebuilds `beluga-ai.org` on every framework release — the same dispatch-chain model now extends to examples.
+
+### `/develop` command with Linear MCP pre-flight
+
+Framework contributors using the Claude Code tooling get an updated `/develop` command. It now runs a Linear MCP pre-flight check before creating a branch, and derives the branch name from the Linear issue labels rather than requiring manual input. This keeps the branch naming convention (`feat/`, `fix/`, `docs/`) consistent without relying on contributors to remember the rules.
+
+This change affects contributor workflow only. It has no impact on the framework API or end-user programs.
+
+### `/consult` specialist escape hatch
+
+The Claude Code agent tooling gained a `/consult` command. Any agent in the development workflow can invoke a specialist peer for a second opinion — a security architect, observability expert, or systems architect — without leaving the session. The output feeds back into the current task rather than requiring a separate planning cycle.
+
+Again, this is internal contributor tooling. It does not affect the framework's Go API.
+
+## v2.9.1 on top of v2.9.0
+
+v2.9.1 is a CI/housekeeping patch:
+
+- Knowledge layer cleanup: stale wiki artifacts removed, corrections split into categories.
+- Branch discipline documentation consolidated into a single authoritative location.
+- Code quality and security report updates.
+
+No breaking changes. No migration steps. If you are on v2.9.0, upgrading to v2.9.1 is a drop-in update.
+
+## Using a feature the examples repo now keeps current
+
+The `dispatch-examples` automation means that the LLM-as-Judge evaluation pattern, shipped in v2.8.0, is among the examples now guaranteed to stay current. The `eval/judge` package lets you score LLM responses against a weighted rubric using a second model as the judge. Here is a complete, runnable program that demonstrates the pattern:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/config"
+	"github.com/lookatitude/beluga-ai/eval/judge"
+	"github.com/lookatitude/beluga-ai/llm"
+	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+)
+
+func main() {
+	ctx := context.Background()
+
+	model, err := llm.New("openai", config.ProviderConfig{
+		APIKey: os.Getenv("OPENAI_API_KEY"),
+		Model:  "gpt-4o-mini",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	rubric := judge.Rubric{
+		Criteria: []judge.Criterion{
+			{Name: "accuracy", Weight: 0.6, Description: "factual correctness"},
+			{Name: "clarity",  Weight: 0.4, Description: "clear and concise language"},
+		},
+	}
+
+	verdict, err := judge.Evaluate(ctx, model, rubric, judge.Sample{
+		Input:    "What is the capital of France?",
+		Response: "Paris is the capital of France.",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("score: %.2f — %s\n", verdict.Score, verdict.Reasoning)
+}
+```
+
+Set `OPENAI_API_KEY` in your environment before running. The blank import of `github.com/lookatitude/beluga-ai/llm/providers/openai` registers the OpenAI provider with the LLM registry; `llm.New("openai", ...)` then looks it up by name. The rubric weights must sum to 1.0 — `judge.Evaluate` returns an error if they don't.
+
+A runnable version of this example lives in [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples). Starting with v2.9.0, that copy is tested automatically against every new release.
+
+## Bug fixes
+
+Both v2.9.0 and v2.9.1 include CI reliability fixes:
+
+- **Merge commit handling in the release filter:** the release workflow previously misclassified certain merge commits, which could cause the filter step to skip or duplicate changelog entries. This is corrected.
+- **goreleaser checkout ref:** goreleaser was checking out a resolved SHA in some cases rather than the tag ref, which produced incorrect version metadata in built binaries. The checkout step now passes the tag ref explicitly.
+- **Framework review findings:** a set of internal review comments from the v2.8.x cycle were addressed in this release.
+
+## What's next
+
+The `dispatch-examples` automation closes the example-drift gap in Beluga's release infrastructure. The next area under active development is the evaluation pipeline itself — extending `eval/judge` with batch evaluation, result persistence, and integration with the observability layer so judge verdicts appear alongside traces in your existing dashboards.
+
+See the [Changelog](/docs/contributing/project-reports/changelog) for the full list of commits across v2.9.0 and v2.9.1. The [quickstart](/docs/start) remains the fastest path to a working Beluga program if you are evaluating the framework for the first time.
