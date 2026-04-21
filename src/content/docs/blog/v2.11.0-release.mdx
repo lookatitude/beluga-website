@@ -1,0 +1,125 @@
+---
+title: "Beluga AI v2.11.0: Project Scaffolding"
+description: "Learn how beluga init and beluga new CLI commands scaffold Beluga AI projects from zero to working code in a single step."
+date: 2026-04-21
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.11.0, release notes, Go AI framework, beluga init, beluga new, CLI scaffolding, project generator"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-21T00:00:00Z"
+---
+
+Beluga AI v2.11.0 ships two new CLI commands — `beluga init` and `beluga new` — that scaffold a fully wired Go project from zero to a compiling program in a single step.
+
+## The problem with getting started
+
+The first fifteen minutes with a new framework determine whether a developer continues with it or moves on. For Beluga, that window has historically required a manual sequence: create a directory, run `go mod init`, write a `main.go`, add the right imports, register a provider, handle configuration. Each step is documented, but the cognitive load of assembling them correctly is real, particularly for developers who are new to the registry pattern or to agent-oriented architecture.
+
+Nothing in that sequence was broken, but the friction was unnecessary. A developer who wants to evaluate whether Beluga fits their use case should be running a working program, not copy-pasting import paths.
+
+## What shipped in v2.11.0
+
+### `beluga init` — scaffold a new project
+
+`beluga init <project-name>` creates a new directory, initializes a Go module with the correct `github.com/lookatitude/beluga-ai/v2` import path, and writes a starter `main.go` that compiles against the current stable release. The generated program includes the required provider registration import and a minimal but functional entry point.
+
+```shell
+# Create and scaffold a new project
+beluga init my-agent
+
+# The command creates the project directory and emits the module structure:
+# my-agent/
+#   go.mod
+#   main.go
+```
+
+### `beluga new` — add components to an existing project
+
+`beluga new` operates inside an existing Beluga project. It generates component stubs — agents, tools, and similar building blocks — following Beluga's structural conventions, so new components slot into an existing codebase without requiring the developer to recall the exact function signatures from the reference docs.
+
+### Generated Go code follows full-import conventions
+
+Any Go code produced by `beluga init` or `beluga new` uses fully qualified import paths and explicit error handling. The scaffold is a real starting point, not a template full of `// TODO` markers.
+
+For reference, the import structure in a freshly scaffolded project follows the same pattern used throughout Beluga:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+)
+
+func main() {
+	ctx := context.Background()
+
+	model, err := llm.New("anthropic", config.ProviderConfig{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  "claude-3-5-haiku-20241022",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	resp, err := model.Generate(ctx, "What is a language model?")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	fmt.Println(resp.Content)
+}
+```
+
+The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic` registers the Anthropic provider with the LLM registry. `llm.New("anthropic", ...)` resolves the provider by name at runtime. Set `ANTHROPIC_API_KEY` in your environment before running.
+
+## v2.10.x: the CLI foundation
+
+v2.11.0's scaffolding commands are built on top of a CLI framework that shipped in v2.10.0 and v2.10.1 the weekend prior. Those releases are worth summarizing here because they also introduced structural changes relevant to anyone running the `beluga` binary.
+
+**v2.10.0 (2026-04-19)** migrated the CLI to a [Cobra](https://github.com/spf13/cobra)-based root framework, converting all subcommands to Cobra's `RunE` pattern. It added a `provider` subcommand for inspecting registered providers, and a `version` subcommand that reports the version string injected by ldflags at release time. Observability bootstrapping stubs were also included as groundwork for later telemetry features.
+
+**v2.10.1 (2026-04-19)** fixed the module path. Prior releases used `github.com/lookatitude/beluga-ai` (v1-style) regardless of the semantic version. v2.10.1 rewrites the module declaration to `github.com/lookatitude/beluga-ai/v2`, which is required for Go modules at major version 2 and above. See the migration note below.
+
+**v2.10.2 (2026-04-21)** removed a `UsageCount` mutation that posed a data-race risk under concurrent usage, applied security hardening from a SonarCloud audit pass, and updated dependencies.
+
+## Migration: module path change in v2.10.1
+
+If your project imports Beluga at `github.com/lookatitude/beluga-ai` (without the `/v2` suffix), you need to update your import paths after upgrading to v2.10.1 or later.
+
+The change is mechanical. Run the following from your project root:
+
+```shell
+# Update all import paths in your Go source files
+find . -name '*.go' -exec \
+  sed -i 's|github.com/lookatitude/beluga-ai/|github.com/lookatitude/beluga-ai/v2/|g' {} +
+
+# Update go.mod
+go mod edit -module github.com/lookatitude/beluga-ai/v2
+go mod tidy
+```
+
+Projects pinned to a pre-v2.10.0 release are unaffected for now. They will need to update their `go.mod` when they next upgrade.
+
+## What's next
+
+The scaffolding commands in v2.11.0 are the first phase of the DX initiative. Subsequent iterations will extend `beluga new` with richer component types and add a `beluga doctor` command for diagnosing common configuration issues.
+
+The observability bootstrapping stub shipped in v2.10.0 points at the next substantive feature area: wiring agent traces and judge verdicts from the `eval/judge` package into a unified telemetry pipeline. That work is in progress.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.10.0, v2.10.1, v2.10.2, and v2.11.0. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
