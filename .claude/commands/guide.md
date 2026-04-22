@@ -7,6 +7,11 @@ Write a how-to guide on: $ARGUMENTS
 
 $ARGUMENTS may be a free-form topic OR a Linear sub-issue ID. If it matches `^LOO-\d+$`, run the same Linear pre-flight as `/tutorial` (fetch sub-issue + parent + brief + merged framework PR; retry-twice fallback). Otherwise skip to Step 1.
 
+## Claude 4.x invocation notes
+
+- **Task focus:** One job per guide; list prerequisites and “Out of scope” so steps are not read as open-ended.
+- **Linking:** If a tutorial or example is the natural next step, name the path or URL—do not assume the reader will discover it.
+
 ### 1b. Validate content-type label (A3)
 
 After fetching the sub-issue, check its labels. Expect `content:guide`:

@@ -22,6 +22,10 @@ When working on cross-repo concerns (a release flow incident, coordinating a fra
 
 Every content PR invokes `voice-steward` (`.claude/agents/voice-steward.md`) as a pre-merge advisory gate — it reads `.wiki/style-guide.md` and posts a structured review comment covering tone, vocabulary, reading level, and cross-content consistency. It never blocks; the human approves the final merge. Update voice rules via normal PR to `.wiki/style-guide.md` (versioned in the file header). `voice-steward` is wired into `/tutorial`, `/guide`, `/blog`, and `/announce-release` automatically; it can also be invoked manually via `@agent-voice-steward` on any content diff.
 
+## Claude 4.x and content agents
+
+Content and marketing agents (see `.claude/agents/`) include a **Prompting baseline (Claude 4.x)**. Newer models can read as more direct; the `voice-steward` and long-form agents are instructed to **steer copy toward** `.wiki/style-guide.md` (warmth, clarity) without padding. If a draft is for **sensitive security** topics, favor defensive framing so content stays teachable and policy-safe. **Vision / screenshots** in content: high-res images can consume more tokens in current models—keep assets only as large as needed for the layout.
+
 ## Release announcement automation (C2)
 
 A scheduled remote agent (`trig_01KTj6rE8aPCCKkyuM6JmDbc`, cron `0 */4 * * *`) polls the latest framework release every 4h. If no blog file under `src/content/docs/blog/` references the latest tag, the agent invokes `/announce-release <tag>` — which drafts blog + social companions + SEO meta + (optional) landing-page edits, runs voice-steward advisory, and opens a PR against `main`. **Human approves + merges.** Catch-up policy: announce only the latest missed tag; prior missed releases are covered via the changelog section in the blog body. Silent retry on failure (next 4h cycle). Manual `/announce-release <tag>` remains available.

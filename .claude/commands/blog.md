@@ -7,6 +7,11 @@ Write a blog post on: $ARGUMENTS
 
 $ARGUMENTS may be a free-form topic OR a Linear sub-issue ID. If it matches `^LOO-\d+$`, run the Linear pre-flight (fetch sub-issue + parent + brief + merged framework PR; retry-twice fallback — see `/tutorial` for the full pattern). Otherwise skip to Step 1.
 
+## Claude 4.x invocation notes
+
+- **Voice:** Calibrate to `.wiki/style-guide.md`—Claude 4.x defaults can read terse; add warmth only where the style guide does, not as generic padding.
+- **Security claims:** Use defensive phrasing for threat content; avoid exploit walkthrough tone that can trip refusals or read as offensive.
+
 ### 1b. Validate content-type label (A3)
 
 After fetching the sub-issue, check its labels. If it has a `content:*` label, verify it's `content:blog`:
