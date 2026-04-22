@@ -7,6 +7,11 @@ Write a tutorial on: $ARGUMENTS
 
 $ARGUMENTS may be a free-form topic OR a Linear sub-issue ID (e.g., `LOO-47`) labeled `layer:website`. If it matches `^LOO-\d+$` (case-insensitive), run the Linear pre-flight below first; otherwise skip to Step 1.
 
+## Claude 4.x invocation notes
+
+- **Structure:** Number steps explicitly; avoid assumed prior steps—Claude 4.x literalism applies to authoring agents too.
+- **Companion example:** State whether `beluga-examples` tracks a sibling PR and link paths; don’t imply an example landed unless it exists.
+
 ## Pre-flight (Linear-integrated, A1)
 
 1. Fetch the sub-issue and parent via Linear MCP (`mcp__claude_ai_Linear__get_issue`). Capture titles, descriptions, labels.
