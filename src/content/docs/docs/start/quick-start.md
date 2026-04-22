@@ -17,6 +17,15 @@ This guide walks you through building a working AI agent with tools and streamin
 
 ## Step 1: Create a New Project
 
+Starting with v2.11.0, the `beluga` CLI can scaffold a new project for you:
+
+```bash
+beluga init my-agent
+cd my-agent
+```
+
+Or create and initialize the directory manually:
+
 ```bash
 mkdir my-agent && cd my-agent
 go mod init my-agent
@@ -25,7 +34,7 @@ go mod init my-agent
 ## Step 2: Install Beluga AI
 
 ```bash
-go get github.com/lookatitude/beluga-ai@latest
+go get github.com/lookatitude/beluga-ai/v2@latest
 ```
 
 ## Step 3: Set Your API Key
@@ -48,10 +57,10 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -96,10 +105,10 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -146,11 +155,11 @@ import (
     "os"
     "strconv"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // CalculateInput defines the tool's input parameters.
