@@ -152,6 +152,10 @@ Deployment utilities in the `deploy/` package generate Dockerfile and Docker Com
 
 Agents in production rarely operate in isolation — they need to consume external tools and collaborate with agents running in other systems. Beluga provides first-class **MCP** (Streamable HTTP) for tool/resource/prompt access and **A2A** (Agent-to-Agent protocol) for cross-system agent collaboration. Expose any agent as an A2A server or consume remote A2A agents as sub-agents, without writing transport or serialization code.
 
+### Developer CLI
+
+The `beluga` binary covers the full authoring and evaluation lifecycle. `beluga init` and `beluga new` scaffold new projects and components (v2.11.0). `beluga dev` runs an agent graph against a deterministic mock LLM and emits real structured traces; `beluga run` runs the same graph against a live provider; `beluga test` runs Go unit tests against the mock (v2.12.0). `beluga eval` runs YAML-defined evaluation cases through the configured judge and writes verdicts to stdout; `--format=json` plus a non-zero exit on failure makes it composable with CI pipelines (v2.13.0).
+
 ## Who Is It For?
 
 Beluga AI is built for **Go developers building production AI systems**:

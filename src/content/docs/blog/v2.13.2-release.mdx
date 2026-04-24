@@ -1,0 +1,130 @@
+---
+title: "Beluga AI v2.13.2: Eval CLI and the Full Dev Loop"
+description: "beluga eval, beluga dev, beluga run, and beluga test complete the DX-1 initiative — an end-to-end authoring and evaluation loop for Go agents."
+date: 2026-04-24
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, v2.13.0, v2.12.0, release notes, Go AI framework, beluga eval, beluga dev, beluga run, beluga test, agent evaluation, mock LLM"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-24T00:00:00Z"
+---
+
+Beluga AI v2.13.2 closes DX-1, the developer-experience initiative that began with v2.11.0's scaffolding commands. The headline is `beluga eval`, a CLI for running structured evaluation suites against your agents. It ships alongside `beluga run`, `beluga dev`, and `beluga test` — the day-to-day authoring loop introduced in v2.12.0 — so the workflow from writing an agent to measuring its behavior now lives in a single binary.
+
+This announcement covers four releases in one pass: **v2.12.0**, **v2.13.0**, **v2.13.1**, and **v2.13.2**. The previous announced release was v2.11.0. There are no breaking changes across any of the four.
+
+## The problem with iterating on agents
+
+Writing a Go agent compiles in minutes once the scaffolding is in place. Iterating on it is where most of the time goes — and where most teams end up building ad-hoc tooling. You want to run your agent locally against a fast mock while you develop, then against a real model to verify behavior, then against a suite of fixed inputs to check for regressions. Each of those steps used to require a different harness.
+
+Nothing in that loop was conceptually new to Beluga. What was missing was a consistent CLI surface across the three modes, plus a first-class way to express "this input should produce this output" as a repeatable test case.
+
+## What shipped in v2.12.0: the dev loop
+
+### `beluga run` — execute against a live model
+
+`beluga run` invokes an agent or workflow against the provider configured in your project. It bootstraps the full observability stack — the same trace pipeline used by `beluga eval` below — so every run produces structured telemetry you can inspect.
+
+```shell
+# Run your agent against the configured live provider
+beluga run ./agents/support-agent
+```
+
+### `beluga dev` — development server with a mock LLM
+
+`beluga dev` runs the same agent graph against a deterministic mock LLM instead of a real provider. The mock responds with fixed outputs keyed to input text, so iteration is fast, offline, and free of token costs. Structured traces are still emitted; the telemetry pipeline does not care whether the model on the other end is real.
+
+```shell
+# Develop against the mock LLM, real traces
+beluga dev ./agents/support-agent
+```
+
+The design point here is that `beluga dev` and `beluga run` produce the same observable shape. A trace captured in `dev` can be compared directly to one captured in `run`, which makes it practical to reason about whether a production issue reproduces locally.
+
+### `beluga test` — unit tests against the mock
+
+`beluga test` runs Go unit tests for your agent against the mock LLM. This gives you a standard `go test` developer experience for agent code without burning API budget on every iteration.
+
+```shell
+beluga test ./agents/support-agent
+```
+
+## What shipped in v2.13.0: `beluga eval`
+
+`beluga eval` is the evaluation harness. It is deliberately separate from `beluga test`: unit tests verify that your Go code does what you wrote, while evals verify that your agent, as a whole, produces the outputs you care about on a known set of inputs.
+
+### Scaffold an eval suite
+
+```shell
+# Create an eval suite with the canonical directory layout
+beluga new eval support-agent-evals
+```
+
+The scaffold emits a directory of YAML case files plus a `judge.go` stub. Each case file specifies an input, an expected-output contract (exact match, fuzzy, or a custom judge predicate), and any model overrides the case needs.
+
+### Run the full suite
+
+```shell
+# Run every case in the eval directory
+beluga eval run ./evals
+```
+
+### Run a single case
+
+```shell
+# Run one named case — useful during iteration
+beluga eval run ./evals --case=greet-basic
+```
+
+### JSON output for CI
+
+```shell
+# Structured output for pipelines; non-zero exit on failure
+beluga eval run ./evals --format=json
+```
+
+The JSON mode is the integration point for CI. A failing eval exits non-zero, so wiring `beluga eval run ./evals --format=json` into a workflow step is enough to block a merge on a regression.
+
+### The judge
+
+Each eval suite has a `judge.go` that returns a `judge.Verdict` from the `eval/judge` package. The judge sees the agent's output and the case's expected contract, and decides pass or fail. The default scaffold gives you exact-match and fuzzy-match predicates; custom predicates are normal Go code, which means you can call out to a secondary model, diff against a reference, or assert on structured fields as your eval suite demands.
+
+## v2.13.1 and v2.13.2: documentation and audit passes
+
+**v2.13.1 (2026-04-22)** landed two internal framework-workflow learnings (C-020 and C-021) captured during the DX-1 S4 development cycle. No user-visible changes.
+
+**v2.13.2 (2026-04-22)** folds in updates to `CODE-QUALITY.md` and `SECURITY.md` from an automated audit pass (PRs #328 and #330). No user-visible changes.
+
+Both releases were cut on the same day as v2.13.0 and are included here for completeness.
+
+## Breaking changes
+
+None. v2.12.0 added new CLI commands and the mock LLM backend; v2.13.0 added the `eval` subcommand and the `new eval` scaffold. Existing projects continue to build and run unchanged.
+
+## Migration
+
+No migration is required. Projects already on v2.11.0 can upgrade straight to v2.13.2.
+
+If you want to adopt the new tooling:
+
+```shell
+# From an existing Beluga project
+beluga new eval my-evals
+beluga eval run ./my-evals
+```
+
+The scaffolded suite runs immediately and gives you a working template to adapt.
+
+## What's next
+
+DX-1 is complete. The authoring loop (`init`, `new`, `dev`, `run`, `test`) and the evaluation loop (`new eval`, `eval run`) are both in place, and they share the observability bootstrap introduced earlier in the series. The next initiatives focus on extending the telemetry pipeline — richer agent-graph traces, judge-verdict aggregation across eval runs over time, and first-class integration with external tracing backends.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
