@@ -17,11 +17,11 @@ head:
       content: "2026-04-24T00:00:00Z"
 ---
 
-Beluga AI v2.13.2 closes the DX-1 developer-experience series. Since v2.11.0 the CLI has gained a local dev loop (`beluga run`, `beluga dev`, `beluga test`), a mock LLM provider for offline iteration, an observability bootstrap, and an evaluation command (`beluga eval`). A Beluga developer can now scaffold a project, run it locally without paying for API calls, and evaluate it against test cases — all from one binary.
+Beluga AI v2.13.2 closes the DX-1 developer-experience series. Since v2.11.0 the CLI has gained a local dev loop (`beluga run`, `beluga dev`, `beluga test`), a mock LLM provider for offline iteration, an observability bootstrap, and an evaluation command (`beluga eval`). A Beluga developer can now scaffold a project, run it locally without a paid API call, and evaluate it against test cases — all from one binary.
 
 ## The arc so far
 
-The DX-1 series set out to shorten the distance between "I want to try Beluga" and "I have a running, observable, evaluated agent." The path looked like this:
+The DX-1 series targeted the steps between installing Beluga and reaching a running, observable, evaluated agent. The path looked like this:
 
 - **v2.10.0 / v2.10.1** — Cobra-based CLI foundation and the `github.com/lookatitude/beluga-ai/v2` module path fix.
 - **v2.11.0** — `beluga init` and `beluga new` for scaffolding projects and components.
@@ -67,7 +67,7 @@ llm:
     - "The current temperature in Paris is 14°C."
 ```
 
-Swap `provider: mock` back to `provider: anthropic` (or any other registered provider) when you're ready to exercise the real model. The mock provider is not a substitute for evaluation against real models — it exists to make the inner loop free and fast.
+Swap `provider: mock` back to `provider: anthropic` (or any other registered provider) when you're ready to exercise the real model. The mock provider is not a substitute for evaluation against real models. It exists to make the inner loop free and fast.
 
 ### Observability bootstrap (v2.12.0)
 
