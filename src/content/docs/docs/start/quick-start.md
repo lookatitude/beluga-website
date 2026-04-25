@@ -297,6 +297,7 @@ You've built a working agent with tools and streaming. Here's where to go from h
 
 | Topic | Guide |
 |-------|-------|
+| Inner dev loop (run / dev / test / eval) | [CLI Reference](/docs/reference/cli/) |
 | In-depth agent tutorial | [Building Your First Agent](/docs/guides/first-agent/) |
 | LLM configuration and routing | [Working with LLMs](/docs/guides/working-with-llms/) |
 | RAG and document retrieval | [RAG Pipeline](/docs/guides/rag-pipeline/) |
