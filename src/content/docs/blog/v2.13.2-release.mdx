@@ -1,0 +1,146 @@
+---
+title: "Beluga AI v2.13.2: The beluga eval CLI"
+description: "The beluga eval command runs deterministic agent evaluation with an exec-once IPC protocol, OpenTelemetry spans, and JUnit output."
+date: 2026-04-25
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, agent evaluation, OpenTelemetry GenAI, JUnit, CI gating"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-25T00:00:00Z"
+---
+
+Beluga AI v2.13.2 ships `beluga eval`, a new CLI subcommand that runs a dataset against your agent, scores outputs with pluggable metrics, and emits OpenTelemetry spans and JUnit XML for CI gating.
+
+## Why agent evaluation needs its own tool
+
+Agents are harder to evaluate than single-turn LLM prompts. A run may span several tool calls, branch on intermediate outputs, and produce latency that varies by orders of magnitude across providers. Unit tests capture none of this. Ad-hoc scripts capture some of it but rarely produce artifacts that CI can gate on, and they almost never emit the observability signal an on-call engineer would want when a regression lands in production.
+
+Before v2.13.0, Beluga users who wanted evaluation had two options: import `eval/judge` directly and build their own driver, or wait. v2.13.0 made evaluation a first-class subcommand that reuses the scaffolding, determinism, and observability primitives shipped in prior DX-1 sprints. v2.13.1 and v2.13.2 follow up with documentation and housekeeping; the feature work landed in v2.13.0.
+
+## What shipped
+
+### The `beluga eval` subcommand
+
+`beluga eval` is the eighth subcommand on the `beluga` binary. It loads a dataset, runs each row through your agent, scores the outputs against the metrics you select, and writes a report.
+
+The flag surface is deliberately small:
+
+- `--dataset` (required): path to the evaluation dataset JSON.
+- `--config`: YAML config file (defaults to `.beluga/eval.yaml`).
+- `--metric` (repeatable): metrics to compute; accumulates across uses.
+- `--row-timeout`: per-sample execution deadline (default 30s).
+- `--max-rows`: cap the sample count for quick iteration.
+- `--parallel`: worker count for parallel execution.
+- `--dry-run`: preview the run without executing it.
+- `--format`: `text` (default) or `junit`.
+
+Three flags (`--eval-provider`, `--judge-model`, `--max-cost`) are reserved for a later sprint that wires in LLM-judge and cost-budget enforcement.
+
+### Exec-once IPC between driver and agent
+
+Scaffolded projects run once per dataset row via subprocess invocation. The parent sets two environment variables on the child:
+
+- `BELUGA_ENV=eval` — tells the child to take the evaluation branch in `main`.
+- `BELUGA_EVAL_SAMPLE_JSON` — the JSON-marshalled `eval.EvalSample` for this row.
+
+The child emits a protocol probe first — `{"beluga_eval_protocol":1}` — so the parent can confirm it is talking to an eval-aware binary, then executes the agent and returns the populated sample as JSON on stdout. The parent collects trajectories and scores them in-process. Wall-clock latency is injected into sample metadata unless the child already set it.
+
+This design keeps the scoring logic in one process (the driver), so metrics compose cleanly, while the agent runs in a fresh process per row, which matches how it behaves in production.
+
+### Dataset schema, extended for trajectories
+
+`eval.EvalSample` gains two backward-compatible fields:
+
+- `Turns []Turn` — the full conversation history for multi-turn trajectories. Each `Turn` carries `Input`, `Output`, and `Role`.
+- `ExpectedTools []string` — the tool invocations the sample expects, for tool-use scoring.
+
+Both use `json:",omitempty"` tags, so datasets authored before Sprint 4 round-trip unchanged.
+
+### OpenTelemetry GenAI evaluation semconv
+
+The driver emits telemetry aligned with OTel GenAI evaluation semantic conventions v1.39.0:
+
+- `eval.run` span wraps the entire evaluation run.
+- `eval.row` spans are children of `eval.run`, one per sample.
+- `gen_ai.evaluation.result` events carry per-metric scores by name and value.
+- `beluga.eval.metric.score` is a Float64 histogram keyed by `{metric_name, dataset}`. Cardinality is bounded; `row_id` is deliberately excluded.
+
+Spans and metrics share `beluga.eval.run_id`, so traces, metrics, and the JSON report can be joined across signals.
+
+### Metrics and report formats
+
+Two metrics ship built-in:
+
+- `exact_match` — case-insensitive, whitespace-trimmed string comparison. Returns 0.0 when the expected output is empty. A `WithCaseSensitive()` option opts into strict comparison.
+- `latency` — wall-clock milliseconds from sample execution metadata.
+
+Reports are written in three formats: a tabular text summary on stdout with deterministic column ordering, a full `eval-report.json` written unconditionally, and a JUnit XML file when `--format junit` is set. The JUnit output is compatible with `dorny/test-reporter`, and exec errors are surfaced as `<failure type="exec_error">` so PR annotations point at the right row.
+
+### Scaffolded projects are eval-ready
+
+Projects created with `beluga init` now generate with evaluation wired in:
+
+- `main.go` dispatches on `BELUGA_ENV=eval` before the normal run path.
+- `.beluga/eval.yaml` sets `exact_match` and `latency` as default metrics with a 30s row timeout.
+- `.beluga/eval.smoke.json` ships as a 3-row deterministic fixture with tool-call trajectories.
+- `make eval-ci` pins the environment: `BELUGA_LLM_PROVIDER=mock`, `BELUGA_DETERMINISTIC=1`, `BELUGA_SEED=42`, `OTEL_SDK_DISABLED=true`.
+- The generated `ci.yml` runs the smoke eval and uploads `eval-report.json` as an artifact.
+
+## Quick example
+
+Scaffold a project and run its smoke evaluation:
+
+```shell
+beluga init my-agent
+cd my-agent
+
+# Run the 3-row mock fixture that ships with the template.
+beluga eval \
+  --dataset .beluga/eval.smoke.json \
+  --config .beluga/eval.yaml \
+  --metric exact_match \
+  --metric latency
+```
+
+The default `.beluga/eval.yaml` looks like this:
+
+```yaml
+metrics:
+  - exact_match
+  - latency
+row_timeout: 30s
+```
+
+For CI, swap the output format:
+
+```shell
+beluga eval \
+  --dataset .beluga/eval.smoke.json \
+  --format junit \
+  --parallel 4 \
+  --max-rows 100
+```
+
+The `make eval-ci` target in scaffolded projects wraps this with the pinned environment so CI runs are deterministic across machines.
+
+## Changelog window since v2.11.0
+
+- **v2.11.1** — patch release; no user-visible changes.
+- **v2.12.0** — `beluga run`, `beluga dev`, `beluga test` inner dev loop; deterministic mock LLM provider; real OpenTelemetry bootstrap replacing the placeholder stub from v2.10.0 (DX-1 S3, [#324](https://github.com/lookatitude/beluga-ai/pull/324)).
+- **v2.13.0** — `beluga eval` CLI and scaffolded eval branch (DX-1 S4, [#326](https://github.com/lookatitude/beluga-ai/pull/326)).
+- **v2.13.1** — internal documentation capturing framework-workflow learnings from DX-1 S4; no code changes.
+- **v2.13.2** — CI maintenance and chores; no user-visible changes. This is the announced tag.
+
+## What's next
+
+The three reserved flags — `--eval-provider`, `--judge-model`, `--max-cost` — point at the next evaluation sprint: real provider scoring (LLM judges, Braintrust, DeepEval, RAGAS) and cost-budget enforcement for runs that hit paid APIs. The OTel instrumentation shipped in v2.13.0 is forward-compatible with those signals — no protocol change required on the driver or report format.
+
+The evaluation guide at `docs/guides/evaluation.md` walks through authoring a dataset, running the mock smoke suite, swapping in a real provider, and wiring CI gates against the JUnit output. See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.12.0 through v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested against every new release.
