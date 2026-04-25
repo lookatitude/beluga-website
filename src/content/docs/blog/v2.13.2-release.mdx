@@ -1,0 +1,109 @@
+---
+title: "Beluga AI v2.13.2: The Eval Loop"
+description: "Beluga v2.13.2 ships beluga eval for structured LLM evaluation, plus beluga run, dev, and test from the v2.12 development loop."
+date: 2026-04-25
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, beluga eval, LLM evaluation, mock LLM, development loop, Go AI framework"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-25T00:00:00Z"
+---
+
+Beluga AI v2.13.2 completes a four-release window that shipped a complete development loop for LLM applications: `beluga run`, `beluga dev`, `beluga test`, and — as the headline addition — `beluga eval` for structured, repeatable evaluation of model behavior.
+
+## Why structured evals matter
+
+Testing an LLM application is not the same as testing a deterministic function. Two well-known approaches both fall short on their own. Real API calls produce realistic outputs but are slow, cost money on every CI run, and introduce non-determinism that is painful to gate merges on. Full mocks — returning canned strings — are fast and cheap but verify almost nothing about the part of the system that actually matters: how the model behaves on representative inputs.
+
+Structured evals sit between those two poles. A test suite captures a fixed set of input cases and runs them through the application. The harness then scores each output against rubric-based criteria. The harness can swap between a real provider and a mock backend depending on whether the run is local, in CI, or a full pre-release validation. This is the gap `beluga eval` is built to fill.
+
+## What shipped in this window
+
+### `beluga eval` — scaffold and run evaluations (v2.13.0)
+
+`beluga eval scaffold` generates an `eval/` branch inside an existing Beluga project. The generated structure is a regular Go test harness: it uses the standard `testing` package, wires into the framework's `eval/judge` package for verdict scoring, and writes results to `eval/results/` in a format CI jobs can compare across runs.
+
+```shell
+# Scaffold the eval branch in an existing Beluga project
+beluga eval scaffold
+
+# Run the suite via the CLI
+beluga eval run
+
+# Or invoke it directly through the standard Go test runner
+go test ./eval/...
+```
+
+Because the suite is a normal Go test tree, it slots into existing CI workflows without bespoke runners. `go test ./eval/...` is the canonical invocation; `beluga eval run` is a thin wrapper that surfaces structured output and points at the right defaults.
+
+### `beluga dev` — hot reload for the inner loop (v2.12.0)
+
+`beluga dev` watches source files, rebuilds on change, and restarts the running application. Combined with the mock LLM backend in `beluga test`, it makes the inner-loop iteration cycle measured in milliseconds rather than the round-trip time of a real API call.
+
+```shell
+# Start a hot-reload dev session
+beluga dev
+```
+
+### `beluga test` — Go tests with a mock LLM backend (v2.12.0)
+
+`beluga test` runs the project's Go test suite with a mock LLM backend wired in. This is what makes evaluation runs CI-practical: the suite executes in milliseconds and consumes no API credits, while still exercising the application's wiring, prompt construction, and output handling.
+
+```shell
+# Run tests with the mock LLM backend
+beluga test
+```
+
+### `beluga run` — execute the application (v2.12.0)
+
+`beluga run` builds and executes the project's main entry point. It is the production-style counterpart to `beluga dev`, useful for one-shot runs and for CI smoke tests.
+
+## Releases in this window
+
+| Version | Date | Highlights |
+|---|---|---|
+| v2.12.0 | 2026-04-21 | `beluga run`, `beluga dev` (hot reload), `beluga test` with mock LLM backend, observability bootstrap |
+| v2.13.0 | 2026-04-22 | `beluga eval` CLI and scaffolded eval branch wired into `eval/judge` |
+| v2.13.1 | 2026-04-22 | Framework-workflow documentation updates from C-020, C-021, and DX-1 S4 learnings |
+| v2.13.2 | 2026-04-22 | Changelog and CI maintenance |
+
+There are no breaking changes across this window. Projects already on v2.11.0 can upgrade in place.
+
+## Upgrade
+
+```shell
+go get github.com/lookatitude/beluga-ai/v2@v2.13.2
+```
+
+After upgrading, run `beluga eval scaffold` from an existing project to generate the eval branch. The scaffolded tests are immediately runnable against the mock backend; switching to a real provider is a matter of configuration, not code rewrites.
+
+## How the pieces fit together
+
+The four commands compose into a single development loop:
+
+- `beluga dev` is the inner loop: edit, save, and the application restarts via hot reload.
+- `beluga test` is the unit-level checkpoint: fast Go tests with the mock backend, suitable for every save and every CI run.
+- `beluga eval` is the behavioral checkpoint: structured cases scored against rubrics, gated against regressions before a release.
+- `beluga run` is the production-shape execution path, used both locally and in CI smoke tests.
+
+The release window also folded in observability bootstrapping work that started with v2.10.0's stubs. Trace data emitted from a `beluga dev` session and verdict data emitted from a `beluga eval run` are produced in shapes that the upcoming telemetry pipeline can consume directly.
+
+## What's next
+
+`beluga eval` in v2.13.x establishes the scaffolding and the runner. The next iterations focus on the surrounding infrastructure that turns evals from a local checkpoint into a continuous-quality signal:
+
+- **Dataset management** — loading test cases from files and remote stores so eval suites are not just hand-written Go literals.
+- **Scoring aggregation** — tracking pass rates over time so regressions surface as trends, not as one-off failed runs.
+- **Unified telemetry** — connecting trace data from `beluga dev` and verdict data from `beluga eval run` into a single pipeline alongside production traces.
+
+The `eval/judge` package that v2.13.0 wires into has been on the framework roadmap since the v2.10.0 observability stubs landed. With the scaffolding now in place, the focus shifts to closing that loop end to end.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
