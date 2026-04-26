@@ -1,0 +1,141 @@
+---
+title: "Beluga AI v2.13.2: Eval CLI"
+description: "Beluga AI v2.13.2 ships the beluga eval CLI for scaffolding and running evaluation suites against the eval/judge pipeline with CI-compatible exit codes."
+date: 2026-04-26
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, evaluation CLI, eval/judge, CI integration"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-26T00:00:00Z"
+---
+
+Beluga AI v2.13.2 is out; the headline feature shipped in v2.13.0: the `beluga eval` CLI, a scaffolding-and-execution toolchain that turns the `eval/judge` package into a first-class part of any project's CI pipeline.
+
+## Why an eval CLI
+
+Evaluation has always been the part of agent development that gets postponed. Writing a single judge call is straightforward; turning that into a maintainable suite that runs on every pull request is not. Teams end up with ad-hoc scripts that drift out of sync with the codebase. Others skip systematic evaluation entirely and rely on spot-checks during code review.
+
+The v2.11.0 announcement noted that telemetry work was wiring agent traces and judge verdicts into a unified pipeline, and that the work was in progress. v2.13.0 delivers the operator-facing piece of that effort: a CLI that produces and runs evaluation suites with a fixed structure, so the same suite runs the same way locally and in CI.
+
+## What shipped in v2.13.0
+
+### `beluga eval init` — scaffold an evaluation suite
+
+`beluga eval init <name>` writes a new evaluation suite into the current directory. The scaffold contains three files: a suite definition, a starter set of test cases, and a runner wired to Beluga's `eval/judge` pipeline. The runner uses the registry pattern for both the model under test and the judge, so swapping providers or judges is a configuration change rather than a code change.
+
+```shell
+# Scaffold a new eval suite
+beluga eval init customer-support
+
+# The command emits the suite structure:
+# customer-support/
+#   suite.go         # suite definition
+#   cases.go         # test cases
+#   main.go          # runner wired to eval/judge
+```
+
+### `beluga eval run` — execute suites with CI-compatible exit codes
+
+`beluga eval run` walks the directory tree from the current working directory, discovers every suite, and executes each one. It exits non-zero when any case fails its judge verdict, which makes it directly usable as a CI step without a wrapper script.
+
+```shell
+# Run every suite under the current tree
+beluga eval run ./...
+```
+
+The combination matters more than either command alone. `init` produces suites with a known structure; `run` knows how to find and execute that structure. Suites authored on one machine run the same way on every machine that has the `beluga` binary.
+
+## Authoring a suite in code
+
+The CLI scaffold is the recommended entry point, but the underlying API is short enough to fit on one screen. The following program builds a suite, adds a single test case, runs it, and prints the verdict for each result.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/eval"
+	"github.com/lookatitude/beluga-ai/v2/eval/judge"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+)
+
+func main() {
+	ctx := context.Background()
+
+	model, err := llm.New("anthropic", config.ProviderConfig{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  "claude-3-5-haiku-20241022",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	suite := eval.NewSuite(
+		eval.WithModel(model),
+		eval.WithJudge(judge.Contains()),
+	)
+
+	suite.Add(eval.Case{
+		ID:       "capitals-01",
+		Input:    "What is the capital of France?",
+		Expected: "Paris",
+	})
+
+	results, err := suite.Run(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	for _, r := range results {
+		fmt.Printf("%-20s %s\n", r.CaseID, r.Verdict)
+	}
+}
+```
+
+`eval.NewSuite` takes functional options, which is the same construction pattern the rest of Beluga uses. `eval.WithJudge` accepts any value satisfying `judge.Judge`, and the package ships three built-in implementations: `Contains` for substring matching, `ExactMatch` for strict string equality, and `Similarity` for a model-scored similarity score. Swapping between them is a single line.
+
+Each `eval.Result` carries the originating `CaseID`, the raw model output, the judge verdict, and a numeric score. That score is the value the CI exit code is derived from: any verdict below the suite's threshold turns the run into a failure.
+
+Set `ANTHROPIC_API_KEY` in your environment before running. The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic` registers the Anthropic provider with the LLM registry; `llm.New("anthropic", ...)` then resolves it by name.
+
+## Wiring evaluations into CI
+
+The exit-code contract is what makes `beluga eval run` a drop-in CI step. A typical GitHub Actions job needs no extra glue:
+
+```yaml
+- name: Run evaluations
+  run: beluga eval run ./...
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+The run fails the workflow when any suite reports a failing case, which is the same posture the rest of the test pipeline already takes for unit tests and integration tests. Teams that want a softer signal can configure per-suite thresholds in the suite definition; the default threshold is strict.
+
+## v2.13.1 and v2.13.2
+
+**v2.13.1 (2026-04-22)** added DX-1 Sprint 4 framework-workflow learnings (C-020, C-021) to the contributor knowledge base. There were no API changes.
+
+**v2.13.2 (2026-04-22)** updated the code-quality and security report bodies from the latest SonarCloud audit cycle and added changelog entries for v2.13.0 and v2.13.1. There were no API changes.
+
+If you are upgrading from v2.13.0, both v2.13.1 and v2.13.2 are documentation-only and require no migration. If you are upgrading from v2.12.x, the only substantive surface is the new `eval` CLI and the `eval` package additions described above.
+
+## What's next
+
+The eval CLI closes the loop on the agent-evaluation story that began with the `eval/judge` package in v2.8.0. The next area of focus is the telemetry side: surfacing judge verdicts and case-level scores alongside agent traces in the same observability dashboard, so a regression in suite scores carries through to the same place a regression in latency or token usage already does.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga programs, including a worked `beluga eval` suite, live at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
