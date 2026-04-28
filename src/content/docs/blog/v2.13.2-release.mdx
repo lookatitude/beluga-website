@@ -1,0 +1,130 @@
+---
+title: "Beluga AI v2.13.2: The Complete Developer Loop"
+description: "Beluga AI v2.13.2: run, dev, test, and eval CLI commands complete the build-run-evaluate loop for Go AI agents without leaving the terminal."
+date: 2026-04-28
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, beluga run, beluga dev, beluga test, CLI, evaluation, mock LLM, observability"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-28T00:00:00Z"
+---
+
+Beluga AI v2.12.0 and v2.13.0 complete the CLI developer loop: `beluga run`, `beluga dev`, `beluga test`, and `beluga eval` give agents a full build-run-evaluate cycle from the terminal, without writing custom orchestration scripts.
+
+## The problem with the agent development cycle
+
+Running an agent during development means one of three things: write a `main.go` that makes a live API call and pay for every iteration; stub out the LLM manually each time you change business logic; or build a project-specific harness that only the team who wrote it understands. None of these scale. The first burns tokens on mechanical work. The second means maintaining parallel stub code. The third isn't portable.
+
+Evaluation has the same problem at a later stage. Once you have a working agent, measuring whether it improved after a change requires either eyeballing responses or writing bespoke scoring scripts. Teams end up with a folder of ad-hoc Python scripts and no consistent way to know whether a prompt change made things better or worse.
+
+## What shipped
+
+### v2.12.0: `beluga run`, `beluga dev`, `beluga test`
+
+`beluga run` executes a Beluga agent from the command line. `beluga dev` does the same but wires in a mock LLM so API calls never leave the machine — responses are synthesized locally, making the iteration cycle fast and free. `beluga test` runs the project's test suite against the same mock LLM, giving CI a consistent execution environment that doesn't depend on external API availability.
+
+Real observability bootstrapping ships with this release. When `BELUGA_OTEL_ENDPOINT` is set, all three commands export traces over OTLP. Local development now produces the same trace shape as production, which makes it possible to profile agent behavior before it reaches a real environment.
+
+```shell
+# Run the agent against a live LLM
+beluga run
+
+# Run against the mock LLM — no API calls, no cost
+beluga dev
+
+# Run tests with the mock LLM wired in
+beluga test
+```
+
+The mock LLM is deterministic by default. Given the same input, it returns the same synthesized response. Teams using `beluga test` in CI get reproducible results without managing VCR cassettes or recording fixtures.
+
+### v2.13.0: `beluga eval`
+
+`beluga eval` adds structured evaluation to the CLI. It reads an evaluation dataset, runs each sample through the configured metrics, and reports per-metric scores to stdout. The command is opinionated about output format so results are easy to diff across runs.
+
+```shell
+# Run the default eval suite defined in the project
+beluga eval
+
+# Run a specific dataset file
+beluga eval --dataset ./eval/golden-set.json
+
+# Output machine-readable results
+beluga eval --output json
+```
+
+`beluga eval` is backed by the same `eval` package that ships with the framework. The same `EvalRunner`, metrics, and `BatchJudge` that you wire in Go code are what the CLI uses under the hood, so there is no behavioral gap between running evaluations programmatically and running them from the terminal.
+
+For teams that want finer control, the Go API remains the right entry point:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/lookatitude/beluga-ai/v2/eval"
+	"github.com/lookatitude/beluga-ai/v2/eval/metrics"
+)
+
+func main() {
+	ctx := context.Background()
+
+	samples, err := eval.LoadDataset("eval/golden-set.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	runner := eval.NewRunner(
+		eval.WithMetrics(metrics.NewToxicity(), metrics.NewLatency()),
+		eval.WithDataset(samples.Samples),
+		eval.WithParallel(4),
+	)
+
+	report, err := runner.Run(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for name, avg := range report.Metrics {
+		fmt.Printf("%s: %.2f\n", name, avg)
+	}
+}
+```
+
+### Scaffolded eval branches
+
+`beluga eval` also introduces the concept of a scaffolded eval branch. Running `beluga eval --scaffold` in a new project creates the directory structure and a starter dataset file that `beluga eval` expects by default. Teams starting from scratch get a working eval setup in one command rather than having to manually create the right directory layout.
+
+## This window also covers v2.13.1 and v2.13.2
+
+v2.13.1 corrected internal framework documentation from the DX-1 S4 sprint (C-020 and C-021). v2.13.2 includes automated CI housekeeping: updated code quality and security reports. Neither release contains user-facing changes.
+
+## The DX-1 arc
+
+These releases complete the four-sprint DX-1 initiative:
+
+| Release | Sprint | What shipped |
+|---|---|---|
+| v2.10.0 | S1 | Cobra CLI root, `beluga version`, `beluga providers` |
+| v2.11.0 | S2 | `beluga init`, `beluga new` — project scaffolding |
+| v2.12.0 | S3 | `beluga run`, `beluga dev`, `beluga test` — dev loop |
+| v2.13.0 | S4 | `beluga eval` — evaluation CLI |
+
+Together, those four releases cover the complete development and evaluation cycle. A developer starting with Beluga today runs `beluga init`, writes business logic, iterates with `beluga dev`, validates with `beluga test`, and measures quality with `beluga eval` — all before touching a live LLM budget.
+
+## What's next
+
+The OTLP trace export activated in v2.12.0 — first stubbed in v2.10.0 — sets up the next phase: wiring agent traces, judge verdicts, and cost data into a unified telemetry view. The `eval/judge` package already produces per-sample LLM-as-judge verdicts; connecting those to trace spans in a single dashboard is the next integration target.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
