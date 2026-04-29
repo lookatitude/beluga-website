@@ -1,0 +1,120 @@
+---
+title: "Beluga AI v2.13.2: Eval, Dev Loop, Mock LLM"
+description: "Beluga AI v2.12 and v2.13 ship beluga run, beluga dev, beluga test with a mock LLM, and beluga eval for structured evaluation suites."
+date: 2026-04-22
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, eval CLI, mock LLM, dev loop, observability"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-22T00:00:00Z"
+---
+
+Beluga AI v2.12 and v2.13 close the loop between scaffolding a project and shipping it to production: `beluga run` wires observability automatically, `beluga dev` provides a hot-reload inner loop, `beluga test` injects a deterministic mock LLM so tests run offline, and `beluga eval` scaffolds and executes structured evaluation suites built on the existing `eval/judge` package.
+
+## Why this matters
+
+v2.11.0 closed the gap between zero and a compiling program. The remaining friction was everything that comes after: getting traces out of an agent without hand-rolling exporter setup, iterating on prompts without restarting the binary by hand, writing tests that don't burn API credits, and proving an agent's output quality has not regressed before merging a change.
+
+Each of these problems already has a Go-idiomatic answer in the framework — OTEL for telemetry, the standard test runner, the `eval/judge` package shipped in v2.8.0 — but assembling them into a working development loop required boilerplate that lived in every project's `main.go` and `Makefile`. v2.12 and v2.13 move that wiring into the CLI, where it belongs.
+
+## What shipped in v2.12.0
+
+### `beluga run` — automatic observability wiring
+
+`beluga run` executes a Beluga agent and configures the OpenTelemetry exporter before the program starts. It reads the standard `OTEL_*` environment variables — `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, and the rest of the OTEL environment — and installs the exporter before the program starts. Traces and metrics flow without any code in `main.go`.
+
+The corollary is that `main.go` no longer needs explicit exporter initialization. Projects scaffolded by `beluga init` produce a smaller entry point, and existing projects can delete their bootstrap blocks once they migrate to `beluga run`.
+
+### `beluga dev` — hot-reload development loop
+
+`beluga dev` watches the project source tree, recompiles on change, and restarts the program. It is the inner loop that Go developers expect from frameworks they iterate on quickly: edit a tool implementation, save, and the running agent picks up the change without a manual `go run` cycle.
+
+### `beluga test` — offline test runs against a mock LLM
+
+`beluga test` runs the Go test suite with a mock LLM provider injected for every registered provider name. Tests that call `llm.New("anthropic", ...)` or `llm.New("openai", ...)` resolve to the mock implementation, which satisfies the `llm.Provider` interface and returns canned responses deterministically.
+
+The practical effect: agent tests run offline, in CI, without API keys and without burning credits. Determinism also makes failures reproducible — a test that flaked against a real model is unambiguous against the mock.
+
+## What shipped in v2.13.0
+
+### `beluga eval` — evaluation suites in CI
+
+`beluga eval` is a CLI for scaffolding and running evaluation suites. It builds on the `eval/judge` package shipped in v2.8.0, which already provided LLM-as-judge scoring against a rubric. v2.13.0 wraps that package in a CLI so evaluations are CI-composable.
+
+The command has two modes. The first scaffolds an evaluation suite directory structure, in the same shape `beluga new` uses for components. The second runs evaluations and emits a structured report. On threshold failures, it exits non-zero — which means a CI pipeline can gate a merge on evaluation outcomes the same way it gates on `go test` or `go vet`.
+
+This is the piece that lets a team treat agent quality as a build-time invariant rather than a post-deploy observation.
+
+## A quick example: judging a single sample
+
+The `eval/judge` package that powers `beluga eval` is also usable directly from Go. The following program scores a single response against a two-criterion rubric:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/eval/judge"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+)
+
+func main() {
+	ctx := context.Background()
+
+	model, err := llm.New("anthropic", config.ProviderConfig{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  "claude-haiku-4-5-20251001",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	rubric := judge.Rubric{
+		Criteria: []judge.Criterion{
+			{Name: "accuracy", Weight: 0.6, Description: "factual correctness"},
+			{Name: "clarity", Weight: 0.4, Description: "clear and concise language"},
+		},
+	}
+
+	verdict, err := judge.Evaluate(ctx, model, rubric, judge.Sample{
+		Input:    "What is the capital of France?",
+		Response: "Paris is the capital of France.",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("score: %.2f — %s\n", verdict.Score, verdict.Reasoning)
+}
+```
+
+The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic` registers the Anthropic provider with the LLM registry. `llm.New("anthropic", ...)` resolves the judge model by name at runtime, and `judge.Evaluate` runs the rubric against the sample. Set `ANTHROPIC_API_KEY` before running.
+
+In a CI context, the same logic moves into `beluga eval`, which loads a suite from disk, scores every sample in it, aggregates verdicts against thresholds, and exits with a non-zero status if any threshold fails.
+
+## v2.13.1 and v2.13.2
+
+v2.13.1 (2026-04-22) updated the documentation set with framework-workflow learnings carried over from earlier releases. v2.13.2 (2026-04-22) is CI housekeeping: refreshed `CODE-QUALITY.md`, `SECURITY.md`, and `CHANGELOG.md` artifacts. Neither point release adds runtime functionality.
+
+## What's next
+
+The four CLI commands that landed in v2.12 and v2.13 — `run`, `dev`, `test`, and `eval` — round out the inner-loop story that started with `beluga init` and `beluga new` in v2.11. The next direction is integration: tying `beluga eval` outputs into the same telemetry pipeline that `beluga run` configures, so evaluation results appear alongside production traces rather than living in a parallel CI artifact.
+
+The mock LLM shipped with `beluga test` is currently scoped to the test runner. Extending it to a standalone development provider, usable from `beluga dev` for fully offline iteration, is on the near roadmap.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
