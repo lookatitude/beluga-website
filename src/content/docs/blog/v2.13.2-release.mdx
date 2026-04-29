@@ -1,0 +1,96 @@
+---
+title: "Beluga AI v2.13.2: Run, Develop, Test, Evaluate"
+description: "beluga run/dev/test and beluga eval ship a complete inner loop — iterate against a mock LLM, then score outputs without leaving the CLI."
+date: 2026-04-22
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, v2.13.0, v2.12.0, release notes, Go AI framework, beluga run, beluga dev, beluga test, beluga eval, mock LLM, observability, evaluation CLI"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-22T00:00:00Z"
+---
+
+Four releases shipped between v2.11.0 and v2.13.2, and two of them are substantive: v2.12.0 introduced the `beluga run`, `beluga dev`, and `beluga test` developer loop with a built-in mock LLM, and v2.13.0 added `beluga eval` for running evaluation suites from the command line.
+
+## Why a developer loop matters
+
+Iterating on agent code has historically meant choosing between two unappealing options. Run against a real provider and pay for tokens on every save. Or stub the provider yourself and maintain hand-rolled fakes that drift from the production interface. Both have real costs. The first is slow and expensive during the moments when iteration speed matters most — the first hour with a new agent, the debugging session at the end of a long day. The second produces stubs that diverge from real provider behavior in subtle ways, so tests pass locally and fail in CI.
+
+The same problem extends to evaluation. Running a judge over agent outputs has required wiring `eval/judge` into a custom Go program, then running that program by hand. The work is mechanical, but the absence of a CLI surface meant evaluation was easy to skip — particularly during early iteration, where it is most useful.
+
+The releases between v2.12.0 and v2.13.2 close both gaps. The framework now ships an inner loop you can drive entirely from the `beluga` binary.
+
+## What shipped in v2.12.0
+
+### `beluga run` — execute a Beluga program
+
+`beluga run` runs a Beluga project against a configured provider. It loads the project's configuration, registers providers, and executes the entry point. The command is the production-mode runner — what you would invoke in CI, in a container, or against a real workload.
+
+```shell
+# Run a project against the configured provider
+beluga run
+```
+
+### `beluga dev` — iterate against a mock LLM
+
+`beluga dev` runs the same project, but routes LLM calls through a mock provider built into the framework. The mock returns deterministic responses, so you can iterate on prompt assembly, tool wiring, and control flow without making real API calls. The interface is the same `llm.Provider` your agent already uses, so swapping back to a real provider for production is a configuration change, not a code change.
+
+```shell
+# Iterate without spending tokens
+beluga dev
+```
+
+The mock is intended for development and unit-test scenarios, not for measuring real provider behavior. For that, `beluga run` against a real provider — or `beluga eval`, covered below — remains the right tool.
+
+### `beluga test` — run project tests
+
+`beluga test` wraps `go test` with the framework's mock provider preconfigured, so test suites that exercise agent code can run against the mock by default. This avoids the standard pitfall where running `go test ./...` accidentally calls a real provider because a configuration value leaked from the developer's shell into the test process.
+
+```shell
+# Run tests against the mock provider
+beluga test
+```
+
+### Real observability bootstrap
+
+v2.12.0 also turned the observability stub from v2.10.0 into a real bootstrap. Tracing, metrics, and structured logging are wired into the CLI commands at startup, so spans emitted by agent code are captured automatically when the program runs under `beluga run` or `beluga dev`. The data goes to the configured exporter — local stdout in the default development profile, OTLP in production configurations.
+
+This is the foundation for the observability work referenced as "in progress" in the v2.11.0 announcement. That work is now complete.
+
+## What shipped in v2.13.0
+
+### `beluga eval` — run evaluation suites
+
+`beluga eval` runs a project's evaluation suite using the framework's `eval/judge` package. The CLI handles judge wiring, output collection, and verdict aggregation, so running evaluations no longer requires a custom Go program.
+
+```shell
+# Run the project's evaluation suite
+beluga eval
+```
+
+The command is scaffolded for extension: subsequent releases will add subcommands for managing eval datasets, comparing runs, and gating CI on verdict thresholds. The current surface is intentionally narrow — execute a suite, report results — so the contract stabilizes before the surface area grows.
+
+Pair `beluga eval` with `beluga test`: `test` covers correctness of the code, `eval` covers quality of the model output. Both belong in CI for any agent project that ships to production.
+
+## v2.13.1 and v2.13.2: documentation and maintenance
+
+**v2.13.1 (2026-04-22)** captured framework-workflow learnings from the DX-1 S4 iteration that produced `beluga eval`. The changes are documentation-only.
+
+**v2.13.2 (2026-04-22)** is an automated maintenance release covering code-quality and security documentation updates from the standard CI passes. No behavioral changes.
+
+Neither release changes any public API. There are no breaking changes across the v2.12.0 through v2.13.2 window.
+
+## What's next
+
+The CLI now covers four phases of the inner loop: scaffold (`beluga init`, `beluga new` from v2.11.0), develop (`beluga dev`), test (`beluga test`), and evaluate (`beluga eval`). The remaining gap is diagnosis — `beluga doctor`, mentioned in the v2.11.0 outlook, is the next milestone in the DX initiative.
+
+On the evaluation side, the scaffolded `beluga eval` command will grow subcommands for dataset management and run comparison. The shape of those subcommands is being driven by the experience of running real eval suites under the current minimal surface, rather than designed up front.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
