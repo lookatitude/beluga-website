@@ -1,0 +1,136 @@
+---
+title: "Beluga AI v2.13.2: Eval CLI and the Dev Loop"
+description: "Beluga AI v2.13.2 ships beluga eval for scaffolded LLM-as-Judge evaluations and the beluga run/dev/test dev loop with mock LLM and observability."
+date: 2026-04-22
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, beluga eval, LLM-as-Judge, beluga run, beluga dev, beluga test, mock LLM, observability, Go AI framework"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-22T00:00:00Z"
+---
+
+v2.13.2 ships `beluga eval`, a CLI command for running LLM-as-Judge evaluations. It builds on `beluga run`, `beluga dev`, and `beluga test` — the dev-loop commands that arrived in v2.12.0 (2026-04-21).
+
+## Why eval needs a CLI
+
+The `eval/judge` package has been part of Beluga since v2.8.0. It implements LLM-as-Judge evaluation with weighted rubrics, structured verdicts, and the same observability hooks the rest of the framework relies on. The package works, but reaching it required Go boilerplate: a `main.go`, provider registration, rubric definition in code, a runner loop, and result serialization.
+
+That boilerplate is fine for production scoring pipelines, where the evaluator is part of a larger Go program. It is friction for the use case eval should make easy: a developer iterating on a prompt or agent design, who wants to know whether last hour's change improved a verdict score before committing it. For that loop, the right surface is a command that takes a directory of test cases and prints a pass/fail summary.
+
+`beluga eval` is that command.
+
+## `beluga eval` (v2.13.0)
+
+`beluga eval` (DX-1 Sprint 4, ticket LOO-154) introduces two subcommands and a directory layout convention.
+
+`beluga eval init <name>` scaffolds a new eval branch — a directory with rubric definitions, test cases, and a `main.go` wired to the `eval/judge` runner. The scaffold compiles against the current release and runs without edits, so the first iteration is "change a rubric weight, re-run, observe the delta," not "fix the imports."
+
+`beluga eval run <path>` executes every test case in the eval branch against the configured judge model and prints a verdict summary. The default output is a human-readable table; `--output json` emits a structured payload that CI can parse.
+
+```bash
+# Scaffold a new eval branch
+beluga eval init customer-support-eval
+
+# Run evaluations
+beluga eval run ./customer-support-eval
+
+# Structured output for CI
+beluga eval run ./customer-support-eval --output json | jq '.summary'
+```
+
+The JSON shape follows the same stdout/stderr discipline as the rest of the `beluga` CLI: results on stdout, diagnostics on stderr, exit code reflects the operation. A failing eval (verdict score below the configured threshold) returns a non-zero exit, so a CI gate is one shell line.
+
+The scaffold produced by `beluga eval init` is a real Go program. Here is the shape of the runner inside the generated `main.go`, simplified to the core call:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/eval/judge"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+)
+
+func main() {
+	ctx := context.Background()
+
+	model, err := llm.New("anthropic", config.ProviderConfig{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  "claude-3-5-sonnet-20241022",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	rubric := judge.Rubric{
+		Criteria: []judge.Criterion{
+			{Name: "accuracy", Weight: 0.5, Description: "Answer is factually correct."},
+			{Name: "tone", Weight: 0.3, Description: "Reply is professional and empathetic."},
+			{Name: "concision", Weight: 0.2, Description: "Reply avoids unnecessary repetition."},
+		},
+		PassThreshold: 0.75,
+	}
+
+	j, err := judge.New(model, rubric)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	testCase := judge.TestCase{
+		Input:    "My order hasn't arrived. What can you do?",
+		Output:   "I'm sorry for the delay. I can see your order shipped Tuesday and is due today. I've flagged it for a replacement if it doesn't arrive by 5pm.",
+		Expected: "Acknowledge, give status, offer remediation.",
+	}
+
+	verdict, err := j.Evaluate(ctx, testCase)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("score: %.2f  pass: %t\n", verdict.Score, verdict.Pass)
+}
+```
+
+Three weighted criteria, one test case, one call to `Evaluate`. The CLI wraps this loop across a directory of test cases and aggregates the verdicts into the summary the `run` subcommand prints.
+
+The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic` registers the Anthropic provider so the runtime resolves `llm.New("anthropic", ...)` by name. Set `ANTHROPIC_API_KEY` before running.
+
+## Also in this window: the v2.12.0 dev loop
+
+v2.12.0 shipped one day earlier (DX-1 Sprint 3) and is best read as the substrate `beluga eval` plugs into. It introduces three commands and the testing infrastructure they share.
+
+`beluga run` executes a Beluga program with the framework's observability bootstrap wired in by default — agent traces, tool spans, and judge verdicts emitted through the same telemetry pipeline that production deployments use. No additional configuration is required for local runs.
+
+`beluga dev` starts a development server that watches the project tree and re-runs on change. The intended loop is: edit a prompt, save, watch the next agent invocation in the terminal, repeat.
+
+`beluga test` runs Go tests with a mock LLM provider registered. The mock returns deterministic responses configured per test, which removes the need for an API key during unit tests and removes API latency from the test suite. A test that previously needed a recorded fixture or a network round-trip can be expressed as a normal `go test` against a mock the framework already provides.
+
+The observability bootstrap in `beluga run` is the same telemetry path mentioned in the v2.10.0 announcement as groundwork. v2.12.0 wires it through end-to-end: traces include the agent step graph, tool calls, and — when `beluga eval` is the running program — the judge verdict for each test case.
+
+## Breaking changes
+
+None in this window. v2.12.0, v2.13.0, v2.13.1, and v2.13.2 are additive on top of the v2.10.x module-path migration that the [v2.11.0 announcement](/blog/v2-11-0-release/) covers. Projects already on v2.11.0 or later can upgrade to v2.13.2 without source changes.
+
+v2.13.1 and v2.13.2 are documentation-only patches: v2.13.1 captures framework-workflow learnings (C-020, C-021) from the DX-1 Sprint 4 retrospective, and v2.13.2 refreshes the code-quality and security project reports along with changelog updates.
+
+## What's next
+
+The four DX-1 sprints — CLI binary, scaffolding, dev loop, eval — close out the developer-experience track that started with v2.10.0. The next stretch of work shifts from local iteration to production: wiring eval verdicts into deployment gates, expanding `beluga doctor` for configuration diagnosis, and lifting the `--output json` contract onto every machine-facing subcommand the CLI exposes.
+
+The full commit list across v2.12.0, v2.13.0, v2.13.1, and v2.13.2 is in the [changelog](/docs/contributing/project-reports/changelog). Runnable companions for `beluga eval` and the dev loop live at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested against every release.
