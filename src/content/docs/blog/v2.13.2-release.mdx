@@ -1,0 +1,136 @@
+---
+title: "Beluga AI v2.13.2: Dev Loop and Eval CLI"
+description: "beluga run, beluga dev, beluga test, and beluga eval close the developer feedback loop with a mock LLM and a built-in evaluation harness."
+date: 2026-05-02
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, beluga run, dev loop, mock LLM, evaluation CLI"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-05-02T00:00:00Z"
+---
+
+Beluga AI v2.13.2 closes the inner developer loop. `beluga run`, `beluga dev`, and `beluga test` make iterating on an agent a single-command operation, a mock LLM provider takes API calls out of unit tests, and `beluga eval` runs evaluation suites against an agent without leaving the CLI.
+
+## Why this release matters
+
+v2.11.0 made it cheap to start a Beluga project. The next question — once the scaffold compiled and the first prompt returned a response — was how to iterate on agent behavior without flipping between a build command, a runtime invocation, and a test harness assembled by hand. Each of those steps was tractable in isolation, but the friction of holding them together discouraged the tight feedback loops that good agent work depends on.
+
+Evaluation faced the same gap. Building a bespoke evaluation runner is the step that typically gets deferred — Beluga's `eval/judge` package, flagged as upcoming in the v2.11.0 announcement, closes it.
+
+v2.12.0 and v2.13.0 land both pieces. v2.13.2 is the cumulative tag — the intervening patch and docs releases are summarized at the end.
+
+## What shipped
+
+### `beluga run`, `beluga dev`, `beluga test` — the dev loop (v2.12.0)
+
+Three new subcommands compose into a workflow that mirrors what Go developers already expect from `go run` / `go test`, but at the agent layer.
+
+```shell
+# Build and run the agent against its production configuration.
+beluga run
+
+# Run in development mode: hot-reload friendly, verbose logging,
+# the mock LLM available as a provider if no API key is set.
+beluga dev
+
+# Run the project's Go test suite. Wires into the standard
+# `go test ./...` runner with Beluga-aware defaults.
+beluga test
+```
+
+`beluga run` is the production entry point — it builds the project's `main` package and executes it with real provider configuration. `beluga dev` runs the same binary with development defaults: more verbose logs, the mock LLM available as a fallback when no API key is present, and observability bootstrapped to a local sink so traces are visible without standing up a collector.
+
+`beluga test` is a thin wrapper around `go test ./...` that pre-loads Beluga's test helpers and surfaces failures with the same formatting as the rest of the CLI. It exists primarily so that newcomers learn one command instead of two, and so that future test-only features (fixture management, eval-derived regression tests) have a consistent home.
+
+### Real observability bootstrap on startup
+
+Every binary built through `beluga run` or `beluga dev` now initializes the `o11y` package automatically. v2.13.2 replaces the stub introduced in v2.10.0 with a real bootstrap that wires tracing, metrics, and structured logging from Beluga's observability layer. In `dev` mode the sinks default to local; in `run` mode they pick up whatever the project's configuration specifies (OTLP endpoint, log destination, sampling rates).
+
+The practical consequence: developers see traces and metrics from the first invocation, without writing initialization code. Production deployments configure the sinks through standard project config rather than through ad-hoc setup in `main`.
+
+### Mock LLM provider for unit tests (v2.12.0)
+
+The mock LLM provider lets unit tests exercise agent logic without making real API calls. It registers under the same registry pattern as every other provider, so swapping it in is a matter of importing it and naming it in the test configuration.
+
+```go
+package agent_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/mock"
+)
+
+func TestAgentReasoning(t *testing.T) {
+	ctx := context.Background()
+
+	model, err := llm.New("mock", config.ProviderConfig{
+		Model: "mock-default",
+	})
+	if err != nil {
+		t.Fatalf("failed to construct mock provider: %v", err)
+	}
+
+	resp, err := model.Generate(ctx, "What is two plus two?")
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+
+	if resp.Content == "" {
+		t.Fatal("expected mock provider to return non-empty response")
+	}
+}
+```
+
+The blank import of `github.com/lookatitude/beluga-ai/v2/llm/mock` registers the provider with the LLM registry, exactly as a real provider does. Tests that exercise multi-turn reasoning, tool calls, or guard policies can now run on every commit without a live API key and without per-test stubbing scaffolds.
+
+### `beluga eval` — evaluation harness (v2.13.0)
+
+`beluga eval` runs an evaluation suite against the project's agent and reports pass/fail per case. Running it the first time scaffolds an `eval/` directory in the project — the suite definitions, fixtures, and judge configuration live there.
+
+```shell
+# Scaffold the eval/ branch on first use, then run the suite.
+beluga eval
+
+# After the scaffold exists, the same command executes the suite
+# and prints a per-case verdict summary.
+beluga eval
+```
+
+This is the surface that connects to the `eval/judge` package. Suites declare cases (input, expected behavior, judge criteria); the harness invokes the agent against each case, applies the judge, and prints a verdict. Failures are reported with enough context to reproduce the case under `beluga dev`.
+
+Evaluation belongs in the inner loop, not as a separate quarterly exercise. `beluga eval` exists to make that achievable: a developer who changes an agent prompt or swaps a tool can run the eval suite in the same shell session and see whether quality moved.
+
+## Since the last announcement
+
+The catch-up window for this post is everything between v2.11.0 and v2.13.2:
+
+- **v2.11.1** — internal docs update capturing framework-workflow learnings from the DX-1 sprint. No user-visible change.
+- **v2.12.0** — dev loop commands, mock LLM, real observability bootstrap (covered above).
+- **v2.13.0** — `beluga eval` and the scaffolded `eval/` branch (covered above).
+- **v2.13.1** — internal docs update capturing learnings from the eval CLI rollout. No user-visible change.
+- **v2.13.2** — CI updates and changelog chores. No functional change; this is the tag the website now points at.
+
+No breaking changes across the window. Projects on v2.11.0 update with:
+
+```shell
+go get github.com/lookatitude/beluga-ai/v2@v2.13.2
+go mod tidy
+```
+
+## What's next
+
+The dev loop and the eval CLI are the two pieces the DX-1 initiative was scoped around. The next horizon is making evaluation richer — more judge types, easier fixture management, and a path from a failing eval case to a regression test that lives alongside the project's Go tests. Telemetry from `beluga run` will start feeding the same surface, so production traces can seed the eval corpus rather than being curated by hand.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.11.1 through v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
