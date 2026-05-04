@@ -1,0 +1,141 @@
+---
+title: "Beluga AI v2.13.2: Eval CLI and the Dev Loop"
+description: "v2.13.2 closes out the DX-1 sprint with beluga eval, the dev-loop commands beluga run/dev/test, a mock LLM provider, and OTel bootstrap."
+date: 2026-04-22
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, eval CLI, LLM-as-Judge, dev loop, mock LLM, OpenTelemetry"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-22T00:00:00Z"
+  - tag: meta
+    attrs:
+      property: og:image
+      content: "/og/v2.13.2-release.png"
+---
+
+Beluga AI v2.13.2 closes the DX-1 sprint — the initiative started with v2.11.0's scaffolding commands — with two things Go agent developers have been asking for: a working evaluation CLI (`beluga eval`) and a real dev loop (`beluga run`, `beluga dev`, `beluga test`) with a mock LLM provider for offline testing.
+
+## Why evaluation matters for Go agents
+
+Production agents fail in ways unit tests do not catch. A change to a system prompt, a swap from one model to another, or a refactor of a tool description can shift output quality without breaking a single assertion. Teams that ship agents without an evaluation harness end up regressing quietly until a customer notices. Teams that do build a harness usually write it from scratch — a dataset loader, a metric runner, a JSON report writer, and a CI artifact step — for every project.
+
+The `eval` package has shipped with Beluga since v2.8.0, but using it required wiring a runner into your own binary. v2.13.0 added the missing piece: a CLI that drives the runner from a project root, loads datasets, dispatches metrics, and emits reports in formats CI systems already understand. v2.13.2 is the maintenance tag that finalizes the sprint with code-quality and security updates on top.
+
+## What shipped: `beluga eval`
+
+`beluga eval` is the Layer 7 CLI adapter for Beluga's evaluation runner. The heavy lifting — `eval.Runner`, metrics, OpenTelemetry spans — lives in the framework-layer `eval` package. The CLI subcommand is the thin glue between Cobra and that API.
+
+A few behaviors are worth knowing:
+
+- **Always writes `eval-report.json`** at the project root. CI artifact steps can target a well-known location without configuration.
+- **Optional `--format junit`** writes `<report>.junit.xml`, which `dorny/test-reporter` and similar GitHub Actions consume directly.
+- **Per-row exec-once IPC.** The CLI invokes your scaffolded user binary once per dataset row. The binary must emit `{"beluga_eval_protocol":1}` as its first stdout line within 5 seconds (`DefaultProtocolProbeTimeout`) to confirm protocol version 1.
+- **30-second per-row subprocess timeout** (`DefaultRowTimeout`), tunable through `CLIConfig`.
+- **Configuration loaded from the project root** via `LoadConfig(projectRoot, configPath)`.
+
+Built-in metrics live in `eval/metrics` (Toxicity, Latency). External provider adapters cover `eval/providers/deepeval`, `eval/providers/braintrust`, and `eval/providers/ragas`. For LLM-as-Judge scoring there is `eval/judge`, which is the API the next section walks through.
+
+## What shipped: the dev loop (v2.12.0)
+
+v2.12.0 introduced three commands that turn Beluga into a daily-driver development environment:
+
+- **`beluga run`** executes the project binary against a live configuration.
+- **`beluga dev`** runs with hot-reload and verbose telemetry.
+- **`beluga test`** drives the project's Go tests with Beluga-aware setup.
+
+Two pieces of infrastructure round out the dev loop. The first is a mock LLM provider at `github.com/lookatitude/beluga-ai/v2/llm/providers/mock`, which lets you exercise an agent end-to-end without an API key or network call. The second is real OpenTelemetry bootstrap — the stub from v2.10.0 was wired up in this release, so `beluga dev` produces traces you can inspect locally.
+
+Building on v2.11.0's scaffolding commands, the dev loop closes the gap between `beluga init` and a running, observable, testable program.
+
+## Quick example: scoring outputs with `eval/judge`
+
+`eval/judge` is the LLM-as-Judge implementation. You define a rubric, hand the metric a chat model, and the runner scores each sample. The CLI uses this same API internally; the snippet below is what your code looks like when you drive it directly.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/eval"
+	"github.com/lookatitude/beluga-ai/v2/eval/judge"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+)
+
+func main() {
+	ctx := context.Background()
+
+	model, err := llm.New("anthropic", config.ProviderConfig{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  "claude-3-5-haiku-20241022",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	// Populate the rubric with criteria and score levels — see the
+	// eval/judge reference for the Rubric struct's fields.
+	rubric := &judge.Rubric{}
+
+	metric, err := judge.NewJudgeMetric(
+		judge.WithMetricName("helpfulness"),
+		judge.WithModel(model),
+		judge.WithRubric(rubric),
+	)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	samples := []eval.EvalSample{
+		{
+			Input:    "What is a language model?",
+			Output:   "A language model predicts the probability of a sequence of words.",
+			Expected: "A statistical model that assigns probabilities to word sequences.",
+		},
+	}
+
+	runner := eval.NewRunner(
+		eval.WithMetrics(metric),
+		eval.WithDataset(samples),
+		eval.WithParallel(4),
+	)
+
+	report, err := runner.Run(ctx)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	for name, avg := range report.Metrics {
+		fmt.Printf("%s: %.2f\n", name, avg)
+	}
+}
+```
+
+The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic` registers the Anthropic provider with the LLM registry. `llm.New("anthropic", ...)` resolves the provider by name at runtime. Set `ANTHROPIC_API_KEY` before running.
+
+The `Rubric` struct defines the scoring criteria the judge model uses. Its fields are documented in the `eval/judge` reference — populate `Criterion` and `ScoreLevel` according to that godoc rather than guessing field names.
+
+For larger evaluation runs, `judge.NewBatchJudge` wraps a `JudgeMetric` and runs samples in parallel with an `OnResult` callback for streaming progress. For agreement studies across models, `judge.NewConsistencyChecker` runs the same sample through multiple chat models with optional repeats and reports consistency.
+
+## What's next
+
+DX-1 is done. The next sprint extends the eval surface in two directions. First, richer dataset formats — JSONL is the current contract, with structured CSV and Parquet on the roadmap so teams can point `beluga eval` at the dataset format their data team already produces. Second, deeper observability — judge verdicts and per-metric scores already emit OTel spans, but the trace surface around long-running batch runs needs more attention before it is comfortable to leave running on a CI cluster overnight.
+
+The v2.13.x cycle also accumulated documentation corrections (C-020 in v2.13.1, C-021 in v2.13.2) and CI maintenance — code-quality and security workflow updates. None of these change the API; they make the existing surface easier to use and easier to verify.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the commit list across v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
