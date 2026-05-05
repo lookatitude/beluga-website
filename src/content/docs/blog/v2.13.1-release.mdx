@@ -17,7 +17,7 @@ head:
       content: "2026-04-22T00:00:00Z"
 ---
 
-Beluga AI v2.13.1 ships two sprints of DX work: a development loop with mock LLM support and real observability wiring (`beluga run`, `beluga dev`, `beluga test`), and a first-class evaluation CLI (`beluga eval`). The features landed across v2.12.0 and v2.13.0; v2.13.1 adds C-020 and C-021 framework-workflow documentation from the DX-1 S4 sprint.
+Beluga AI v2.13.1 ships two sprints of developer-experience work: a development loop with mock LLM support and real observability wiring (`beluga run`, `beluga dev`, `beluga test`), and a first-class evaluation CLI (`beluga eval`). The features landed across v2.12.0 and v2.13.0; v2.13.1 adds framework-workflow documentation from the DX-1 S4 sprint.
 
 ## The development loop problem
 
@@ -104,7 +104,7 @@ beluga eval ./eval/my-agent/
 
 The eval runner integrates with `beluga test`: running `beluga test ./...` from a project root also picks up eval cases under `eval/`, so evaluation becomes part of the standard test loop rather than a separate step.
 
-v2.13.1 adds the C-020 and C-021 framework-workflow documentation: structural conventions the eval CLI imposes, how eval cases compose with `beluga test`, and the handoff points between `eval/judge` verdicts and the observability pipeline.
+v2.13.1 adds framework-workflow documentation: structural conventions the eval CLI imposes, how eval cases run inside `beluga test`, and the planned handoff points between `eval/judge` verdicts and the observability pipeline. The `eval/judge` integration itself is not yet complete; the documentation describes the intended interface as groundwork for the next sprint.
 
 ## No breaking changes
 
