@@ -1,0 +1,177 @@
+---
+title: "Beluga AI v2.13.2: Dev Loop and Eval CLI"
+description: "Beluga v2.13.2 ships a local dev loop (beluga run/dev/test) with mock LLMs and observability, plus a new beluga eval CLI for agent evaluation."
+date: 2026-05-06
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga run, beluga dev, beluga test, beluga eval, agent evaluation, mock LLM, local development"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-05-06T00:00:00Z"
+---
+
+Beluga AI v2.13.2 is the current stable tag and closes out two pieces of work from the DX initiative: a local dev loop (`beluga run`, `beluga dev`, `beluga test`) and an evaluation CLI (`beluga eval`). The window between v2.11.0 and v2.13.2 is additive — no breaking changes and no migration steps.
+
+## What shipped
+
+Two feature releases anchor this window:
+
+- **v2.12.0** introduced `beluga run`, `beluga dev`, and `beluga test` — the inner-loop commands developers reach for between writing code and running it against a real provider.
+- **v2.13.0** introduced `beluga eval` and a scaffolded `eval` branch for defining and running agent evaluations.
+
+The intermediate tags (v2.11.1, v2.13.1, v2.13.2) are documentation, dependency, and CI work with no user-facing behavior change. They are summarized at the end of this post.
+
+## The problem these features solve
+
+Once a project is scaffolded with `beluga init` (covered in the [v2.11.0 post](/blog/v2.11.0-release)), the next friction point is the iteration loop. Running an agent against a real provider on every code change is slow and costs money. Wiring up mocks, fixtures, and a stable observability surface for local debugging is a real chunk of work that every team ends up repeating.
+
+Evaluation is a separate but related pain point. Agent quality is hard to measure without infrastructure for replaying inputs, scoring outputs, and tracking results across versions. Most teams either skip this work or assemble it from notebooks and ad-hoc scripts that drift from production code paths.
+
+v2.12.0 and v2.13.0 address both directly.
+
+## Dev loop: `beluga run`, `beluga dev`, `beluga test`
+
+The three commands cover the inner loop end to end.
+
+`beluga run` executes the current project's `main.go` with Beluga's runtime wired in — observability bootstrapped, configuration resolved, providers registered. It is the equivalent of `go run .` with the framework's standard glue applied.
+
+```shell
+# Run the project's entry point with framework bootstrap.
+beluga run
+```
+
+`beluga dev` runs the same entry point but swaps in a mock LLM provider by default, so iteration does not require API keys or network calls. Tracing and metrics are enabled and emitted to stdout, so you can watch the agent's tool calls and decisions without running an external collector.
+
+```shell
+# Run with mock LLMs and verbose local observability.
+beluga dev
+
+# Pass through agent flags as you would with `go run`.
+beluga dev --prompt "Plan a three-step research task"
+```
+
+`beluga test` runs the project's Go tests with the framework's test helpers preloaded — mock providers, recorded fixtures, and the standard observability pipeline configured for assertion-friendly output.
+
+```shell
+# Run tests with framework helpers and mock providers wired in.
+beluga test ./...
+```
+
+The mock LLM is registered through the same registry pattern as real providers. Code that runs under `beluga dev` runs unchanged under `beluga run`; only the registered provider differs.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// `beluga dev` registers a mock provider under the same name resolution,
+	// so the call site does not change between dev and run.
+	model, err := llm.New("anthropic", config.ProviderConfig{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  "claude-3-5-haiku-20241022",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	resp, err := model.Generate(ctx, "Summarize the dev loop changes.")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	fmt.Println(resp.Content)
+}
+```
+
+The work landed under LOO-151 as part of DX-1 Sprint 3 (PR #324).
+
+## Evaluation: `beluga eval`
+
+`beluga eval` runs evaluations defined in your project against an agent or LLM and reports results. The command discovers eval definitions on the configured path, executes them, and writes results in a format the rest of the framework's tooling can consume.
+
+```shell
+# Run all evals in the project's eval/ directory.
+beluga eval ./eval/...
+
+# Run a single named eval.
+beluga eval --name customer-support-routing
+```
+
+An eval definition in Go pairs a set of inputs with a judge that scores the agent's output. The shape is plain Go and slots into the same module as the agent under test:
+
+```go
+package eval
+
+import (
+	"context"
+
+	"github.com/lookatitude/beluga-ai/v2/eval"
+	"github.com/lookatitude/beluga-ai/v2/eval/judge"
+)
+
+// CustomerSupportRouting checks that the agent routes a sample of inbound
+// requests to the correct downstream queue.
+func CustomerSupportRouting() *eval.Definition {
+	return &eval.Definition{
+		Name: "customer-support-routing",
+		Cases: []eval.Case{
+			{
+				Input:    "My invoice has the wrong VAT rate.",
+				Expected: "billing",
+			},
+			{
+				Input:    "The dashboard chart is showing zero for yesterday.",
+				Expected: "engineering",
+			},
+		},
+		Judge: judge.ExactMatch(),
+	}
+}
+```
+
+`beluga eval` invokes the definition, runs each case through the agent, and applies the judge to the output. The scaffolded `eval` branch keeps results addressable so they can be replayed and compared across runs.
+
+The work landed under LOO-154 as part of DX-1 Sprint 4 (PR #326).
+
+## Changelog window
+
+For completeness, the non-feature releases in this window:
+
+**v2.11.1 (2026-04-21)** — Documentation hardening following pre-push hook learnings (PR #321) and AWS SDK dependency bumps across four packages. No user-facing behavior changes.
+
+**v2.13.1 (2026-04-22)** — CI and changelog automation only. No user-facing changes.
+
+**v2.13.2 (2026-04-22)** — CI and changelog automation only. No user-facing changes. Current stable tag.
+
+There are no breaking changes in the v2.11.0 → v2.13.2 window. Upgrading is a `go get github.com/lookatitude/beluga-ai/v2@v2.13.2` followed by `go mod tidy`.
+
+## What's next
+
+The dev loop and eval CLI close the immediate DX-1 sprint goals. Two adjacent areas are queued:
+
+- **Richer mock providers.** The current mock LLM in `beluga dev` is intentionally simple. The next iteration will support recorded-fixture playback, so dev runs can replay real provider responses captured during a previous run.
+- **Eval result aggregation.** `beluga eval` currently reports per-run results. Aggregating across runs — tracking score deltas between commits — is the next piece of the eval workflow.
+
+The observability bootstrap stub introduced in v2.10.0 is now live in `beluga dev` and `beluga test`. Bringing the same telemetry into production deployments is the bridge between the dev loop work and the next phase of the observability initiative.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.11.1, v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
