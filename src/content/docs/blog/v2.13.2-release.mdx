@@ -1,0 +1,115 @@
+---
+title: "Beluga AI v2.13.2: Eval CLI and the Dev Loop"
+description: "Beluga AI v2.13.2 ships the beluga eval CLI and a run/dev/test dev loop with mock LLM and observability bootstrap."
+date: 2026-05-10
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, LLM evaluation, beluga dev, mock LLM, observability, agent testing"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-05-10T00:00:00Z"
+---
+
+Beluga AI v2.13.2 closes out Sprints 3 and 4 of the DX-1 developer-experience initiative with two headline additions: a `beluga eval` subcommand for running evaluation suites from the terminal, and a `run`/`dev`/`test` dev loop that pairs a mock LLM with a real observability bootstrap.
+
+## The problem with the inner loop
+
+A working agent program is only the start. The day-to-day cost of building one sits in the inner loop: the cycle of editing code, running it, observing what it does, and adjusting. For an LLM-backed agent, every turn of that loop traditionally burned an API call, leaked a few cents, and depended on a network round trip and a key in the environment. Running an evaluation suite — the only honest way to know whether a prompt change improved or regressed behavior — required even more boilerplate: a harness, a judge, a scoring loop, and somewhere to put the results.
+
+Each of those concerns had a library answer in Beluga already. The `eval/judge` package shipped in v2.8.0 with an LLM-as-Judge implementation. The mock LLM has lived under the providers tree for several releases. Observability bootstraps from environment variables when configured. What was missing was the seam: a CLI that wired these pieces together so a developer could run a fast iteration loop without writing harness code on day one. v2.12.0 and v2.13.0 add that seam.
+
+## What shipped in v2.12.0: `beluga run`, `beluga dev`, `beluga test`
+
+v2.12.0 (2026-04-21, [LOO-151]) added three subcommands that cover the inner-loop cycle.
+
+`beluga dev` runs the agent against a mock LLM. No API key is required. The mock returns deterministic responses derived from the input, which makes it useful for exercising tool wiring, retry paths, and structured-output parsing without paying for tokens. Reload-on-save is intentionally not part of `dev`; the command is a fast iteration entry point, not a watcher.
+
+`beluga test` runs the project's Go test suite. It is a thin wrapper around `go test` that resolves the project's module root and applies the same provider-registration imports the rest of the CLI uses, so tests that touch the registry behave the same way the running program does.
+
+`beluga run` executes the agent against a live LLM, using whichever provider is configured. It is the production-shaped entry point — the same binary path the deployed program uses, exposed locally.
+
+All three subcommands bootstrap observability the same way. When `OTEL_EXPORTER_OTLP_ENDPOINT` (or a related variable) is set, traces and metrics flow through a real OpenTelemetry pipeline. If not, the bootstrap silently no-ops. There is no separate "dev observability" path to maintain; the same wiring runs everywhere.
+
+## What shipped in v2.13.0: `beluga eval`
+
+v2.13.0 (2026-04-22, [LOO-154]) added `beluga eval`. The subcommand scaffolds an `evals/` branch in the project directory, sitting alongside the main code, and runs evaluation suites defined there from the terminal. It integrates directly with the `eval/judge` package: each case is run against the configured agent, the configured rubric is applied by an LLM judge, and the results are reported with per-case scores.
+
+The package surface is the same one application code already used; `beluga eval` simply removes the boilerplate of writing a `main` to drive it.
+
+```go
+package eval_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/lookatitude/beluga-ai/v2/agents"
+	"github.com/lookatitude/beluga-ai/v2/eval"
+	"github.com/lookatitude/beluga-ai/v2/eval/judge"
+)
+
+func TestAgentRespondsFactually(t *testing.T) {
+	ctx := context.Background()
+
+	agent, err := agents.New("support")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	suite := eval.NewSuite("factuality")
+	suite.AddCase(eval.Case{
+		Input:    "What year was Go 1.0 released?",
+		Expected: "2012",
+	})
+
+	rubric := judge.Rubric{
+		Criteria: []judge.Criterion{
+			{
+				Name:   "correctness",
+				Weight: 1.0,
+				Prompt: "Does the response contain the correct year?",
+			},
+		},
+	}
+
+	results, err := suite.Run(ctx, agent, rubric)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, r := range results {
+		if r.Score < 0.8 {
+			t.Errorf("case %q scored %.2f", r.Input, r.Score)
+		}
+	}
+}
+```
+
+The same suite shape feeds `beluga eval` from the command line. Scaffolded suites land under `evals/` with the rubric defined alongside the cases, so a project gets a test-shaped evaluation flow on the first run rather than as an afterthought.
+
+The judge model is configured the same way any other provider is: through the existing config tree and provider registry. Running `beluga eval` against a different judge model is a config change, not a code change.
+
+## v2.11.1, v2.13.1, and v2.13.2: maintenance
+
+Three patch releases sat between the headline features and brought no API changes.
+
+**v2.11.1 (2026-04-21)** captured pre-push hardening learnings from DX-1 Sprint 2 and bumped the AWS SDK dependency.
+
+**v2.13.1 (2026-04-22)** documented two framework-workflow learnings (C-020 and C-021) from DX-1 Sprint 4. Documentation only.
+
+**v2.13.2 (2026-04-22)** updated `CODE-QUALITY.md`, `SECURITY.md`, and the changelog automation. CI and maintenance only.
+
+These releases are noted here for completeness; nothing in them affects program behavior.
+
+## What's next
+
+The DX-1 initiative continues. The remaining sprints add a `beluga doctor` diagnostic command, richer component generation under `beluga new`, and a unified telemetry view that brings agent traces and judge verdicts onto the same timeline. The eval CLI is the first piece of that telemetry story — judge scores from `beluga eval` already share the OpenTelemetry pipeline that `beluga run` uses, which means a future dashboard can correlate a regression in score with the underlying agent trace.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.11.1, v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every release.
