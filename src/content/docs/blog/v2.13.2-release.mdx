@@ -56,8 +56,8 @@ beluga new eval-suite customer-support
 # Run the mock LLM dev loop — no API calls needed
 beluga dev
 
-# Run your eval suite
-beluga eval run
+# Run your eval suite against a dataset
+beluga eval .beluga/eval.smoke.json
 ```
 
 The mock provider used by `beluga dev` and `beluga test` is registered through the same registry pattern as production providers, which means agent code is identical across modes. A handler that calls `llm.New("mock", ...)` under `beluga dev` and `llm.New("anthropic", ...)` under `beluga run` shares a single code path:
