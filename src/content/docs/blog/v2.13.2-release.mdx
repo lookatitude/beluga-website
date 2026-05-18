@@ -1,0 +1,118 @@
+---
+title: "Beluga AI v2.13.2: Dev Loop and Eval CLI"
+description: "Beluga AI v2.13.2 ships beluga run/dev/test for fast inner-loop iteration and beluga eval for running scaffolded evaluation suites."
+date: 2026-04-22
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: "Beluga AI v2.13.2, release notes, Go AI framework, beluga eval, beluga dev, beluga run, beluga test, mock LLM, evaluation suite, observability"
+  - tag: meta
+    attrs:
+      property: og:type
+      content: article
+  - tag: meta
+    attrs:
+      property: og:image
+      content: "/og/v2.13.2-release.png"
+  - tag: meta
+    attrs:
+      property: article:published_time
+      content: "2026-04-22T00:00:00Z"
+---
+
+Beluga AI v2.13.2 closes the four-phase developer experience initiative with two headline additions: a `beluga run`/`beluga dev`/`beluga test` inner development loop backed by a mock LLM, and a `beluga eval` CLI that runs scaffolded evaluation suites against an agent. The tag itself is a maintenance release. The substantive features arrived in v2.12.0 and v2.13.0 over the preceding twenty-four hours.
+
+## Why a dev loop and an eval runner
+
+The DX initiative has tracked a deliberate sequence: project scaffolding (v2.11.0), then inner-loop iteration, then evaluation. The scaffolding work covered in the [v2.11.0 announcement](/blog/v2.11.0-release/) reduced setup friction, but it left two gaps. Iterating on agent logic still required real provider calls — slow, billable, and non-deterministic. And the `eval/judge` package, present in earlier releases for offline scoring, had no CLI runner, so evaluations were a code-as-test exercise rather than a single command.
+
+Both gaps map to concrete problems that show up in production work. Developers iterating on prompts or tool definitions waste time waiting on network round-trips. Evaluation suites that live as ad-hoc Go tests drift away from the agent code they measure. v2.12.0 and v2.13.0 address each in turn.
+
+## What shipped
+
+### `beluga run` / `beluga dev` / `beluga test` (v2.12.0)
+
+v2.12.0 introduced three CLI commands for the inner development loop. `beluga run` executes an agent against the providers configured in the project. `beluga dev` swaps in a mock LLM, so iteration on agent structure, tool wiring, and prompt scaffolding requires no API calls and no API key. `beluga test` hooks into the same mock to produce deterministic output, making agent tests reproducible across machines and CI runs.
+
+The release also wires real observability bootstrap at startup. Traces are configured when the agent process starts rather than left to the developer to enable manually. The bootstrap is the same pipeline groundwork the v2.10.0 CLI laid down; v2.12.0 connects it to the runtime, so spans emitted by `beluga run` carry the same shape that the planned telemetry pipeline will consume.
+
+The mock LLM is a first-class provider registered through the standard registry, not a test double bolted on at the edges. That keeps agent code identical between `beluga dev` and `beluga run`: the only thing that changes is which provider the registry resolves.
+
+### `beluga eval` (v2.13.0)
+
+v2.13.0 added the `beluga eval` command. It runs an evaluation suite against a scaffolded `eval/` directory — a structured branch of the project layout that `beluga new` can produce. The runner connects to the existing `eval/judge` package, so judges, scoring criteria, and verdict formats are the ones already in the framework. What changed is the entry point: an evaluation that previously required a custom `main.go` is now a single command.
+
+Together, v2.12.0 and v2.13.0 complete phases S3 and S4 of the DX initiative. The four-phase sequence — init, scaffold, dev loop, eval — is now end-to-end.
+
+### v2.11.1, v2.13.1, v2.13.2
+
+Three maintenance releases landed between the headline tags. v2.11.1 (2026-04-21) covered documentation refreshes and AWS SDK dependency bumps across four packages. v2.13.1 (2026-04-22) updated documentation for v2.13.0's eval command and handled release maintenance. v2.13.2 (2026-04-22) is the announced tag: it refreshes `CODE-QUALITY.md` and `SECURITY.md`, applies CI improvements, and carries no functional code changes.
+
+## Quick example
+
+The end-to-end DX flow now fits in three commands. Scaffold an evaluation suite alongside an existing customer-support agent, iterate against the mock LLM, and run the suite:
+
+```shell
+# Scaffold an eval suite alongside your agent
+beluga new eval-suite customer-support
+
+# Run the mock LLM dev loop — no API calls needed
+beluga dev
+
+# Run your eval suite against a dataset
+beluga eval .beluga/eval.smoke.json
+```
+
+The mock provider used by `beluga dev` and `beluga test` is registered through the same registry pattern as production providers, which means agent code is identical across modes. A handler that calls `llm.New("mock", ...)` under `beluga dev` and `llm.New("anthropic", ...)` under `beluga run` shares a single code path:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/mock"
+)
+
+func main() {
+	ctx := context.Background()
+
+	provider := os.Getenv("BELUGA_PROVIDER")
+	if provider == "" {
+		provider = "anthropic"
+	}
+
+	model, err := llm.New(provider, config.ProviderConfig{
+		APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Model:  "claude-3-5-haiku-20241022",
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	resp, err := model.Generate(ctx, "Summarize this support ticket.")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	fmt.Println(resp.Content)
+}
+```
+
+`beluga dev` sets `BELUGA_PROVIDER=mock` for the process; `beluga run` leaves the variable unset and the agent resolves to the configured provider. The mock provider is registered via the blank import at the top of the file.
+
+## What's next
+
+Two work items continue from the [v2.11.0 outlook](/blog/v2.11.0-release/) and remain open. The unified observability pipeline — connecting agent traces and `eval/judge` verdicts into a single telemetry surface — is in progress; the v2.12.0 bootstrap is the runtime side of that work, and the pipeline-side wiring follows. The `beluga doctor` command for diagnosing common configuration issues is also still planned.
+
+Beyond DX-1, the next initiative will widen `beluga new`'s component coverage and extend the eval runner with multi-suite execution and additional judge output formats.
+
+See the [full changelog](/docs/contributing/project-reports/changelog) for the complete commit list across v2.11.1, v2.12.0, v2.13.0, v2.13.1, and v2.13.2. Runnable Beluga examples are maintained at [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) and are tested automatically against every new release.
