@@ -15,7 +15,7 @@ Choose Fish Audio when you want an open-source-friendly TTS option with voice cl
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/fish"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/fish"
 ```
 
 The blank import registers the `"fish"` provider with the TTS registry.
@@ -45,8 +45,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/fish"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/fish"
 )
 
 func main() {
@@ -74,7 +74,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/fish"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/fish"
 
 engine, err := fish.New(tts.Config{
     Voice: "custom-reference-id",

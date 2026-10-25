@@ -37,9 +37,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/lookatitude/beluga-ai/voice/session"
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	"github.com/lookatitude/beluga-ai/voice/tts"
+	"github.com/lookatitude/beluga-ai/v2/voice/session"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
 )
 
 var tracer = otel.Tracer("beluga.voice.session.preemptive")

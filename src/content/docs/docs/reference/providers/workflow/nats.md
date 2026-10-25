@@ -15,7 +15,7 @@ Choose NATS when you want a lightweight, durable key-value store with native key
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/workflow/providers/nats
+go get github.com/lookatitude/beluga-ai/v2/workflow/providers/nats
 ```
 
 Start a NATS server with JetStream enabled:
@@ -34,8 +34,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/workflow"
-    natsstore "github.com/lookatitude/beluga-ai/workflow/providers/nats"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    natsstore "github.com/lookatitude/beluga-ai/v2/workflow/providers/nats"
 )
 
 func main() {

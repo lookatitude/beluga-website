@@ -23,7 +23,7 @@ The Azure Speech integration uses the `voice/tts` package registry to create a T
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 Set environment variables:
@@ -46,7 +46,7 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
 )
 
 func main() {

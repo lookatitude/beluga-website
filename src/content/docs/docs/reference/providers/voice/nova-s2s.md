@@ -15,7 +15,7 @@ Choose Amazon Nova S2S when your infrastructure is AWS-native and you want speec
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/nova"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 ```
 
 The blank import registers the `"nova"` provider with the S2S registry.
@@ -50,8 +50,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/nova"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 )
 
 func main() {
@@ -99,7 +99,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/s2s/providers/nova"
+import "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 
 engine, err := nova.New(s2s.Config{
     Model:        "amazon.nova-sonic-v1:0",

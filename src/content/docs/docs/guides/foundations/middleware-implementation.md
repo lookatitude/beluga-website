@@ -51,8 +51,8 @@ import (
     "log/slog"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func LoggingMiddleware(logger *slog.Logger) llm.Middleware {

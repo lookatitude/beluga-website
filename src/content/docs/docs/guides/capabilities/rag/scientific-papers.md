@@ -51,8 +51,8 @@ import (
     "fmt"
     "regexp"
 
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type AcademicSplitter struct {
@@ -289,7 +289,7 @@ import (
     "fmt"
     "path/filepath"
 
-    "github.com/lookatitude/beluga-ai/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
 )
 
 type FormatParser interface {
@@ -392,7 +392,7 @@ Track processing metrics and section detection accuracy:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 

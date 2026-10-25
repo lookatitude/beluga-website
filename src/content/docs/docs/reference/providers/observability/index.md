@@ -46,7 +46,7 @@ type LLMCallData struct {
 The `o11y` package provides native OpenTelemetry tracing with GenAI semantic conventions:
 
 ```go
-import "github.com/lookatitude/beluga-ai/o11y"
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 // Initialize tracer with default OTLP exporter
 shutdown, err := o11y.InitTracer("my-service")
@@ -156,9 +156,9 @@ Fan out trace data to multiple platforms simultaneously:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "github.com/lookatitude/beluga-ai/o11y/providers/langfuse"
-    "github.com/lookatitude/beluga-ai/o11y/providers/phoenix"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/langfuse"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/phoenix"
 )
 
 lfExporter, err := langfuse.New(

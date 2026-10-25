@@ -15,7 +15,7 @@ Choose DeepSeek for strong reasoning and coding tasks at competitive prices. The
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/deepseek
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/deepseek
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/deepseek"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/deepseek"
 )
 
 func main() {
@@ -125,7 +125,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/deepseek"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/deepseek"
 
 model, err := deepseek.New(config.ProviderConfig{
     Model:  "deepseek-chat",

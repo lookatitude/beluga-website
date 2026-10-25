@@ -31,8 +31,8 @@ You can instantiate any provider two ways:
 import (
     "time"
 
-    "github.com/lookatitude/beluga-ai/cache"
-    _ "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/cache"
+    _ "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 )
 
 c, err := cache.New("inmemory", cache.Config{
@@ -44,7 +44,7 @@ c, err := cache.New("inmemory", cache.Config{
 **Via direct construction** (for compile-time type safety):
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 
 c := inmemory.New(cache.Config{
     TTL:     5 * time.Minute,
@@ -75,7 +75,7 @@ All providers accept `cache.Config`:
 The `cache.SemanticCache` wraps any `Cache` to provide similarity-based lookups using embedding vectors:
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache"
+import "github.com/lookatitude/beluga-ai/v2/cache"
 
 c, err := cache.New("inmemory", cache.Config{TTL: 10 * time.Minute})
 if err != nil {

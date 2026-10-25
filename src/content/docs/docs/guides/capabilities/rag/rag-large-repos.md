@@ -56,8 +56,8 @@ import (
     "go/token"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type GoCodeSplitter struct {
@@ -195,7 +195,7 @@ Define separators for different programming languages:
 package main
 
 import (
-    "github.com/lookatitude/beluga-ai/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 )
 
 func GetSeparatorsForLanguage(language string) []string {
@@ -520,7 +520,7 @@ Track splitting metrics and boundary preservation:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 
@@ -557,7 +557,7 @@ func (c *CodeProcessor) ProcessWithObservability(ctx context.Context, repoPath s
 Cache parsed ASTs to avoid repeated parsing:
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache"
+import "github.com/lookatitude/beluga-ai/v2/cache"
 
 type CachedGoCodeSplitter struct {
     GoCodeSplitter

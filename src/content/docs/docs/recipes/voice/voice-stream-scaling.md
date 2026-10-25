@@ -35,9 +35,9 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/lookatitude/beluga-ai/voice/backend"
-	vbiface "github.com/lookatitude/beluga-ai/voice/backend/iface"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/livekit"
+	"github.com/lookatitude/beluga-ai/v2/voice/backend"
+	vbiface "github.com/lookatitude/beluga-ai/v2/voice/backend/iface"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/backend/providers/livekit"
 )
 
 var (

@@ -65,7 +65,7 @@ type GuardResult struct {
 The pipeline constructor accepts guards grouped by stage. Guards within each stage execute in order, and the first guard that blocks content short-circuits the remaining guards in that stage. This ordering matters: place the cheapest, most common checks first to avoid unnecessary work.
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
 pipeline := guard.NewPipeline(
 	guard.Input(
@@ -202,7 +202,7 @@ Not every safety decision can be automated. The `hitl` package manages approval 
 The HITL manager coordinates approval requests, manages timeouts for pending decisions, and notifies reviewers through configurable channels.
 
 ```go
-import "github.com/lookatitude/beluga-ai/hitl"
+import "github.com/lookatitude/beluga-ai/v2/hitl"
 
 mgr := hitl.NewManager(
 	hitl.WithTimeout(30 * time.Second),

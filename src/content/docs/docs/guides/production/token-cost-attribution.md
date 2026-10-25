@@ -193,8 +193,8 @@ package main
 import (
     "context"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // CostTrackingMiddleware wraps an LLM to track costs

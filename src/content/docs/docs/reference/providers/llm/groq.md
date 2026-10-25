@@ -15,7 +15,7 @@ Choose Groq when inference latency is your primary concern. Groq's LPU hardware 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/groq
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/groq
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/groq"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/groq"
 )
 
 func main() {
@@ -142,7 +142,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/groq"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/groq"
 
 model, err := groq.New(config.ProviderConfig{
     Model:  "llama-3.3-70b-versatile",

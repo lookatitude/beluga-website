@@ -31,7 +31,7 @@ When using Beluga AI's voice pipeline with the LiveKit transport, webhooks provi
 Install the Beluga AI module:
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration

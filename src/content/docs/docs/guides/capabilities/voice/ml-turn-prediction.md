@@ -46,8 +46,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice/turndetection"
-	_ "github.com/lookatitude/beluga-ai/voice/turndetection/providers/onnx"
+	"github.com/lookatitude/beluga-ai/v2/voice/turndetection"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/turndetection/providers/onnx"
 )
 
 func main() {

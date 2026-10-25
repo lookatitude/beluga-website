@@ -34,10 +34,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -105,7 +105,7 @@ persona := agent.Persona{
 Tools give your agent the ability to interact with the outside world — querying APIs, reading databases, performing calculations, or any other side effect. `FuncTool` wraps any Go function into a tool that the agent can call. The function's input struct defines the tool's parameter schema: struct tags specify JSON field names, descriptions, and validation constraints. Beluga generates the JSON Schema automatically from these tags, so the LLM sees a properly documented schema and can decide when and how to invoke the tool.
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 
 type WeatherInput struct {
 	City string `json:"city" description:"City name" required:"true"`
@@ -306,11 +306,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/tool"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/tool"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 type SearchInput struct {

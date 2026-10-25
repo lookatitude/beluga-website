@@ -26,7 +26,7 @@ A multi-step data processing pipeline that loads data, branches to different ana
 A `Graph` is composed of named nodes (each a `core.Runnable`) connected by directed `Edge` values. Traversal starts at a configured entry node and follows matching edges until a terminal node (one with no outgoing edges) is reached. The graph itself implements `core.Runnable`, which means it can be embedded as a node inside another graph -- enabling hierarchical composition of complex workflows.
 
 ```go
-import "github.com/lookatitude/beluga-ai/orchestration"
+import "github.com/lookatitude/beluga-ai/v2/orchestration"
 
 // Edge has From, To, and an optional Condition function.
 // If Condition is nil, the edge is unconditional (always taken).
@@ -54,8 +54,8 @@ import (
     "iter"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/orchestration"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/orchestration"
 )
 
 // runnableFunc wraps a function as a core.Runnable.

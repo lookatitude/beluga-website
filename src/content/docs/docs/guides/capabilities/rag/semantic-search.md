@@ -43,12 +43,12 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type ContentItem struct {
@@ -170,8 +170,8 @@ Use Beluga AI's hybrid retriever to combine vector similarity with BM25 keyword 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/hybrid"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/retriever/providers/hybrid"
 )
 
 func (s *SearchService) HybridSearch(ctx context.Context, query string, k int) ([]schema.Document, error) {
@@ -273,7 +273,7 @@ Extend search to handle both text and images using multi-modal embeddings:
 
 ```go
 import (
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai" // Supports CLIP
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai" // Supports CLIP
 )
 
 func (s *SearchService) ImageSearch(ctx context.Context, imageURL string, k int) ([]SearchResult, error) {
@@ -340,7 +340,7 @@ Track search performance and quality:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )

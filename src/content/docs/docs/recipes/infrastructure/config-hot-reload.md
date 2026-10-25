@@ -36,7 +36,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
+	"github.com/lookatitude/beluga-ai/v2/config"
 )
 
 // AppConfig is the application-specific configuration type.

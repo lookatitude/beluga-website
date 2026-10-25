@@ -29,11 +29,11 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
 
     // Register the provider you need via blank import
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/github"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/github"
 )
 
 func main() {
@@ -90,7 +90,7 @@ names := loader.List()
 Loaders can be combined with transformers in a pipeline. The pipeline runs all loaders, concatenates their results, and applies transformers to each document:
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader"
 
 pipeline := loader.NewPipeline(
     loader.WithLoader(githubLoader),

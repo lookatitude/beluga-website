@@ -17,7 +17,7 @@ This is the only provider that registers into the `workflow.DurableExecutor` reg
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/workflow/providers/temporal
+go get github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal
 ```
 
 Start a local Temporal server for development:
@@ -39,8 +39,8 @@ import (
 
     "go.temporal.io/sdk/client"
 
-    "github.com/lookatitude/beluga-ai/workflow"
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )
 
 func main() {
@@ -121,7 +121,7 @@ Create an executor directly without the registry:
 ```go
 import (
     "go.temporal.io/sdk/client"
-    temporalwf "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    temporalwf "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )
 
 c, err := client.Dial(client.Options{

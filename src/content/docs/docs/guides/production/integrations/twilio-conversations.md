@@ -59,7 +59,7 @@ import (
 	"log"
 	"os"
 
-	twilioprovider "github.com/lookatitude/beluga-ai/protocol/twilio"
+	twilioprovider "github.com/lookatitude/beluga-ai/v2/protocol/twilio"
 )
 
 func main() {
@@ -166,8 +166,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	twilioprovider "github.com/lookatitude/beluga-ai/protocol/twilio"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	twilioprovider "github.com/lookatitude/beluga-ai/v2/protocol/twilio"
 )
 
 func main() {

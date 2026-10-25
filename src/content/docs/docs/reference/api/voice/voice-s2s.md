@@ -11,7 +11,7 @@ head:
 ## s2s
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/s2s"
+import "github.com/lookatitude/beluga-ai/v2/voice/s2s"
 ```
 
 Package s2s provides the speech-to-speech (S2S) interface and provider
@@ -60,7 +60,7 @@ Providers register via `Register` in their init() function and are created
 with `New`. Use `List` to discover available providers.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 
 engine, err := s2s.New("openai_realtime", s2s.Config{Voice: "alloy"})
 session, err := engine.Start(ctx)
@@ -98,7 +98,7 @@ OnInterrupt, OnToolCall, and OnError. Use `ComposeHooks` to merge hooks.
 ## gemini
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/s2s/providers/gemini"
+import "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/gemini"
 ```
 
 Package gemini provides the Gemini Live S2S provider for the Beluga AI voice
@@ -111,7 +111,7 @@ This package registers itself as "gemini_live" with the s2s registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/gemini"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/gemini"
 ```
 
 ## Usage
@@ -145,7 +145,7 @@ are passed through [s2s.Config] fields.
 ## nova
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/s2s/providers/nova"
+import "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 ```
 
 Package nova provides the Amazon Nova S2S provider for the Beluga AI voice
@@ -158,7 +158,7 @@ This package registers itself as "nova" with the s2s registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/nova"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 ```
 
 ## Usage
@@ -192,7 +192,7 @@ passed through [s2s.Config] fields.
 ## openai
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+import "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 ```
 
 Package openai provides the OpenAI Realtime S2S provider for the Beluga AI
@@ -206,7 +206,7 @@ This package registers itself as "openai_realtime" with the s2s registry.
 Import it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 ```
 
 ## Usage

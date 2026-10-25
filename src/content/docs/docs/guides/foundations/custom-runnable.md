@@ -52,7 +52,7 @@ import (
     "iter"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 // KeywordSentiment analyzes text for positive or negative keywords.

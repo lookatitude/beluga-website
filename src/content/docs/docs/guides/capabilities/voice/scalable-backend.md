@@ -33,9 +33,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice/backend"
-	vbiface "github.com/lookatitude/beluga-ai/voice/backend/iface"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/livekit"
+	"github.com/lookatitude/beluga-ai/v2/voice/backend"
+	vbiface "github.com/lookatitude/beluga-ai/v2/voice/backend/iface"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/backend/providers/livekit"
 )
 
 func main() {
@@ -178,9 +178,9 @@ The backend registry supports multiple providers. Register additional providers 
 
 ```go
 import (
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/livekit"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/vapi"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/pipecat"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/backend/providers/livekit"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/backend/providers/vapi"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/backend/providers/pipecat"
 )
 
 // createBackendForProvider creates a backend with the specified provider.

@@ -26,7 +26,7 @@ An audio analysis pipeline that sends audio files to a multimodal model for summ
 The `schema.AudioPart` type carries raw audio data with format metadata. The `Format` field tells the provider how to decode the bytes, and `SampleRate` provides additional context for providers that need it. The provider's implementation handles encoding (typically base64) and any format conversion transparently, so your application code works with raw bytes.
 
 ```go
-import "github.com/lookatitude/beluga-ai/schema"
+import "github.com/lookatitude/beluga-ai/v2/schema"
 
 audioPart := schema.AudioPart{
     Data:       audioBytes,
@@ -60,11 +60,11 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 )
 
 func main() {

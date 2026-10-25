@@ -34,7 +34,7 @@ Key enterprise capabilities:
 Install the Anthropic provider:
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/anthropic
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic
 ```
 
 Set your enterprise API key:
@@ -58,10 +58,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -166,7 +166,7 @@ if err != nil {
 Wrap the enterprise model with Beluga's resilience middleware for production use:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 policy := resilience.RetryPolicy{
 	MaxAttempts:    5,
@@ -196,7 +196,7 @@ Integrate OpenTelemetry tracing to monitor enterprise API calls:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/llm"
+	"github.com/lookatitude/beluga-ai/v2/llm"
 	"go.opentelemetry.io/otel"
 )
 

@@ -15,7 +15,7 @@ Choose AssemblyAI when you need both real-time streaming and high-quality async 
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 ```
 
 The blank import registers the `"assemblyai"` provider with the STT registry.
@@ -49,8 +49,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 )
 
 func main() {
@@ -81,7 +81,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 
 engine, err := assemblyai.New(stt.Config{
     Language:    "en",

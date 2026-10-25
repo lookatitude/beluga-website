@@ -13,10 +13,10 @@ Every Layer 3 capability package (`llm`, `tool`, `memory`, `rag/*`, `voice/*`, `
 
 ```go
 import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 base, err := llm.New("anthropic", llm.Config{Model: "claude-sonnet-4-6"})

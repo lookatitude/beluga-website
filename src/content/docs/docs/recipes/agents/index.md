@@ -28,9 +28,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/core"
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/core"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // Wrap tools with error-handling middleware before passing to the agent.
@@ -99,8 +99,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // validateToolExists checks that the named tool is registered.
@@ -173,8 +173,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 func main() {
@@ -241,8 +241,8 @@ import (
 	"iter"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // ReviewAgent performs code review with a multi-pass approach.
@@ -347,7 +347,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func main() {
@@ -436,7 +436,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func main() {
@@ -502,8 +502,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 func main() {
@@ -566,8 +566,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 func main() {
@@ -616,9 +616,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
 )
 
 func main() {

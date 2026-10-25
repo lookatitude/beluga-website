@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm"
+import "github.com/lookatitude/beluga-ai/v2/llm"
 ```
 
 Package llm provides the LLM abstraction layer for the Beluga AI framework.
@@ -49,11 +49,11 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -189,7 +189,7 @@ import (
     "log/slog"
     "os"
 
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 func applyMiddleware(model llm.ChatModel, backup llm.ChatModel) llm.ChatModel {
@@ -232,8 +232,8 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func loggingHooks() llm.Hooks {
@@ -264,8 +264,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type Sentiment struct {
@@ -308,8 +308,8 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func fitMessages(ctx context.Context, msgs []schema.Message) ([]schema.Message, error) {
@@ -363,7 +363,7 @@ package main
 import (
     "log"
 
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 func makeRouter(modelA, modelB llm.ChatModel) llm.ChatModel {

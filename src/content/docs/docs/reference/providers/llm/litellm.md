@@ -15,7 +15,7 @@ Choose LiteLLM when you need centralized LLM management at the infrastructure la
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/litellm
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/litellm
 ```
 
 **Prerequisites:** A running LiteLLM proxy instance. The quickest way to start one:
@@ -44,10 +44,10 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/litellm"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/litellm"
 )
 
 func main() {
@@ -144,7 +144,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/litellm"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/litellm"
 
 model, err := litellm.New(config.ProviderConfig{
     Model:   "gpt-4o",

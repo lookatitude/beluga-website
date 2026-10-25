@@ -61,7 +61,7 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/google"
+    "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 )
 
 func main() {
@@ -113,7 +113,7 @@ Vertex AI with Gemini models supports multiple input modalities. Use Beluga AI's
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // Text + Image
@@ -173,8 +173,8 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/google"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/trace"

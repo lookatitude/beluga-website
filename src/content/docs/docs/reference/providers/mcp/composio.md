@@ -15,7 +15,7 @@ Choose Composio when you want to give agents access to SaaS integrations (Gmail,
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/protocol/mcp/providers/composio
+go get github.com/lookatitude/beluga-ai/v2/protocol/mcp/providers/composio
 ```
 
 ## Configuration
@@ -43,7 +43,7 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/protocol/mcp/providers/composio"
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp/providers/composio"
 )
 
 func main() {
@@ -108,8 +108,8 @@ Composio tools integrate directly with Beluga agents since they implement `tool.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/protocol/mcp/providers/composio"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp/providers/composio"
 )
 
 client, err := composio.New(
@@ -137,7 +137,7 @@ myAgent := agent.New("assistant",
 Add Composio tools to a local tool registry for centralized management:
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 
 registry := tool.NewRegistry()
 

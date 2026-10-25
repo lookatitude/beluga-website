@@ -29,7 +29,7 @@ The trade-off is clear: predictable token usage and zero latency overhead, but c
 package main
 
 import (
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // WindowMemory retains only the last windowSize messages.
@@ -80,7 +80,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 // SummaryMemory maintains a running summary of the conversation.

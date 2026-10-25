@@ -33,7 +33,7 @@ The `mongodb` store implements the `memory.MessageStore` interface, storing each
 Install the MongoDB memory store:
 
 ```bash
-go get github.com/lookatitude/beluga-ai/memory/stores/mongodb
+go get github.com/lookatitude/beluga-ai/v2/memory/stores/mongodb
 ```
 
 Start a local MongoDB instance if you do not already have one:
@@ -61,8 +61,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/memory/stores/mongodb"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/memory/stores/mongodb"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -116,8 +116,8 @@ The MongoDB store plugs into Beluga's `CompositeMemory` as the recall tier for s
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/memory/stores/mongodb"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/memory/stores/mongodb"
 )
 
 // Create a MongoDB-backed recall store.

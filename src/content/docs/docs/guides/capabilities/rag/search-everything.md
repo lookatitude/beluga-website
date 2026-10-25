@@ -59,8 +59,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/server"
-    "github.com/lookatitude/beluga-ai/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/server"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
     "go.opentelemetry.io/otel/trace"
     "go.opentelemetry.io/otel/metric"
 )
@@ -314,7 +314,7 @@ package main
 
 import (
     "context"
-    "github.com/lookatitude/beluga-ai/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
 )
 
 type DocumentationSearcher struct {
@@ -376,7 +376,7 @@ Track search metrics and source performance:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 
@@ -415,7 +415,7 @@ func (s *SearchOrchestrator) SearchWithObservability(ctx context.Context, query 
 Cache frequent queries to reduce latency:
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache"
+import "github.com/lookatitude/beluga-ai/v2/cache"
 
 type CachedSearchOrchestrator struct {
     SearchOrchestrator

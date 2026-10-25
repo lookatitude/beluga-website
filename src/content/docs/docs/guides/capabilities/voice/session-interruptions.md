@@ -31,11 +31,11 @@ import (
 	"context"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/voice/session"
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/voice/tts/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/voice/session"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/openai"
 )
 
 func main() {
@@ -153,8 +153,8 @@ For more reliable interruption detection, add a VAD provider to the session. VAD
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/vad"
-	_ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+	"github.com/lookatitude/beluga-ai/v2/voice/vad"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {

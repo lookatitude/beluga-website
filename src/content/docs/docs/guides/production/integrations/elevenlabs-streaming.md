@@ -22,7 +22,7 @@ The ElevenLabs integration uses the `voice/tts` package registry to create a str
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 Set your API key:
@@ -44,7 +44,7 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
 )
 
 func main() {

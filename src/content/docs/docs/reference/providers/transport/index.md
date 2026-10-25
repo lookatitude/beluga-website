@@ -29,8 +29,8 @@ You can instantiate any provider two ways:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/transport"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+    "github.com/lookatitude/beluga-ai/v2/voice/transport"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 )
 
 t, err := transport.New("livekit", transport.Config{
@@ -42,7 +42,7 @@ t, err := transport.New("livekit", transport.Config{
 **Via direct construction** (for compile-time type safety):
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 
 t, err := livekit.New(transport.Config{
     URL:   "wss://myapp.livekit.cloud",
@@ -86,7 +86,7 @@ transport.WithChannels(1)(&cfg)
 The `transport` package includes a built-in WebSocket transport that requires no additional imports:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport"
 
 t, err := transport.New("websocket", transport.Config{
     URL:        "ws://localhost:8080/audio",

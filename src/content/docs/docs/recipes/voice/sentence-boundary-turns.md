@@ -37,7 +37,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/lookatitude/beluga-ai/voice/turndetection"
+	"github.com/lookatitude/beluga-ai/v2/voice/turndetection"
 )
 
 var tracer = otel.Tracer("beluga.voice.turndetection.recipe")

@@ -42,8 +42,8 @@ import (
     "fmt"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func generateQueries(ctx context.Context, model llm.ChatModel, question string, numQueries int) ([]string, error) {

@@ -77,8 +77,8 @@ import (
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/metric"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type BatchConfig struct {

@@ -11,7 +11,7 @@ head:
 ## cohere
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere"
 ```
 
 Package cohere provides a Cohere embeddings provider for the Beluga AI framework.
@@ -24,8 +24,8 @@ The provider registers as "cohere" in the embedding registry:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere"
 )
 
 emb, err := embedding.New("cohere", config.ProviderConfig{
@@ -57,7 +57,7 @@ ProviderConfig fields:
 ## google
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/google"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/google"
 ```
 
 Package google provides a Google AI embeddings provider for the Beluga AI framework.
@@ -69,7 +69,7 @@ to call the Google AI Gemini embedding API.
 The provider registers as "google" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/google"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/google"
 
 emb, err := embedding.New("google", config.ProviderConfig{
     APIKey: "...",
@@ -97,7 +97,7 @@ ProviderConfig fields:
 ## inmemory
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/inmemory"
 ```
 
 Package inmemory provides a deterministic hash-based Embedder for testing.
@@ -110,7 +110,7 @@ calls. The resulting vectors are normalized to unit length.
 The provider registers as "inmemory" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/inmemory"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/inmemory"
 
 emb, err := embedding.New("inmemory", config.ProviderConfig{})
 ```
@@ -125,7 +125,7 @@ ProviderConfig fields:
 ## jina
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/jina"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/jina"
 ```
 
 Package jina provides a Jina AI embeddings provider for the Beluga AI framework.
@@ -137,7 +137,7 @@ via the internal httpclient.
 The provider registers as "jina" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/jina"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/jina"
 
 emb, err := embedding.New("jina", config.ProviderConfig{
     APIKey: "...",
@@ -167,7 +167,7 @@ ProviderConfig fields:
 ## mistral
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/mistral"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/mistral"
 ```
 
 Package mistral provides an Embedder backed by the Mistral AI embeddings API.
@@ -179,7 +179,7 @@ via the internal httpclient.
 The provider registers as "mistral" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/mistral"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/mistral"
 
 emb, err := embedding.New("mistral", config.ProviderConfig{
     APIKey: "...",
@@ -206,7 +206,7 @@ ProviderConfig fields:
 ## ollama
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 ```
 
 Package ollama provides an Ollama embeddings provider for the Beluga AI framework.
@@ -219,7 +219,7 @@ without external API calls.
 The provider registers as "ollama" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 
 emb, err := embedding.New("ollama", config.ProviderConfig{
     BaseURL: "http://localhost:11434",
@@ -247,7 +247,7 @@ ProviderConfig fields:
 ## openai
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 ```
 
 Package openai provides an OpenAI embeddings provider for the Beluga AI framework.
@@ -258,7 +258,7 @@ It implements the [embedding.Embedder] interface using the openai-go SDK.
 The provider registers as "openai" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 
 emb, err := embedding.New("openai", config.ProviderConfig{
     APIKey: "sk-...",
@@ -286,7 +286,7 @@ ProviderConfig fields:
 ## sentence_transformers
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/sentence_transformers"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/sentence_transformers"
 ```
 
 Package sentencetransformers provides an Embedder backed by the HuggingFace
@@ -298,7 +298,7 @@ Inference API for Sentence Transformers models. It implements the
 The provider registers as "sentence_transformers" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/sentence_transformers"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/sentence_transformers"
 
 emb, err := embedding.New("sentence_transformers", config.ProviderConfig{
     APIKey: "hf_...",
@@ -331,7 +331,7 @@ ProviderConfig fields:
 ## voyage
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding/providers/voyage"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/voyage"
 ```
 
 Package voyage provides a Voyage AI embeddings provider for the Beluga AI framework.
@@ -343,7 +343,7 @@ via the internal httpclient.
 The provider registers as "voyage" in the embedding registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/voyage"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/voyage"
 
 emb, err := embedding.New("voyage", config.ProviderConfig{
     APIKey: "...",

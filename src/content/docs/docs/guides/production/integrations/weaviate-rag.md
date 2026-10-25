@@ -63,8 +63,8 @@ import (
 
 	"github.com/weaviate/weaviate-go-client/v4/weaviate"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // WeaviateRetriever performs vector similarity search against a Weaviate instance.
@@ -241,9 +241,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
 	"go.opentelemetry.io/otel"

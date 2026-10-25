@@ -61,7 +61,7 @@ import (
     "io"
     "sync"
 
-    "github.com/lookatitude/beluga-ai/config"
+    "github.com/lookatitude/beluga-ai/v2/config"
 )
 
 // TenantAPIKey represents a tenant's API key configuration.
@@ -305,7 +305,7 @@ Each tenant's keys are isolated through separate namespaces in the configuration
 Track all key operations for compliance:
 
 ```go
-import "github.com/lookatitude/beluga-ai/o11y"
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 func (m *APIKeyManager) auditKeyOperation(ctx context.Context, operation string, tenantID string) {
     logger := o11y.LoggerFromContext(ctx)

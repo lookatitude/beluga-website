@@ -45,11 +45,11 @@ import (
     "fmt"
     "path/filepath"
 
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // ArchiveIngestionSystem implements legacy archive ingestion.

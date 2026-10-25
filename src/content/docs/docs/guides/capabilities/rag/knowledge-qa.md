@@ -46,17 +46,17 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type KnowledgeQASystem struct {
@@ -321,9 +321,9 @@ package main
 
 import (
     "context"
-    "github.com/lookatitude/beluga-ai/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
 
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/hybrid"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/retriever/providers/hybrid"
 )
 
 type HybridKnowledgeQA struct {
@@ -412,7 +412,7 @@ Track query latency and retrieval quality:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
@@ -479,7 +479,7 @@ func (k *KnowledgeQASystem) IndexBatch(ctx context.Context, docPaths []string) e
 Add retry logic for transient failures:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 policy := resilience.RetryPolicy{
     MaxAttempts:    3,
@@ -499,7 +499,7 @@ answer, err := resilience.Retry(ctx, policy, func(ctx context.Context) (*Answer,
 Cache frequent queries to reduce costs:
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache"
+import "github.com/lookatitude/beluga-ai/v2/cache"
 
 type CachedKnowledgeQA struct {
     KnowledgeQASystem

@@ -41,7 +41,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {

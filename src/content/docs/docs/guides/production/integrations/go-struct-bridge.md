@@ -22,7 +22,7 @@ JSON Schema serves as the shared contract between both sides.
 ## Prerequisites
 
 - Go 1.23 or later
-- Beluga AI framework installed (`github.com/lookatitude/beluga-ai`)
+- Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - Python 3.8+ with Pydantic (for the Python side)
 - Familiarity with JSON serialization in both languages
 
@@ -31,7 +31,7 @@ JSON Schema serves as the shared contract between both sides.
 Go side:
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 go get github.com/invopop/jsonschema
 ```
 
@@ -63,7 +63,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // MessageData is the Go representation of the shared message format.
@@ -148,7 +148,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // FromPydanticJSON deserializes Pydantic JSON into a Go bridge struct.
@@ -216,7 +216,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -270,7 +270,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

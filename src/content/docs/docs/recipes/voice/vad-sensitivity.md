@@ -32,9 +32,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/lookatitude/beluga-ai/voice/vad"
-	vadiface "github.com/lookatitude/beluga-ai/voice/vad/iface"
-	_ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+	"github.com/lookatitude/beluga-ai/v2/voice/vad"
+	vadiface "github.com/lookatitude/beluga-ai/v2/voice/vad/iface"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 var tracer = otel.Tracer("beluga.voice.vad.profiles")

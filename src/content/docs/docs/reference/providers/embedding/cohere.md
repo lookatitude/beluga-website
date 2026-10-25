@@ -15,7 +15,7 @@ Choose Cohere embeddings when building search systems that benefit from asymmetr
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere"
 )
 
 func main() {
@@ -107,7 +107,7 @@ queryEmb, err := embedding.New("cohere", config.ProviderConfig{
 
 ```go
 import (
-    cohereemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere"
+    cohereemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere"
 )
 
 emb, err := cohereemb.New(config.ProviderConfig{

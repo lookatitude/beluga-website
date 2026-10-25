@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol"
+import "github.com/lookatitude/beluga-ai/v2/protocol"
 ```
 
 Package protocol provides interoperability protocols for the Beluga AI

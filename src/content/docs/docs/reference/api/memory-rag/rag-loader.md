@@ -11,7 +11,7 @@ head:
 ## loader
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader"
 ```
 
 Package loader provides document loading capabilities for the RAG pipeline.
@@ -42,7 +42,7 @@ The package follows Beluga's registry pattern. Providers register via
 init() and are instantiated with `New`:
 
 ```go
-import "github.com/lookatitude/beluga-ai/config"
+import "github.com/lookatitude/beluga-ai/v2/config"
 
 l, err := loader.New("text", config.ProviderConfig{})
 if err != nil {
@@ -106,7 +106,7 @@ func init() {
 ## cloudstorage
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/cloudstorage"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/cloudstorage"
 ```
 
 Package cloudstorage provides a DocumentLoader that loads files from cloud
@@ -119,7 +119,7 @@ service-specific APIs.
 The provider registers as "cloudstorage" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/cloudstorage"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/cloudstorage"
 
 l, err := loader.New("cloudstorage", config.ProviderConfig{
     APIKey: "your-access-key",
@@ -149,7 +149,7 @@ ProviderConfig fields:
 ## confluence
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/confluence"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/confluence"
 ```
 
 Package confluence provides a DocumentLoader that loads pages from Atlassian
@@ -160,7 +160,7 @@ Confluence via its REST API. It implements the [loader.DocumentLoader] interface
 The provider registers as "confluence" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/confluence"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/confluence"
 
 l, err := loader.New("confluence", config.ProviderConfig{
     APIKey:  "your-api-token",
@@ -182,7 +182,7 @@ ProviderConfig fields:
 ## docling
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/docling"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling"
 ```
 
 Package docling provides a DocumentLoader that uses the IBM Docling API
@@ -196,7 +196,7 @@ service that extracts text, tables, and layout from documents.
 The provider registers as "docling" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/docling"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling"
 
 l, err := loader.New("docling", config.ProviderConfig{
     BaseURL: "http://localhost:5001",
@@ -214,7 +214,7 @@ ProviderConfig fields:
 ## firecrawl
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/firecrawl"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/firecrawl"
 ```
 
 Package firecrawl provides a DocumentLoader that uses Firecrawl to crawl
@@ -228,7 +228,7 @@ JavaScript rendering, anti-bot detection, and returns clean markdown.
 The provider registers as "firecrawl" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/firecrawl"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/firecrawl"
 
 l, err := loader.New("firecrawl", config.ProviderConfig{
     APIKey: "fc-...",
@@ -246,7 +246,7 @@ ProviderConfig fields:
 ## gdrive
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/gdrive"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/gdrive"
 ```
 
 Package gdrive provides a DocumentLoader that loads files from Google Drive
@@ -258,7 +258,7 @@ interface using direct HTTP calls.
 The provider registers as "gdrive" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/gdrive"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/gdrive"
 
 l, err := loader.New("gdrive", config.ProviderConfig{
     APIKey: "your-api-key-or-oauth-token",
@@ -276,7 +276,7 @@ ProviderConfig fields:
 ## github
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/github"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/github"
 ```
 
 Package github provides a DocumentLoader that loads files from GitHub
@@ -288,7 +288,7 @@ interface using direct HTTP calls.
 The provider registers as "github" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/github"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/github"
 
 l, err := loader.New("github", config.ProviderConfig{
     APIKey: "ghp_...",
@@ -306,7 +306,7 @@ ProviderConfig fields:
 ## notion
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/notion"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/notion"
 ```
 
 Package notion provides a DocumentLoader that loads pages from Notion via
@@ -318,7 +318,7 @@ calls to the Notion API.
 The provider registers as "notion" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/notion"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/notion"
 
 l, err := loader.New("notion", config.ProviderConfig{
     APIKey: "ntn_...",
@@ -336,7 +336,7 @@ ProviderConfig fields:
 ## unstructured
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader/providers/unstructured"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/unstructured"
 ```
 
 Package unstructured provides a DocumentLoader that uses the Unstructured.io
@@ -350,7 +350,7 @@ the extracted elements as documents.
 The provider registers as "unstructured" in the loader registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/loader/providers/unstructured"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/unstructured"
 
 l, err := loader.New("unstructured", config.ProviderConfig{
     APIKey:  "key-...",

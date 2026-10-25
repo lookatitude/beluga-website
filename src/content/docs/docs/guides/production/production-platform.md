@@ -57,7 +57,7 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -128,8 +128,8 @@ Beluga AI's auth package supports RBAC (Role-Based Access Control) and ABAC (Att
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/auth"
-    _ "github.com/lookatitude/beluga-ai/auth/providers/rbac"
+    "github.com/lookatitude/beluga-ai/v2/auth"
+    _ "github.com/lookatitude/beluga-ai/v2/auth/providers/rbac"
 )
 
 func setupAuth(ctx context.Context) (auth.Policy, error) {
@@ -182,9 +182,9 @@ LLM-powered systems face safety risks at multiple points: malicious prompts on i
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/guard"
-    _ "github.com/lookatitude/beluga-ai/guard/providers/pii"
-    _ "github.com/lookatitude/beluga-ai/guard/providers/toxicity"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    _ "github.com/lookatitude/beluga-ai/v2/guard/providers/pii"
+    _ "github.com/lookatitude/beluga-ai/v2/guard/providers/toxicity"
 )
 
 func setupGuards(ctx context.Context) error {
@@ -223,7 +223,7 @@ func setupGuards(ctx context.Context) error {
 Wrap LLM and tool calls with retry, circuit breaker, and timeout:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 // Retry with exponential backoff and jitter
 retryPolicy := resilience.RetryPolicy{
@@ -264,7 +264,7 @@ result, err := breaker.Execute(ctx, func(ctx context.Context) (any, error) {
 Isolate data and configuration per tenant using Beluga AI's tenant-aware context:
 
 ```go
-import "github.com/lookatitude/beluga-ai/core"
+import "github.com/lookatitude/beluga-ai/v2/core"
 
 // Set tenant context
 ctx = core.WithTenant(ctx, core.Tenant{
@@ -333,8 +333,8 @@ For long-running, multi-step operations that must survive process restarts, use 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/workflow"
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/default"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/default"
 )
 
 executor, err := workflow.New("default", workflow.Config{})
@@ -376,8 +376,8 @@ Expose agents through REST, gRPC, or MCP endpoints:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/server"
-    _ "github.com/lookatitude/beluga-ai/server/providers/chi"
+    "github.com/lookatitude/beluga-ai/v2/server"
+    _ "github.com/lookatitude/beluga-ai/v2/server/providers/chi"
 )
 
 func setupServer(ctx context.Context, agents map[string]agent.Agent) error {

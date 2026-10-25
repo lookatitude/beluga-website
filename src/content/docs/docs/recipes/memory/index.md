@@ -31,9 +31,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // MemoryWithTTL wraps a Memory with TTL-based automatic cleanup.
@@ -154,9 +154,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // WindowMemory wraps Memory to return only the last N message pairs.
@@ -253,14 +253,14 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 
 	// Import memory providers — each registers itself via init().
 	// Only import providers you depend on at runtime.
-	_ "github.com/lookatitude/beluga-ai/memory/stores/redis"
-	_ "github.com/lookatitude/beluga-ai/memory/stores/postgres"
+	_ "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
+	_ "github.com/lookatitude/beluga-ai/v2/memory/stores/postgres"
 )
 
 func main() {
@@ -334,8 +334,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // GraphMemoryUsage demonstrates entity-relationship storage.
@@ -409,9 +409,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // CompressingMemory summarizes old messages when the history grows too long.
@@ -540,9 +540,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -603,9 +603,9 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // SessionMemoryManager creates and caches per-session memory instances.
@@ -711,9 +711,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // MemoryPriority defines retrieval weights for different memory types.

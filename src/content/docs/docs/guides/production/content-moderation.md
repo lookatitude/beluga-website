@@ -30,7 +30,7 @@ The guard pipeline runs guards at three stages, each targeting a different attac
 3. **Tool guards** -- Validate tool call arguments before execution. This prevents the model from constructing dangerous tool calls such as SQL injection, shell commands, or destructive operations.
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
 p := guard.NewPipeline(
     guard.Input(guard.NewPromptInjectionDetector()),
@@ -61,7 +61,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 func main() {
@@ -260,7 +260,7 @@ func validateToolCall(ctx context.Context, pipeline *guard.Pipeline, toolName, a
 The guard package supports external providers through Beluga AI's standard registry pattern (`Register()` + `New()` + `List()`). This allows you to swap in production-grade safety services without changing your pipeline code -- the same `guard.Guard` interface applies whether you are using a local regex detector or a cloud-hosted moderation API.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/guard/providers/lakera"
+import _ "github.com/lookatitude/beluga-ai/v2/guard/providers/lakera"
 
 lakeraGuard, err := guard.New("lakera", map[string]any{
     "api_key": os.Getenv("LAKERA_API_KEY"),

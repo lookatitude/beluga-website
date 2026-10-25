@@ -50,8 +50,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/prompt"
-    "github.com/lookatitude/beluga-ai/prompt/providers/file"
+    "github.com/lookatitude/beluga-ai/v2/prompt"
+    "github.com/lookatitude/beluga-ai/v2/prompt/providers/file"
 )
 
 func main() {
@@ -116,8 +116,8 @@ This ordering is not arbitrary. Each slot is ordered by decreasing stability: th
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/prompt"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/prompt"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 msgs := prompt.NewBuilder(

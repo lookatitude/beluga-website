@@ -85,8 +85,8 @@ Slot 6: User input          (always changes)
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/prompt"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/prompt"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 msgs := prompt.NewBuilder(

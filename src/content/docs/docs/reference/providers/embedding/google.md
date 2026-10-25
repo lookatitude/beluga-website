@@ -15,7 +15,7 @@ Choose Google embeddings when you are already using the Gemini LLM provider and 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/google
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/google
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/google"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/google"
 )
 
 func main() {
@@ -75,7 +75,7 @@ func main() {
 
 ```go
 import (
-    googleemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/google"
+    googleemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/google"
 )
 
 emb, err := googleemb.New(config.ProviderConfig{

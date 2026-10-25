@@ -61,8 +61,8 @@ This health checker verifies LLM provider connectivity by sending a minimal requ
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type LLMHealthChecker struct {

@@ -51,10 +51,10 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func streamResponse(ctx context.Context, msgs []schema.Message) error {
@@ -92,10 +92,10 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 func generateAndCollect(ctx context.Context, msgs []schema.Message) (*schema.AIMessage, error) {
@@ -151,8 +151,8 @@ import (
     "context"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func upperCaseDeltas(ctx context.Context, src core.Stream[schema.StreamChunk]) core.Stream[schema.StreamChunk] {
@@ -177,8 +177,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func mergeExample(ctx context.Context, s1, s2 core.Stream[schema.StreamChunk]) error {
@@ -237,8 +237,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func bufferedConsumer(ctx context.Context, src core.Stream[schema.StreamChunk]) error {
@@ -271,10 +271,10 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func streamWithTimeout(msgs []schema.Message) error {
@@ -307,7 +307,7 @@ import (
     "fmt"
     "iter"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 // counterStream emits n integer events then stops.

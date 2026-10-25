@@ -23,7 +23,7 @@ The Amazon Transcribe integration wraps the AWS Transcribe Streaming API to impl
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 go get github.com/aws/aws-sdk-go-v2/service/transcribestreaming
 ```
 
@@ -108,7 +108,7 @@ func (t *AWSTranscribeSTT) Transcribe(ctx context.Context, audio []byte) (string
 Use the Transcribe provider within a Beluga AI voice session:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/session"
+import "github.com/lookatitude/beluga-ai/v2/voice/session"
 
 sess, err := session.NewVoiceSession(ctx,
     session.WithSTTProvider(provider),

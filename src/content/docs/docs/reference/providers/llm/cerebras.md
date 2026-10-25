@@ -15,7 +15,7 @@ Choose Cerebras when you need the fastest possible inference for Llama models. C
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/cerebras
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/cerebras
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/cerebras"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/cerebras"
 )
 
 func main() {
@@ -125,7 +125,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/cerebras"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/cerebras"
 
 model, err := cerebras.New(config.ProviderConfig{
     Model:  "llama-3.3-70b",

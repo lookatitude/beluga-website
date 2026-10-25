@@ -15,7 +15,7 @@ Choose SambaNova when you need high-throughput batch inference or consistent low
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/sambanova
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/sambanova
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/sambanova"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/sambanova"
 )
 
 func main() {
@@ -125,7 +125,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/sambanova"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/sambanova"
 
 model, err := sambanova.New(config.ProviderConfig{
     Model:  "Meta-Llama-3.3-70B-Instruct",

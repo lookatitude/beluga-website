@@ -73,7 +73,7 @@ Content that doesn't come through `/design-feature` (i.e., briefs from `/plan-fe
 ### Blog post
 - 800–1200 words
 - Structure: hook → problem → solution → code → takeaway
-- Full compiling Go examples with complete imports (`github.com/lookatitude/beluga-ai/...`)
+- Full compiling Go examples with complete imports (`github.com/lookatitude/beluga-ai/v2/...`)
 - Link to a runnable example in `lookatitude/beluga-examples` when one exists
 - Output: `src/content/docs/blog/<slug>.mdx`
 
@@ -102,7 +102,7 @@ Content that doesn't come through `/design-feature` (i.e., briefs from `/plan-fe
 ## Code example rules
 
 - Every Go code example must compile. Verify with `go build` in a throwaway directory before including it.
-- Full imports — `github.com/lookatitude/beluga-ai/...`, never abbreviated.
+- Full imports — `github.com/lookatitude/beluga-ai/v2/...`, never abbreviated.
 - Handle errors explicitly. Show `if err != nil` checks.
 - Use the registry pattern (`llm.New("anthropic", cfg)`) not direct construction (`&openai.Provider{}`).
 - Include a `// Output:` comment showing expected output when it adds clarity.

@@ -48,13 +48,13 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type PatientHistoryTracker struct {
@@ -257,7 +257,7 @@ func (t *PatientHistoryTracker) auditLog(ctx context.Context, action, providerID
 Encrypt patient data at rest and in transit for HIPAA compliance:
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
 func NewSecurePatientHistoryTracker(ctx context.Context, encryptionKey []byte) (*PatientHistoryTracker, error) {
     embedder, err := embedding.New("openai", embedding.ProviderConfig{
@@ -320,7 +320,7 @@ Track history access and performance for compliance and optimization:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 

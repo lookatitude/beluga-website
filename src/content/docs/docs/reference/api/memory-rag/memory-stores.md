@@ -11,7 +11,7 @@ head:
 ## dragonfly
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/dragonfly"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/dragonfly"
 ```
 
 Package dragonfly provides a DragonflyDB-backed implementation of [memory.MessageStore].
@@ -21,7 +21,7 @@ go-redis client library and sorted set storage approach as the Redis store.
 ## Usage
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/dragonfly"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/dragonfly"
 
 client := goredis.NewClient(&goredis.Options{Addr: "localhost:6379"})
 store, err := dragonfly.New(dragonfly.Config{
@@ -54,7 +54,7 @@ This implementation requires github.com/redis/go-redis/v9.
 ## inmemory
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
 ```
 
 Package inmemory provides in-memory implementations of the memory store
@@ -97,7 +97,7 @@ Both stores are safe for concurrent use.
 ## memgraph
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/memgraph"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/memgraph"
 ```
 
 Package memgraph provides a Memgraph-backed [memory.GraphStore] implementation for the
@@ -107,7 +107,7 @@ so this implementation uses the Neo4j Go driver with Cypher queries.
 ## Usage
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/memgraph"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/memgraph"
 
 store, err := memgraph.New(memgraph.Config{
     URI:      "bolt://localhost:7687",
@@ -148,7 +148,7 @@ This implementation requires github.com/neo4j/neo4j-go-driver/v5.
 ## mongodb
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/mongodb"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/mongodb"
 ```
 
 Package mongodb provides a MongoDB-backed implementation of [memory.MessageStore].
@@ -158,7 +158,7 @@ monotonically increasing sequence field for chronological ordering.
 ## Usage
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/mongodb"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/mongodb"
 
 store, err := mongodb.New(mongodb.Config{
     Collection: client.Database("beluga").Collection("messages"),
@@ -189,7 +189,7 @@ the sequence field for chronological retrieval.
 ## neo4j
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/neo4j"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/neo4j"
 ```
 
 Package neo4j provides a Neo4j-backed [memory.GraphStore] implementation for the
@@ -200,7 +200,7 @@ relationship creation, querying, and neighbor traversal.
 ## Usage
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/neo4j"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/neo4j"
 
 store, err := neo4j.New(neo4j.Config{
     URI:      "neo4j://localhost:7687",
@@ -242,7 +242,7 @@ This implementation requires github.com/neo4j/neo4j-go-driver/v5.
 ## postgres
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/postgres"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/postgres"
 ```
 
 Package postgres provides a PostgreSQL-backed implementation of
@@ -255,7 +255,7 @@ This implementation uses github.com/jackc/pgx/v5 as the PostgreSQL driver.
 ## Usage
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/postgres"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/postgres"
 
 store, err := postgres.New(postgres.Config{
     DB:    pgxConn,       // *pgx.Conn, pgxpool.Pool, or pgxmock
@@ -289,7 +289,7 @@ Use `MessageStore.EnsureTable` to create it automatically.
 ## redis
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/redis"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
 ```
 
 Package redis provides a Redis-backed implementation of [memory.MessageStore].
@@ -303,7 +303,7 @@ github.com/redis/go-redis/v9 as the client library.
 ## Usage
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/redis"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
 
 client := goredis.NewClient(&goredis.Options{Addr: "localhost:6379"})
 store, err := redis.New(redis.Config{
@@ -327,7 +327,7 @@ via `Config`.Key to support multi-tenant or multi-agent deployments.
 ## sqlite
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory/stores/sqlite"
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/sqlite"
 ```
 
 Package sqlite provides a SQLite-backed implementation of [memory.MessageStore].
@@ -341,7 +341,7 @@ driver (no CGO required).
 import (
     "database/sql"
     _ "modernc.org/sqlite"
-    "github.com/lookatitude/beluga-ai/memory/stores/sqlite"
+    "github.com/lookatitude/beluga-ai/v2/memory/stores/sqlite"
 )
 
 db, err := sql.Open("sqlite", ":memory:")

@@ -25,13 +25,13 @@ All mocks implement the `llm.ChatModel` interface, making them drop-in replaceme
 ## Prerequisites
 
 - Go 1.23 or later
-- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai`)
+- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - A test suite or UI application that accepts `llm.ChatModel`
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Simple Mock
@@ -47,8 +47,8 @@ import (
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // SimpleMock maps user messages to predefined responses.
@@ -153,8 +153,8 @@ import (
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // Scenario defines a conditional response.
@@ -257,8 +257,8 @@ import (
     "iter"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // StreamingMock produces token-by-token output from a list of chunks.

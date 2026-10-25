@@ -15,7 +15,7 @@ Choose LLM Guard when you need a self-hosted, open-source safety solution with n
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/guard/providers/llmguard
+go get github.com/lookatitude/beluga-ai/v2/guard/providers/llmguard
 ```
 
 ## Quick Start
@@ -28,8 +28,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/guard"
-    "github.com/lookatitude/beluga-ai/guard/providers/llmguard"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard/providers/llmguard"
 )
 
 func main() {

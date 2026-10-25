@@ -15,7 +15,7 @@ Choose Confluence when your organization's knowledge base lives in Atlassian Con
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/loader/providers/confluence
+go get github.com/lookatitude/beluga-ai/v2/rag/loader/providers/confluence
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/confluence"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/confluence"
 )
 
 func main() {

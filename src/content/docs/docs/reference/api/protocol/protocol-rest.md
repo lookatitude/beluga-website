@@ -11,7 +11,7 @@ head:
 ## openai_agents
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/openai_agents"
+import "github.com/lookatitude/beluga-ai/v2/protocol/openai_agents"
 ```
 
 Package openai_agents provides a compatibility layer between Beluga AI agents
@@ -69,7 +69,7 @@ agents := runner.ListAgents() // returns AgentDefs for all registered agents
 ## rest
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/rest"
+import "github.com/lookatitude/beluga-ai/v2/protocol/rest"
 ```
 
 Package rest provides a REST/SSE API server for exposing Beluga agents over

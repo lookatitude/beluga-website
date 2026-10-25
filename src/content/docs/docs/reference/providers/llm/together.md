@@ -15,7 +15,7 @@ Choose Together AI when you want access to a broad catalog of open-source models
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/together
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/together
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/together"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/together"
 )
 
 func main() {
@@ -125,7 +125,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/together"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/together"
 
 model, err := together.New(config.ProviderConfig{
     Model:  "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",

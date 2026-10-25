@@ -30,7 +30,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // SessionPool manages concurrent voice sessions with resource limits.
@@ -124,7 +124,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // InterruptHandler processes barge-in events in the voice pipeline.
@@ -212,7 +212,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // LatencyTracker measures time through each pipeline stage.
@@ -321,7 +321,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // LongUtteranceHandler splits long speech into manageable segments.
@@ -416,7 +416,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // PreemptiveTTSFeeder sends complete sentences to TTS as they arrive from the LLM.
@@ -512,7 +512,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // JitterBuffer smooths irregular audio arrival for STT processing.
@@ -588,7 +588,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // NoiseGate filters audio frames below an energy threshold.
@@ -670,7 +670,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // SpeakerRouter routes text frames to the correct TTS voice based on speaker metadata.
@@ -749,7 +749,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // SSMLAnnotator transforms plain text into SSML for more natural TTS output.
@@ -820,7 +820,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // VADProfile configures VAD for a specific environment.
@@ -901,7 +901,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 func main() {

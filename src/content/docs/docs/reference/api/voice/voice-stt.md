@@ -11,7 +11,7 @@ head:
 ## stt
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt"
 ```
 
 Package stt provides the speech-to-text (STT) interface and provider registry
@@ -41,7 +41,7 @@ Providers register via `Register` in their init() function and are created
 with `New`. Use `List` to discover available providers.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 
 engine, err := stt.New("deepgram", stt.Config{Language: "en"})
 text, err := engine.Transcribe(ctx, audioBytes)
@@ -88,7 +88,7 @@ OnUtterance (finalized text), and OnError. Use `ComposeHooks` to merge.
 ## assemblyai
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 ```
 
 Package assemblyai provides the AssemblyAI STT provider for the Beluga AI
@@ -101,7 +101,7 @@ This package registers itself as "assemblyai" with the stt registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 ```
 
 ## Usage
@@ -136,7 +136,7 @@ Required configuration in Config.Extra:
 ## deepgram
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 ```
 
 Package deepgram provides the Deepgram STT provider for the Beluga AI
@@ -149,7 +149,7 @@ This package registers itself as "deepgram" with the stt registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 ```
 
 ## Usage
@@ -183,7 +183,7 @@ and sample rate are all supported through [stt.Config].
 ## elevenlabs
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/elevenlabs"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/elevenlabs"
 ```
 
 Package elevenlabs provides the ElevenLabs Scribe STT provider for the
@@ -196,7 +196,7 @@ This package registers itself as "elevenlabs" with the stt registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/elevenlabs"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/elevenlabs"
 ```
 
 ## Usage
@@ -230,7 +230,7 @@ The default model is "scribe_v1".
 ## gladia
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/gladia"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/gladia"
 ```
 
 Package gladia provides the Gladia STT provider for the Beluga AI voice
@@ -243,7 +243,7 @@ This package registers itself as "gladia" with the stt registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/gladia"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/gladia"
 ```
 
 ## Usage
@@ -277,7 +277,7 @@ Required configuration in Config.Extra:
 ## groq
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/groq"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/groq"
 ```
 
 Package groq provides the Groq STT provider for the Beluga AI voice pipeline.
@@ -289,7 +289,7 @@ This package registers itself as "groq" with the stt registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/groq"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/groq"
 ```
 
 ## Usage
@@ -324,7 +324,7 @@ The default model is "whisper-large-v3".
 ## whisper
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/whisper"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/whisper"
 ```
 
 Package whisper provides the OpenAI Whisper STT provider for the Beluga AI
@@ -337,7 +337,7 @@ This package registers itself as "whisper" with the stt registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/whisper"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/whisper"
 ```
 
 ## Usage

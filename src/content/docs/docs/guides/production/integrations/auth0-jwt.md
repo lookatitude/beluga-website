@@ -218,7 +218,7 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/server"
+    "github.com/lookatitude/beluga-ai/v2/server"
 )
 
 func main() {
@@ -284,7 +284,7 @@ func (c *JWKSCache) GetKey(ctx context.Context, kid string) (interface{}, error)
 Combine Auth0 roles with Beluga AI's `auth` package for fine-grained access:
 
 ```go
-import "github.com/lookatitude/beluga-ai/auth"
+import "github.com/lookatitude/beluga-ai/v2/auth"
 
 func requireRole(role string, next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

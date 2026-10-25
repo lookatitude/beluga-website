@@ -55,10 +55,10 @@ import (
     "os"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 func main() {
@@ -227,7 +227,7 @@ func demonstrateSemanticSplit(ctx context.Context, embedder embedding.Embedder) 
 For best results, apply Markdown splitting first (for structure), then semantic splitting for any oversized sections. This two-pass approach uses each method's strengths: structural splitting respects document organization (headings, sections), while semantic splitting handles cases where a single section covers multiple topics. The generous initial chunk size (3000 characters) ensures the Markdown splitter preserves large sections intact, leaving the semantic splitter to subdivide only where topic changes are detected.
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/splitter"
+import "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 
 func hybridSplit(ctx context.Context, text string, embedder embedding.Embedder) ([]string, error) {
     // First pass: structural splitting by Markdown headings.

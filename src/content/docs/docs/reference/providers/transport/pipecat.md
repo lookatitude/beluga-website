@@ -15,7 +15,7 @@ Choose Pipecat when you need to bridge Beluga's voice pipeline with an existing 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat
+go get github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat
 ```
 
 ## Configuration
@@ -35,8 +35,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice/transport"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat"
+    "github.com/lookatitude/beluga-ai/v2/voice/transport"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat"
 )
 
 func main() {
@@ -89,7 +89,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat"
 
 t, err := pipecat.New(transport.Config{
     URL:        "ws://localhost:8765",

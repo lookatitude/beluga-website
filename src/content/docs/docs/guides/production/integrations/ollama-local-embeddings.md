@@ -82,11 +82,11 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
     // Register the Ollama provider
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 )
 
 func main() {
@@ -138,10 +138,10 @@ import (
     "log"
     "math"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 )
 
 func main() {
@@ -248,12 +248,12 @@ Connect Ollama embeddings to a vector store for similarity search:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 emb, err := embedding.New("ollama", config.ProviderConfig{

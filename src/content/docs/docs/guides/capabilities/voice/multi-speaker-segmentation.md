@@ -40,7 +40,7 @@ import (
     "context"
     "time"
 
-    "github.com/lookatitude/beluga-ai/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // Segment represents a contiguous speech region.

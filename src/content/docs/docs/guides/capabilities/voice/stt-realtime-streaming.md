@@ -22,7 +22,7 @@ A streaming speech-to-text pipeline using the Deepgram provider that processes a
 
 ## Step 1: Initialize the STT Provider
 
-Use the registry pattern to create a Deepgram STT provider with streaming enabled. The blank import `_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"` triggers the provider's `init()` function, which registers the `"deepgram"` factory with the STT registry. This is the same registration pattern used across all Beluga extensible packages.
+Use the registry pattern to create a Deepgram STT provider with streaming enabled. The blank import `_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"` triggers the provider's `init()` function, which registers the `"deepgram"` factory with the STT registry. This is the same registration pattern used across all Beluga extensible packages.
 
 The `WithEnableStreaming(true)` option tells the provider to establish a persistent WebSocket connection for continuous audio processing, rather than using the batch HTTP API.
 
@@ -35,8 +35,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 func main() {

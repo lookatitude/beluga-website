@@ -49,8 +49,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
 )
 
 // FHIRPatient represents a standardized FHIR Patient resource
@@ -270,7 +270,7 @@ Track transformation metrics and validation failures:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/metric"
 )
@@ -310,7 +310,7 @@ func (m *MedicalRecordStandardizer) StandardizeWithAudit(ctx context.Context, ra
 Implement retry logic for transient failures:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 policy := resilience.RetryPolicy{
     MaxAttempts:    3,

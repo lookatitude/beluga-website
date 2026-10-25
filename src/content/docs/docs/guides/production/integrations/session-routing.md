@@ -23,7 +23,7 @@ Rather than hardcoding a single STT/TTS provider, session routing evaluates cont
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration
@@ -49,9 +49,9 @@ Select providers based on the routing context:
 import (
     "context"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    s2spkg "github.com/lookatitude/beluga-ai/voice/s2s"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    s2spkg "github.com/lookatitude/beluga-ai/v2/voice/s2s"
 )
 
 func SelectProviders(ctx context.Context, rc RouteContext) (stt.Provider, tts.Provider, s2spkg.Provider, error) {
@@ -75,7 +75,7 @@ Use a configuration file or database lookup to map tenant/region to concrete pro
 ### Create Sessions with Routed Providers
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/session"
+import "github.com/lookatitude/beluga-ai/v2/voice/session"
 
 sttProvider, ttsProvider, s2sProvider, err := SelectProviders(ctx, routeCtx)
 if err != nil {
@@ -100,8 +100,8 @@ Optionally attach VAD and turn detection providers selected by route:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/vad"
-    "github.com/lookatitude/beluga-ai/voice/turndetection"
+    "github.com/lookatitude/beluga-ai/v2/voice/vad"
+    "github.com/lookatitude/beluga-ai/v2/voice/turndetection"
 )
 
 vadProvider, err := vad.NewProvider(ctx, "webrtc", vad.DefaultConfig())

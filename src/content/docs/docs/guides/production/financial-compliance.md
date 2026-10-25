@@ -56,9 +56,9 @@ import (
     "fmt"
     "regexp"
 
-    "github.com/lookatitude/beluga-ai/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard"
 
-    _ "github.com/lookatitude/beluga-ai/guard/providers/content"
+    _ "github.com/lookatitude/beluga-ai/v2/guard/providers/content"
 )
 
 // ComplianceFirewall validates financial advice for regulatory compliance.

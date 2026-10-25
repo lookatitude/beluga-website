@@ -56,10 +56,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func AnalyzeImage(ctx context.Context, model llm.ChatModel, imagePath string) (string, error) {
@@ -259,7 +259,7 @@ Audio-capable models (such as Google Gemini) can process audio files directly, e
 This example sends an audio recording to a model that supports native audio input. The model processes the audio end-to-end and returns a structured summary rather than a raw transcript.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 
 func AnalyzeAudio(ctx context.Context, model llm.ChatModel, audioData []byte) (string, error) {
     messages := []schema.Message{
@@ -348,8 +348,8 @@ Standard RAG pipelines index text documents. But images and audio contain valuab
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 )
 
 type MultimodalDocument struct {
@@ -472,7 +472,7 @@ Different providers have different strengths for multimodal tasks. Choosing the 
 GPT-4o offers high-quality image analysis with configurable detail levels. The `detail` parameter controls the resolution at which the model processes images: `low` is fast and cheap (suitable for thumbnails and simple images), `high` enables fine-grained OCR and detailed analysis, and `auto` lets the model decide.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 
 // API keys must come from environment variables or a secrets manager — never from code.
 model, err := llm.New("openai", config.ProviderConfig{
@@ -492,7 +492,7 @@ if err != nil {
 Claude 3 excels at document understanding and complex visual reasoning tasks. It handles dense text in images well and supports long output generation, making it suitable for detailed document analysis and multi-step visual reasoning.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 
 model, err := llm.New("anthropic", config.ProviderConfig{
     APIKey: os.Getenv("ANTHROPIC_API_KEY"),
@@ -508,7 +508,7 @@ if err != nil {
 Gemini offers native audio processing (not available from OpenAI or Anthropic via their standard chat APIs) and an exceptionally long context window. This makes it the preferred choice for audio analysis tasks and for processing very large documents or multiple images in a single request.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 
 model, err := llm.New("google", config.ProviderConfig{
     APIKey: os.Getenv("GOOGLE_API_KEY"),
@@ -525,8 +525,8 @@ Multimodal API calls are more failure-prone than text-only calls: images may exc
 
 ```go
 import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func AnalyzeImageWithFallback(ctx context.Context, imageData []byte) (string, error) {

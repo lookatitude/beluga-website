@@ -64,16 +64,16 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/memory/stores/inmemory"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type ConversationAssistant struct {
@@ -256,8 +256,8 @@ For production deployments, use durable stores so conversations survive restarts
 
 ```go
 import (
-    _ "github.com/lookatitude/beluga-ai/memory/stores/redis"
-    _ "github.com/lookatitude/beluga-ai/memory/stores/postgres"
+    _ "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
+    _ "github.com/lookatitude/beluga-ai/v2/memory/stores/postgres"
 )
 
 // Redis for recall memory (fast read/write)

@@ -45,14 +45,14 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/agent/providers/react"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/agent/providers/react"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 type PolicyAuditorAgent struct {
@@ -348,7 +348,7 @@ Send immediate alerts for critical violations:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
 )
 
@@ -476,7 +476,7 @@ func (p *PolicyAuditorAgent) RunAuditWithMetrics(ctx context.Context, scope Audi
 Implement robust tool execution with retries:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 func createRobustInfrastructureScannerTool() tool.Tool {
     return tool.NewFuncTool(

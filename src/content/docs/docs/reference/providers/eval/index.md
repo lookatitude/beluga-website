@@ -47,8 +47,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/eval"
-    _ "github.com/lookatitude/beluga-ai/eval/providers/ragas"
+    "github.com/lookatitude/beluga-ai/v2/eval"
+    _ "github.com/lookatitude/beluga-ai/v2/eval/providers/ragas"
 )
 
 func main() {

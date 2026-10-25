@@ -18,7 +18,7 @@ Initialize tracing and metrics at application startup. The shutdown function ret
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/o11y"
+	"github.com/lookatitude/beluga-ai/v2/o11y"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 )
 
@@ -209,7 +209,7 @@ http.ListenAndServe(":9090", nil)
 Structured logging with Go's `slog` package provides machine-parseable log output that integrates with log aggregation systems. Unlike unstructured text logs, structured logs can be filtered, grouped, and analyzed programmatically, which is essential when debugging production issues across multiple service instances.
 
 ```go
-import "github.com/lookatitude/beluga-ai/o11y"
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 logger := o11y.NewLogger(o11y.LoggerConfig{
 	Level:  slog.LevelInfo,
@@ -253,7 +253,7 @@ Health check endpoints enable container orchestrators (Kubernetes, ECS) and load
 The readiness check is particularly important for AI services because LLM provider outages are common and may not cause the process to crash. Without a readiness check, traffic continues flowing to instances that cannot serve requests because their LLM provider is down.
 
 ```go
-import "github.com/lookatitude/beluga-ai/o11y"
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 health := o11y.NewHealthChecker()
 
@@ -300,8 +300,8 @@ In addition to general-purpose OTel backends, Beluga supports exporters for LLM-
 
 ```go
 import (
-	_ "github.com/lookatitude/beluga-ai/o11y/providers/langfuse"
-	_ "github.com/lookatitude/beluga-ai/o11y/providers/langsmith"
+	_ "github.com/lookatitude/beluga-ai/v2/o11y/providers/langfuse"
+	_ "github.com/lookatitude/beluga-ai/v2/o11y/providers/langsmith"
 )
 ```
 

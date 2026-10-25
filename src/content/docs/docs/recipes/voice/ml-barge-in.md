@@ -39,10 +39,10 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/lookatitude/beluga-ai/voice/turndetection"
-	turndetectioniface "github.com/lookatitude/beluga-ai/voice/turndetection/iface"
-	"github.com/lookatitude/beluga-ai/voice/vad"
-	vadiface "github.com/lookatitude/beluga-ai/voice/vad/iface"
+	"github.com/lookatitude/beluga-ai/v2/voice/turndetection"
+	turndetectioniface "github.com/lookatitude/beluga-ai/v2/voice/turndetection/iface"
+	"github.com/lookatitude/beluga-ai/v2/voice/vad"
+	vadiface "github.com/lookatitude/beluga-ai/v2/voice/vad/iface"
 )
 
 var tracer = otel.Tracer("beluga.voice.bargein.recipe")

@@ -57,8 +57,8 @@ Load documents from various sources:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/loader"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/loader"
 )
 
 // Load a text file
@@ -108,8 +108,8 @@ Split documents into chunks optimized for embedding:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/splitter"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/splitter"
 )
 
 s, err := splitter.New("recursive", config.ProviderConfig{
@@ -147,9 +147,9 @@ Convert text to vector representations:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	_ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 embedder, err := embedding.New("openai", config.ProviderConfig{
@@ -193,9 +193,9 @@ Store and search embeddings:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/vectorstore"
-	_ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 store, err := vectorstore.New("pgvector", config.ProviderConfig{
@@ -263,7 +263,7 @@ graph LR
 The `Retriever` interface abstracts the search step, decoupling your application from specific vector store implementations and search strategies. Retrievers can combine multiple backends, apply reranking, or implement advanced strategies like CRAG and HyDE. This abstraction is where the most impactful RAG quality improvements happen — choosing the right retrieval strategy often matters more than choosing the right embedding model.
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/retriever"
+import "github.com/lookatitude/beluga-ai/v2/rag/retriever"
 
 docs, err := r.Retrieve(ctx, "What is quantum computing?",
 	retriever.WithTopK(5),
@@ -343,17 +343,17 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	"github.com/lookatitude/beluga-ai/rag/loader"
-	"github.com/lookatitude/beluga-ai/rag/splitter"
-	"github.com/lookatitude/beluga-ai/rag/vectorstore"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/rag/loader"
+	"github.com/lookatitude/beluga-ai/v2/rag/splitter"
+	"github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
 )
 
 func main() {

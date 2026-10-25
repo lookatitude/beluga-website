@@ -55,10 +55,10 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/server"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/server"
 
-    _ "github.com/lookatitude/beluga-ai/server/providers/twilio"
+    _ "github.com/lookatitude/beluga-ai/v2/server/providers/twilio"
 )
 
 type MultiChannelHub struct {
@@ -330,7 +330,7 @@ Track campaign performance with OpenTelemetry:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 

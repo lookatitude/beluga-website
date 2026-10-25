@@ -45,12 +45,12 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/orchestration"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/orchestration"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func createOrderChain(ctx context.Context) (orchestration.Chain, error) {
@@ -188,11 +188,11 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/orchestration/workflow"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/orchestration/workflow"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 
     "go.temporal.io/sdk/temporal"
     temporalWorkflow "go.temporal.io/sdk/workflow"
@@ -290,7 +290,7 @@ Instrument workflows with OpenTelemetry for distributed tracing:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
@@ -321,7 +321,7 @@ func ExecuteWithTracing(ctx context.Context, chain orchestration.Chain, input ma
 Implement retries and circuit breakers for external service calls:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 func robustProcessPayment(ctx context.Context, orderID string) (string, error) {
     policy := resilience.RetryPolicy{
@@ -342,7 +342,7 @@ func robustProcessPayment(ctx context.Context, orderID string) (string, error) {
 Use Beluga AI's state package for shared workflow state with Watch support:
 
 ```go
-import "github.com/lookatitude/beluga-ai/state"
+import "github.com/lookatitude/beluga-ai/v2/state"
 
 func workflowWithState(ctx context.Context) error {
     store := state.NewInMemoryStore()

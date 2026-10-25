@@ -31,7 +31,7 @@ LangChain Hub provides a repository of reusable prompt templates. By building a 
 The loader uses only the Go standard library for HTTP and Beluga AI's prompt package:
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 The LangChain Hub API endpoint is `https://api.hub.langchain.com`.
@@ -53,7 +53,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/prompt"
+	"github.com/lookatitude/beluga-ai/v2/prompt"
 )
 
 // LangChainHubPrompt represents the response format from the Hub API.
@@ -185,7 +185,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/prompt"
+	"github.com/lookatitude/beluga-ai/v2/prompt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

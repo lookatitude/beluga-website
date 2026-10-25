@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory"
+import "github.com/lookatitude/beluga-ai/v2/memory"
 ```
 
 Package memory provides the MemGPT-inspired 3-tier memory system for Beluga AI agents.

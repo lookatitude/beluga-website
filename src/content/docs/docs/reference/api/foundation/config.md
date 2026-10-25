@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/config"
+import "github.com/lookatitude/beluga-ai/v2/config"
 ```
 
 Package config provides configuration loading, validation, environment

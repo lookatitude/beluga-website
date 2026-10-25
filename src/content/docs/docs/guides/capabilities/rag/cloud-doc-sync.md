@@ -42,8 +42,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // CloudLoaderConfig configures cloud storage access.
@@ -218,9 +218,9 @@ The coordinator processes change events through the RAG pipeline.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 )
 
 // SyncCoordinator orchestrates document sync workflow.

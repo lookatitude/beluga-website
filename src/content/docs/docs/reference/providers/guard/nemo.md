@@ -15,7 +15,7 @@ Choose NeMo Guardrails when you need programmable, conversation-level safety con
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/guard/providers/nemo
+go get github.com/lookatitude/beluga-ai/v2/guard/providers/nemo
 ```
 
 ## Quick Start
@@ -28,8 +28,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/guard"
-    "github.com/lookatitude/beluga-ai/guard/providers/nemo"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard/providers/nemo"
 )
 
 func main() {

@@ -22,8 +22,8 @@ Sequential agents run a series of agents in order, passing the output of each as
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 researcher := agent.New("researcher",
@@ -225,7 +225,7 @@ The `workflow` package provides Beluga's own durable execution engine for long-r
 For teams that need Temporal's advanced features (versioning, cross-language workers, large-scale fan-out), Temporal is available as a provider option. The workflow abstraction is the same either way: define steps, connect them, and let the engine handle persistence and resumability.
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow"
+import "github.com/lookatitude/beluga-ai/v2/workflow"
 
 // Define workflow steps
 wf := workflow.New("document-processing",

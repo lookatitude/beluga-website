@@ -33,7 +33,7 @@ graph TB
 
 ## Gateway Service
 
-The gateway uses Beluga AI's registry pattern (`llm.New()`) to create providers by name, keeping initialization uniform. Each provider is stored by name in a map, enabling dynamic addition and removal at runtime. The blank imports (`_ "github.com/lookatitude/beluga-ai/llm/providers/..."`) register providers via `init()` so they're available through the registry without explicit wiring.
+The gateway uses Beluga AI's registry pattern (`llm.New()`) to create providers by name, keeping initialization uniform. Each provider is stored by name in a map, enabling dynamic addition and removal at runtime. The blank imports (`_ "github.com/lookatitude/beluga-ai/v2/llm/providers/..."`) register providers via `init()` so they're available through the registry without explicit wiring.
 
 ```go
 package main
@@ -45,13 +45,13 @@ import (
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
 )
 
 type LLMGateway struct {
@@ -319,7 +319,7 @@ Gateway-level observability answers questions that per-provider metrics cannot: 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/metric"
@@ -415,7 +415,7 @@ func status(err error) string {
 Implement circuit breaker pattern for failing providers:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 func (g *LLMGateway) GenerateWithCircuitBreaker(ctx context.Context, msgs []schema.Message) (*schema.AIMessage, error) {
     cb := resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{

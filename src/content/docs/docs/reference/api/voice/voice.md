@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice"
+import "github.com/lookatitude/beluga-ai/v2/voice"
 ```
 
 Package voice provides the voice and multimodal pipeline for the Beluga AI

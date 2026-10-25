@@ -15,7 +15,7 @@ Choose Azure Content Safety when your organization already uses the Azure ecosys
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/guard/providers/azuresafety
+go get github.com/lookatitude/beluga-ai/v2/guard/providers/azuresafety
 ```
 
 ## Quick Start
@@ -29,8 +29,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/guard"
-    "github.com/lookatitude/beluga-ai/guard/providers/azuresafety"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard/providers/azuresafety"
 )
 
 func main() {

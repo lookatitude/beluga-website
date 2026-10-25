@@ -32,7 +32,7 @@ This composable design follows the Unix pipe philosophy: each processor does one
 All voice components implement the `FrameProcessor` interface:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice"
+import "github.com/lookatitude/beluga-ai/v2/voice"
 
 // FrameProcessor processes a stream of frames
 type FrameProcessor interface {
@@ -72,12 +72,12 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
-    "github.com/lookatitude/beluga-ai/voice"
-    "github.com/lookatitude/beluga-ai/voice/s2s"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/tool"
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
 
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 func createConcierge(ctx context.Context) error {
@@ -165,9 +165,9 @@ A live meeting minutes generator that transcribes audio in real time, identifies
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 func transcribeMeeting(ctx context.Context, audioStream iter.Seq2[[]byte, error]) error {
@@ -237,11 +237,11 @@ Collect structured data through natural voice conversations. The form orchestrat
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    "github.com/lookatitude/beluga-ai/voice/tts"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 type FormField struct {
@@ -324,8 +324,8 @@ Dynamic narration with character voices and branching storylines. This is a TTS-
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 type Character struct {

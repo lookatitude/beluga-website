@@ -15,7 +15,7 @@ Choose Google Gemini when you need long context windows (up to 1M+ tokens), stro
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/google
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/google
 ```
 
 ## Configuration
@@ -45,10 +45,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 )
 
 func main() {
@@ -195,7 +195,7 @@ fmt.Printf("Input: %d, Output: %d, Cached: %d\n",
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/google"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 
 model, err := google.New(config.ProviderConfig{
     Model:  "gemini-2.5-flash",

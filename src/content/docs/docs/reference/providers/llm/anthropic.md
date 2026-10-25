@@ -15,7 +15,7 @@ Choose Anthropic when you need strong reasoning capabilities, large context wind
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/anthropic
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic
 ```
 
 ## Configuration
@@ -46,10 +46,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 func main() {
@@ -198,7 +198,7 @@ fmt.Printf("Input: %d, Output: %d, Cached: %d\n",
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 
 model, err := anthropic.New(config.ProviderConfig{
     Model:  "claude-sonnet-4-5-20250929",

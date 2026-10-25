@@ -15,7 +15,7 @@ Choose Turbopuffer when you want a serverless vector database with minimal confi
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/turbopuffer
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/turbopuffer
 ```
 
 ## Quick Start
@@ -28,10 +28,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/turbopuffer"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/turbopuffer"
 )
 
 func main() {
@@ -71,7 +71,7 @@ func main() {
 
 ```go
 import (
-    tpstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/turbopuffer"
+    tpstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/turbopuffer"
 )
 
 store := tpstore.New(

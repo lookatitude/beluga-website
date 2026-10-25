@@ -11,7 +11,7 @@ head:
 ## mcp
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
 ```
 
 Package mcp implements the Model Context Protocol (MCP) for tool and resource
@@ -68,8 +68,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 tools, client, err := tool.FromMCP(ctx, "http://localhost:8080/mcp")
@@ -104,7 +104,7 @@ idempotent.
 ## composio
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp/providers/composio"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp/providers/composio"
 ```
 
 Package composio provides a Composio MCP integration for the Beluga AI
@@ -153,7 +153,7 @@ The client is configured via functional options:
 ## registry
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp/registry"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp/registry"
 ```
 
 Package registry provides MCP server discovery and tool aggregation for the
@@ -212,7 +212,7 @@ searchTools, err := reg.DiscoverToolsFromServer(ctx, "search")
 ## sdk
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp/sdk"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp/sdk"
 ```
 
 Package sdk provides integration between the official MCP Go SDK

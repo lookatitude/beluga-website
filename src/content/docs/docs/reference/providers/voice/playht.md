@@ -15,7 +15,7 @@ Choose PlayHT when you need voice cloning with flexible output formats (MP3, WAV
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/playht"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/playht"
 ```
 
 The blank import registers the `"playht"` provider with the TTS registry.
@@ -47,8 +47,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/playht"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/playht"
 )
 
 func main() {
@@ -79,7 +79,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/playht"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/playht"
 
 engine, err := playht.New(tts.Config{
     Voice: "s3://voice-cloning-zero-shot/775ae416-49bb-4fb6-bd45-740f205d3571/jennifersaad/manifest.json",

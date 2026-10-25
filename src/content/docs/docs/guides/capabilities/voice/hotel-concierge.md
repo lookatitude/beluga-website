@@ -49,11 +49,11 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
-    "github.com/lookatitude/beluga-ai/voice/s2s"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/tool"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
 
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 func startConcierge(ctx context.Context, guestID string) error {

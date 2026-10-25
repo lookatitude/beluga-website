@@ -15,7 +15,7 @@ Choose Cloud Storage when your documents are stored in AWS S3, Google Cloud Stor
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/loader/providers/cloudstorage
+go get github.com/lookatitude/beluga-ai/v2/rag/loader/providers/cloudstorage
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/cloudstorage"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/cloudstorage"
 )
 
 func main() {

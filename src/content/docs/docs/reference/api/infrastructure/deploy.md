@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/deploy"
+import "github.com/lookatitude/beluga-ai/v2/deploy"
 ```
 
 Package deploy provides utilities for packaging and running Beluga AI agents
@@ -43,7 +43,7 @@ resolves outside the build context or is absolute.
 import (
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/deploy"
+    "github.com/lookatitude/beluga-ai/v2/deploy"
 )
 
 dockerfile, err := deploy.GenerateDockerfile(deploy.DockerfileConfig{
@@ -110,7 +110,7 @@ prevent YAML injection.
 import (
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/deploy"
+    "github.com/lookatitude/beluga-ai/v2/deploy"
 )
 
 yaml, err := deploy.GenerateCompose(deploy.ComposeConfig{
@@ -154,7 +154,7 @@ import (
     "fmt"
     "net/http"
 
-    "github.com/lookatitude/beluga-ai/deploy"
+    "github.com/lookatitude/beluga-ai/v2/deploy"
 )
 
 h := deploy.NewHealthEndpoint()

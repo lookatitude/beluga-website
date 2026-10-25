@@ -15,7 +15,7 @@ Choose Cohere when building enterprise search and RAG applications. Command R mo
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/cohere
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/cohere
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/cohere"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/cohere"
 )
 
 func main() {
@@ -158,7 +158,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/cohere"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/cohere"
 
 model, err := cohere.New(config.ProviderConfig{
     Model:  "command-r-plus",

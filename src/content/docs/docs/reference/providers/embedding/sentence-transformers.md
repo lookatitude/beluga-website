@@ -15,7 +15,7 @@ Choose Sentence Transformers when you need access to the widest selection of com
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/sentence_transformers
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/sentence_transformers
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/sentence_transformers"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/sentence_transformers"
 )
 
 func main() {
@@ -81,7 +81,7 @@ Any model on HuggingFace that supports the feature-extraction pipeline can be us
 
 ```go
 import (
-    stemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/sentence_transformers"
+    stemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/sentence_transformers"
 )
 
 emb, err := stemb.New(config.ProviderConfig{

@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/orchestration"
+import "github.com/lookatitude/beluga-ai/v2/orchestration"
 ```
 
 Package orchestration provides workflow composition patterns for the
@@ -79,7 +79,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/orchestration"
+    "github.com/lookatitude/beluga-ai/v2/orchestration"
 )
 
 g := orchestration.NewGraph()

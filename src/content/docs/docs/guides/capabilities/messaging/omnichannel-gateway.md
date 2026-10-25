@@ -45,11 +45,11 @@ import (
     "strings"
     "sync"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // NormalizedMessage represents a channel-agnostic message.
@@ -247,7 +247,7 @@ For production deployments, replace the in-memory `sessions` map with a persiste
 ```go
 // Use Redis or PostgreSQL for production session storage.
 // The memory package provides ready-made store implementations.
-import "github.com/lookatitude/beluga-ai/memory"
+import "github.com/lookatitude/beluga-ai/v2/memory"
 ```
 
 ## Verification

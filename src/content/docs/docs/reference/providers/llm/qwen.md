@@ -15,7 +15,7 @@ Choose Qwen when you need strong multilingual support, especially for Chinese an
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/qwen
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/qwen
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/qwen"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/qwen"
 )
 
 func main() {
@@ -125,7 +125,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/qwen"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/qwen"
 
 model, err := qwen.New(config.ProviderConfig{
     Model:  "qwen-plus",

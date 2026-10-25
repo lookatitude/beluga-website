@@ -40,7 +40,7 @@ import (
     "context"
     "sort"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // Retriever searches for relevant documents.

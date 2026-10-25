@@ -49,14 +49,14 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type IDEContextManager struct {
@@ -190,9 +190,9 @@ Provide AI assistance grounded in project context:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func (m *IDEContextManager) ProvideAssistance(ctx context.Context, projectID, query string) (string, error) {
@@ -307,7 +307,7 @@ func (m *IDEContextManager) GetRelevantContextWithLimit(ctx context.Context, pro
 Store sensitive code locally rather than in cloud vector stores:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlite"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlite"
 
 func NewLocalIDEContextManager(ctx context.Context, dbPath string) (*IDEContextManager, error) {
     embedder, err := embedding.New("openai", embedding.ProviderConfig{

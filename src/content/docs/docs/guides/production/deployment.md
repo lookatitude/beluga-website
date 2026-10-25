@@ -42,10 +42,10 @@ The following example creates a complete HTTP service from an agent. The adapter
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/server"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/server"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -103,7 +103,7 @@ Each adapter follows the same `ServerAdapter` interface, so switching frameworks
 | `connect` | `server/providers/connect` | Connect-Go |
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/providers/gin"
+import _ "github.com/lookatitude/beluga-ai/v2/server/providers/gin"
 
 adapter, err := server.New("gin", server.Config{
 	ReadTimeout:  10 * time.Second,
@@ -120,7 +120,7 @@ The `resilience` package provides production resilience primitives that protect 
 When a downstream service (like an LLM provider) is failing, continuing to send requests wastes resources and increases latency. The circuit breaker pattern monitors failure rates and "opens" the circuit after a threshold is reached, immediately failing subsequent requests instead of waiting for timeouts. After a cooldown period, the circuit enters a half-open state and allows a limited number of test requests through. If those succeed, the circuit closes and normal operation resumes.
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 cb := resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
 	MaxFailures:     5,              // Open after 5 failures
@@ -211,7 +211,7 @@ model = llm.ApplyMiddleware(model,
 The `config` package supports loading configuration from files and environment variables with hot-reload capability. Environment variables override file values, following the twelve-factor app methodology. Hot-reload watches the configuration file for changes and invokes a callback when the configuration updates, enabling runtime adjustments without restarting the service.
 
 ```go
-import "github.com/lookatitude/beluga-ai/config"
+import "github.com/lookatitude/beluga-ai/v2/config"
 
 type AppConfig struct {
 	LLMProvider string `json:"llm_provider" env:"LLM_PROVIDER" default:"openai"`
@@ -361,7 +361,7 @@ spec:
 Multi-tenant deployments serve multiple customers from the same service instance. Beluga supports tenant isolation through context-based routing, where each request carries a tenant identifier that flows through the entire pipeline. This identifier can be used to select tenant-specific models, apply per-tenant rate limits, and isolate memory stores.
 
 ```go
-import "github.com/lookatitude/beluga-ai/core"
+import "github.com/lookatitude/beluga-ai/v2/core"
 
 // Middleware to extract tenant from request
 func tenantMiddleware(next http.Handler) http.Handler {

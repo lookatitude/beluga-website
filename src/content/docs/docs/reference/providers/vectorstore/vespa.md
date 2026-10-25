@@ -15,7 +15,7 @@ Choose Vespa when you need a production-grade search engine that combines vector
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/vespa
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/vespa
 ```
 
 ## Quick Start
@@ -27,10 +27,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/vespa"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/vespa"
 )
 
 func main() {
@@ -90,7 +90,7 @@ schema document {
 
 ```go
 import (
-    vespastore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/vespa"
+    vespastore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/vespa"
 )
 
 store := vespastore.New("http://localhost:8080",

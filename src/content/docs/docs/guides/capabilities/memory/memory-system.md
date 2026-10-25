@@ -67,7 +67,7 @@ Core memory solves the problem of persistent identity: who is this agent, and wh
 Because core memory is included in every context window, it must remain small (typically under 2KB). Storing large amounts of data here would waste token budget that should be used for conversation history and retrieved context.
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory"
+import "github.com/lookatitude/beluga-ai/v2/memory"
 
 core := memory.NewCore(memory.CoreConfig{
 	PersonaLimit: 2000,  // Max chars for persona block
@@ -241,10 +241,10 @@ The most common use case is wiring memory into an agent so that conversations ar
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	_ "github.com/lookatitude/beluga-ai/memory/stores/redis"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	_ "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
 )
 
 // Create Redis-backed memory

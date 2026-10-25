@@ -46,10 +46,10 @@ import (
     "fmt"
     "sync"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 // VoiceoverGenerator generates localized voiceovers for course content.

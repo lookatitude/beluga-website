@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/k8s/operator"
+import "github.com/lookatitude/beluga-ai/v2/k8s/operator"
 ```
 
 Package operator implements a Kubernetes operator for Beluga AI agents and
@@ -195,7 +195,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/k8s/operator"
+    "github.com/lookatitude/beluga-ai/v2/k8s/operator"
 )
 
 reconciler := operator.NewDefaultReconciler(
@@ -257,7 +257,7 @@ type StatusWriter interface {
 import (
     "context"
 
-    "github.com/lookatitude/beluga-ai/k8s/operator"
+    "github.com/lookatitude/beluga-ai/v2/k8s/operator"
 )
 
 reconciler := operator.NewDefaultReconciler()

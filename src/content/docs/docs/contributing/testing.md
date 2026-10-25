@@ -89,7 +89,7 @@ func TestAgent(t *testing.T) {
 Every public interface in Beluga AI has a corresponding mock in `internal/testutil/`. Use these shared mocks in your tests instead of creating ad-hoc implementations. This ensures consistent test behavior across the codebase and reduces the maintenance burden of keeping multiple mock implementations in sync with interface changes:
 
 ```go
-import "github.com/lookatitude/beluga-ai/internal/testutil"
+import "github.com/lookatitude/beluga-ai/v2/internal/testutil"
 
 func TestAgentWithMockModel(t *testing.T) {
     mock := &testutil.MockChatModel{

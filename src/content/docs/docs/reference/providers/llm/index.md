@@ -31,9 +31,9 @@ You can instantiate any provider two ways:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 model, err := llm.New("openai", config.ProviderConfig{
@@ -45,7 +45,7 @@ model, err := llm.New("openai", config.ProviderConfig{
 **Via direct construction** (for compile-time type safety):
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/openai"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 
 model, err := openai.New(config.ProviderConfig{
     Model:  "gpt-4o",

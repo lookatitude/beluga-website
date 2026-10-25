@@ -15,7 +15,7 @@ Choose Pinecone when you want a fully managed vector database with zero operatio
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pinecone
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pinecone
 ```
 
 ## Quick Start
@@ -28,10 +28,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pinecone"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pinecone"
 )
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 
 ```go
 import (
-    pineconestore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pinecone"
+    pineconestore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pinecone"
 )
 
 store := pineconestore.New(

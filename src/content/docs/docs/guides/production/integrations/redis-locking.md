@@ -172,9 +172,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"github.com/redis/go-redis/v9"
 )
 

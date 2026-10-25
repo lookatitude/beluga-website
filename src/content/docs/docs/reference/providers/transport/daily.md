@@ -15,7 +15,7 @@ Choose Daily when you want a managed WebRTC service with simple room-based audio
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/voice/transport/providers/daily
+go get github.com/lookatitude/beluga-ai/v2/voice/transport/providers/daily
 ```
 
 ## Configuration
@@ -36,8 +36,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice/transport"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/daily"
+    "github.com/lookatitude/beluga-ai/v2/voice/transport"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/daily"
 )
 
 func main() {
@@ -91,7 +91,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/daily"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/daily"
 
 t, err := daily.New(transport.Config{
     URL:        "https://myapp.daily.co/room-name",

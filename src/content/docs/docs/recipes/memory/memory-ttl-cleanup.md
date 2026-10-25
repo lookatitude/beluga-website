@@ -34,7 +34,7 @@ import (
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/trace"
 
-    "github.com/lookatitude/beluga-ai/memory"
+    "github.com/lookatitude/beluga-ai/v2/memory"
 )
 
 var tracer = otel.Tracer("beluga.memory.ttl_cleanup")

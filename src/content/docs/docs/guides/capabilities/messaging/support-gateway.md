@@ -47,7 +47,7 @@ import (
     "fmt"
     "net/http"
 
-    "github.com/lookatitude/beluga-ai/server"
+    "github.com/lookatitude/beluga-ai/v2/server"
     "go.opentelemetry.io/otel/trace"
     "go.opentelemetry.io/otel/metric"
 )
@@ -365,7 +365,7 @@ Track gateway metrics and request latency:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 
@@ -394,7 +394,7 @@ func (g *CustomerSupportGateway) InstrumentedHandle(ctx context.Context, w http.
 Add circuit breaker for backend failures:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 breaker := resilience.NewCircuitBreaker(
     resilience.WithFailureThreshold(5),

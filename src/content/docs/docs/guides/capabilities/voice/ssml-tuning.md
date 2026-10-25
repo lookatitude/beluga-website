@@ -42,8 +42,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	_ "github.com/lookatitude/beluga-ai/voice/tts/providers/google"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/google"
 )
 
 const greeting = `<speak>

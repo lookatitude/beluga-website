@@ -31,8 +31,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram" // Register provider
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram" // Register provider
 )
 
 func setupSTT(ctx context.Context) (stt.Provider, error) {
@@ -58,8 +58,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	_ "github.com/lookatitude/beluga-ai/voice/tts/providers/openai" // Register provider
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/openai" // Register provider
 )
 
 func setupTTS(ctx context.Context) (tts.Provider, error) {
@@ -83,8 +83,8 @@ Set up Amazon Nova for end-to-end speech conversations. Speech-to-speech (S2S) p
 import (
 	"context"
 
-	"github.com/lookatitude/beluga-ai/voice/s2s"
-	_ "github.com/lookatitude/beluga-ai/voice/s2s/providers/amazon_nova" // Register provider
+	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/amazon_nova" // Register provider
 )
 
 func setupS2S(ctx context.Context) (s2s.Provider, error) {
@@ -111,10 +111,10 @@ Switch providers based on environment variables without code changes. This patte
 import (
 	"context"
 
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/google"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/azure"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/google"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/azure"
 )
 
 type VoiceConfig struct {
@@ -143,7 +143,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/voice/stt"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
 )
 
 type FallbackSTT struct {

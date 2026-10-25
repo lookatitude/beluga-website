@@ -48,9 +48,9 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 // IndustrialController processes voice commands for equipment control.

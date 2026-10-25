@@ -55,9 +55,9 @@ import (
     "log"
     "path/filepath"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func LoadDirectory(dirPath string) ([]schema.Document, error) {
@@ -109,9 +109,9 @@ PDF is one of the most common document formats in enterprise environments, but e
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/pdf"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/pdf"
 )
 
 func LoadPDF(filePath string) ([]schema.Document, error) {
@@ -143,9 +143,9 @@ Web pages contain significant noise — scripts, stylesheets, navigation element
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/html"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/html"
 )
 
 func LoadHTML(pageURL string) ([]schema.Document, error) {
@@ -178,9 +178,9 @@ For cloud-native applications, documents often reside in object storage rather t
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/s3"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/s3"
 )
 
 func LoadFromS3(bucket, prefix string) ([]schema.Document, error) {
@@ -269,8 +269,8 @@ The recursive character splitter is the recommended default for general-purpose 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 )
 
 func SplitRecursive(ctx context.Context, doc schema.Document) ([]schema.Document, error) {
@@ -299,9 +299,9 @@ Markdown documents have explicit structure through headings. The markdown splitt
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    _ "github.com/lookatitude/beluga-ai/rag/splitter/providers/markdown"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/splitter/providers/markdown"
 )
 
 func SplitMarkdown(ctx context.Context, doc schema.Document) ([]schema.Document, error) {
@@ -331,9 +331,9 @@ Splitting code at arbitrary character boundaries breaks function definitions, cl
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    _ "github.com/lookatitude/beluga-ai/rag/splitter/providers/code"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/splitter/providers/code"
 )
 
 func SplitCode(ctx context.Context, doc schema.Document, language string) ([]schema.Document, error) {
@@ -365,10 +365,10 @@ Character-based splitting ignores the actual meaning of the text. Two adjacent p
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    _ "github.com/lookatitude/beluga-ai/rag/splitter/providers/semantic"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/splitter/providers/semantic"
 )
 
 func SplitSemantic(ctx context.Context, doc schema.Document, emb embedding.Embedder) ([]schema.Document, error) {

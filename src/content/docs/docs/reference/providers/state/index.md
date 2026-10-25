@@ -63,10 +63,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/state"
+    "github.com/lookatitude/beluga-ai/v2/state"
 
     // Register the provider via blank import
-    _ "github.com/lookatitude/beluga-ai/state/providers/inmemory"
+    _ "github.com/lookatitude/beluga-ai/v2/state/providers/inmemory"
 )
 
 func main() {

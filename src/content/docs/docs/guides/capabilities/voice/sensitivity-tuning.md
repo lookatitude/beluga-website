@@ -41,8 +41,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice/vad"
-	_ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+	"github.com/lookatitude/beluga-ai/v2/voice/vad"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {
@@ -88,8 +88,8 @@ The heuristic provider combines silence duration with transcript analysis to mak
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/turndetection"
-	_ "github.com/lookatitude/beluga-ai/voice/turndetection/providers/heuristic"
+	"github.com/lookatitude/beluga-ai/v2/voice/turndetection"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/turndetection/providers/heuristic"
 )
 
 func setupTurnDetection(ctx context.Context) {

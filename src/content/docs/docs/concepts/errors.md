@@ -124,7 +124,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 // callWithRetry calls fn up to maxAttempts times, retrying on retryable errors.
@@ -190,7 +190,7 @@ you write:
 import (
     "errors"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func handleErr(err error) {

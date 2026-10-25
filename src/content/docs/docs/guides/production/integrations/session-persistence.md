@@ -23,7 +23,7 @@ By persisting session-scoped state keyed by session ID, multi-turn voice flows s
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration

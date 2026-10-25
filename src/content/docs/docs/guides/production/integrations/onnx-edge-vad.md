@@ -23,7 +23,7 @@ The `voice/vad` package's Silero provider loads an ONNX model to detect speech i
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 Ensure the ONNX model is available on the edge device (bundled in the binary, downloaded at startup, or placed in read-only storage).
@@ -43,8 +43,8 @@ import (
     "path/filepath"
     "time"
 
-    "github.com/lookatitude/beluga-ai/voice/vad"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+    "github.com/lookatitude/beluga-ai/v2/voice/vad"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {

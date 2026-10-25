@@ -15,7 +15,7 @@ Choose HuggingFace when you need access to specialized or fine-tuned models from
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/huggingface
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/huggingface
 ```
 
 ## Configuration
@@ -45,10 +45,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/huggingface"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/huggingface"
 )
 
 func main() {
@@ -140,7 +140,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/huggingface"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/huggingface"
 
 model, err := huggingface.New(config.ProviderConfig{
     Model:  "meta-llama/Meta-Llama-3.1-70B-Instruct",

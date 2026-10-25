@@ -44,11 +44,11 @@ import (
     "fmt"
     "io"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // ProductSearch handles multimodal product search
@@ -167,9 +167,9 @@ package main
 import (
     "context"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/openai"
 )
 
 // SearchByVoice searches using voice input
@@ -298,7 +298,7 @@ func (s *ProductSearch) rankResults(products []Product, query string) []Product 
 Limit expensive multimodal queries:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 func (s *ProductSearch) SearchWithRateLimit(ctx context.Context, imageData []byte, audioData []byte, textQuery string) ([]Product, error) {
     limiter := resilience.NewRateLimiter(10, time.Minute)  // 10 queries/min

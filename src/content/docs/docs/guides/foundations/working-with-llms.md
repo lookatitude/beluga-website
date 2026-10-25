@@ -40,9 +40,9 @@ Providers register themselves via `init()` — import the provider package with 
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 model, err := llm.New("openai", config.ProviderConfig{
@@ -54,7 +54,7 @@ model, err := llm.New("openai", config.ProviderConfig{
 ### Anthropic
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 
 model, err := llm.New("anthropic", config.ProviderConfig{
 	APIKey: os.Getenv("ANTHROPIC_API_KEY"),
@@ -65,7 +65,7 @@ model, err := llm.New("anthropic", config.ProviderConfig{
 ### Google (Gemini)
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 
 model, err := llm.New("google", config.ProviderConfig{
 	APIKey: os.Getenv("GOOGLE_API_KEY"),
@@ -76,7 +76,7 @@ model, err := llm.New("google", config.ProviderConfig{
 ### Ollama (Local)
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/ollama"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/ollama"
 
 model, err := llm.New("ollama", config.ProviderConfig{
 	BaseURL: "http://localhost:11434",

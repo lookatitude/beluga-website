@@ -40,7 +40,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
+    "github.com/lookatitude/beluga-ai/v2/config"
 )
 
 type AppConfig struct {

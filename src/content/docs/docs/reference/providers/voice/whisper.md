@@ -15,7 +15,7 @@ Choose Whisper when you already use the OpenAI API and need reliable batch trans
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/whisper"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/whisper"
 ```
 
 The blank import registers the `"whisper"` provider with the STT registry.
@@ -46,8 +46,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/whisper"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/whisper"
 )
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/whisper"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/whisper"
 
 engine, err := whisper.New(stt.Config{
     Model:    "whisper-1",

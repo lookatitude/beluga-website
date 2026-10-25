@@ -34,8 +34,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lookatitude/beluga-ai/voice/vad"
-	_ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+	"github.com/lookatitude/beluga-ai/v2/voice/vad"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {
@@ -156,8 +156,8 @@ For the best results in noisy environments, apply noise cancellation before VAD 
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/noise"
-	_ "github.com/lookatitude/beluga-ai/voice/noise/providers/rnnoise"
+	"github.com/lookatitude/beluga-ai/v2/voice/noise"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/noise/providers/rnnoise"
 )
 
 func processWithNoiseCancellation(ctx context.Context, audio []byte) (bool, error) {

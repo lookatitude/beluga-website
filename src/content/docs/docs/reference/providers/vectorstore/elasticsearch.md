@@ -15,7 +15,7 @@ Choose Elasticsearch when you need both full-text search and vector similarity s
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/elasticsearch
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/elasticsearch
 ```
 
 Start Elasticsearch locally:
@@ -33,10 +33,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/elasticsearch"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/elasticsearch"
 )
 
 func main() {
@@ -80,7 +80,7 @@ Use `EnsureIndex` to create the index with the correct mapping:
 
 ```go
 import (
-    esstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/elasticsearch"
+    esstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/elasticsearch"
 )
 
 store, err := esstore.NewFromConfig(config.ProviderConfig{

@@ -37,7 +37,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/lookatitude/beluga-ai/core"
+	"github.com/lookatitude/beluga-ai/v2/core"
 )
 
 var tracer = otel.Tracer("beluga.core.timeout")

@@ -15,7 +15,7 @@ Choose Phoenix when you want a local-first, OTel-native observability tool for d
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/o11y/providers/phoenix
+go get github.com/lookatitude/beluga-ai/v2/o11y/providers/phoenix
 ```
 
 ## Configuration
@@ -36,8 +36,8 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/o11y"
-    "github.com/lookatitude/beluga-ai/o11y/providers/phoenix"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/phoenix"
 )
 
 func main() {
@@ -128,9 +128,9 @@ Combine Phoenix with other observability providers:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "github.com/lookatitude/beluga-ai/o11y/providers/phoenix"
-    "github.com/lookatitude/beluga-ai/o11y/providers/langsmith"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/phoenix"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/langsmith"
 )
 
 pxExporter, err := phoenix.New(

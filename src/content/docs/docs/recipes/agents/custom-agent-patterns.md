@@ -34,8 +34,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // ObservableAgent wraps BaseAgent with input/output processing and lifecycle callbacks.

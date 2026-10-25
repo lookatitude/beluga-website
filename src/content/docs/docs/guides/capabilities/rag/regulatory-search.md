@@ -61,11 +61,11 @@ import (
     "fmt"
     "sort"
 
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/hybrid"
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/vector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/retriever/providers/hybrid"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/retriever/providers/vector"
 )
 
 // RegulatorySearchEngine searches regulatory policies using hybrid retrieval.

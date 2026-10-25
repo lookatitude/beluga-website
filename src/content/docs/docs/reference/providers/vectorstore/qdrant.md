@@ -15,7 +15,7 @@ Choose Qdrant when you need a purpose-built vector database with strong performa
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/qdrant
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/qdrant
 ```
 
 Start Qdrant locally:
@@ -33,10 +33,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/qdrant"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/qdrant"
 )
 
 func main() {
@@ -80,7 +80,7 @@ Use `EnsureCollection` to create the collection with cosine distance:
 
 ```go
 import (
-    qdrantstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/qdrant"
+    qdrantstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/qdrant"
 )
 
 store, err := qdrantstore.NewFromConfig(config.ProviderConfig{

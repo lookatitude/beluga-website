@@ -23,7 +23,7 @@ The `voice/turndetection` package provides heuristic and ONNX-based turn detecti
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration
@@ -41,7 +41,7 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/voice/turndetection"
+    "github.com/lookatitude/beluga-ai/v2/voice/turndetection"
 )
 
 func main() {
@@ -111,7 +111,7 @@ Ensure VAD correctly identifies silence. Avoid over-incrementing `MinSilenceDura
 Import the ONNX provider to trigger registration:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/turndetection/providers/onnx"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/turndetection/providers/onnx"
 ```
 
 Set `TURN_MODEL_PATH` to a valid ONNX model file path.

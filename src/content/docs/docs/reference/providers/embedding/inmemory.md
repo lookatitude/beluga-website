@@ -15,7 +15,7 @@ Use the in-memory embedder exclusively for testing and development. It produces 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/inmemory
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/inmemory
 ```
 
 ## Quick Start
@@ -28,9 +28,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/inmemory"
 )
 
 func main() {

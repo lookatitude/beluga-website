@@ -26,11 +26,11 @@ type Embedder interface {
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
     // Register the provider you need via blank import
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 func main() {

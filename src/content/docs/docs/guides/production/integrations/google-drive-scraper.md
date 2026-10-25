@@ -51,7 +51,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 The loader satisfies the `DocumentLoader` interface:
 
 ```go
-// From github.com/lookatitude/beluga-ai/rag/loader
+// From github.com/lookatitude/beluga-ai/v2/rag/loader
 type DocumentLoader interface {
     Load(ctx context.Context, source string) ([]schema.Document, error)
 }
@@ -78,7 +78,7 @@ import (
 
     "google.golang.org/api/drive/v3"
     "google.golang.org/api/option"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // DriveLoader loads documents from a Google Drive folder.

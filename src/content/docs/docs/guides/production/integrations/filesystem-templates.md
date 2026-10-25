@@ -65,7 +65,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/prompt"
+	"github.com/lookatitude/beluga-ai/v2/prompt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -236,7 +236,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lookatitude/beluga-ai/prompt"
+	"github.com/lookatitude/beluga-ai/v2/prompt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

@@ -15,7 +15,7 @@ Choose ChromaDB for its simplicity and ease of setup. ChromaDB is straightforwar
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma
 ```
 
 Start ChromaDB locally:
@@ -33,10 +33,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma"
 )
 
 func main() {
@@ -79,7 +79,7 @@ The provider automatically creates collections via `get_or_create` semantics. Yo
 
 ```go
 import (
-    chromastore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma"
+    chromastore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma"
 )
 
 store := chromastore.New("http://localhost:8000",

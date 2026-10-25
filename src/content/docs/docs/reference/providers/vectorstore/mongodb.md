@@ -15,7 +15,7 @@ Choose MongoDB Atlas when your application already uses MongoDB and you want to 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/mongodb
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/mongodb
 ```
 
 ## Quick Start
@@ -28,10 +28,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/mongodb"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/mongodb"
 )
 
 func main() {
@@ -95,7 +95,7 @@ func main() {
 
 ```go
 import (
-    mongostore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/mongodb"
+    mongostore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/mongodb"
 )
 
 store := mongostore.New(

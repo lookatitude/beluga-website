@@ -131,8 +131,8 @@ Every provider follows the same pattern regardless of category. Whether you're a
 package myprovider
 
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 var _ llm.ChatModel = (*Model)(nil) // compile-time check
@@ -203,7 +203,7 @@ The registry pattern supports runtime discovery through the `List()` function an
 ### From code
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm"
+import "github.com/lookatitude/beluga-ai/v2/llm"
 
 // List all registered LLM providers
 for _, name := range llm.List() {
@@ -230,8 +230,8 @@ Providers auto-register when imported with a blank identifier:
 
 ```go
 import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 ```
 

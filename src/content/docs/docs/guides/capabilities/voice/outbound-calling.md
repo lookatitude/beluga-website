@@ -44,11 +44,11 @@ import (
     "fmt"
     "iter"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    "github.com/lookatitude/beluga-ai/voice/tts"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/openai"
 )
 
 // OutboundCaller manages automated outbound calls.

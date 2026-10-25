@@ -23,14 +23,14 @@ The bridge wraps the OpenAI Assistants API (threads, runs, messages) behind a `C
 ## Prerequisites
 
 - Go 1.23 or later
-- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai`)
+- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - OpenAI API key with Assistants API access
 - Familiarity with OpenAI's Assistants API concepts (threads, runs, messages)
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 go get github.com/openai/openai-go
 ```
 
@@ -57,7 +57,7 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "github.com/openai/openai-go"
     "github.com/openai/openai-go/option"
 )
@@ -184,8 +184,8 @@ Implement the full `llm.ChatModel` interface so the bridge can be used anywhere 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // AssistantsChatModel adapts AssistantsBridge to the ChatModel interface.

@@ -43,8 +43,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/openai"
 )
 
 func main() {
@@ -98,8 +98,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 func main() {

@@ -16,10 +16,10 @@ Choose Groq when you need the fastest possible batch transcription — Groq's LP
 
 ```go
 // STT (Whisper)
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/groq"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/groq"
 
 // TTS
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/groq"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/groq"
 ```
 
 ## STT (Whisper on Groq)
@@ -50,8 +50,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/groq"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/groq"
 )
 
 func main() {
@@ -126,8 +126,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/groq"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/groq"
 )
 
 func main() {
@@ -155,7 +155,7 @@ func main() {
 ### Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/groq"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/groq"
 
 engine, err := groq.New(tts.Config{
     Voice: "aura-asteria-en",

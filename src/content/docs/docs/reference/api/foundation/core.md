@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/core"
+import "github.com/lookatitude/beluga-ai/v2/core"
 ```
 
 Package core provides the foundational primitives for the Beluga AI framework.
@@ -42,7 +42,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func main() {
@@ -100,7 +100,7 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func embed(ctx context.Context, text string) ([]float32, error) {
@@ -167,7 +167,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func main() {

@@ -124,11 +124,11 @@ import (
     "os"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // Create specialized agents with distinct roles and tool sets.
@@ -472,8 +472,8 @@ This is particularly important in supervisor workflows where a research agent's 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/memory/stores"
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/memory/stores"
 )
 
 // Create shared memory store backed by Redis for persistence
@@ -680,7 +680,7 @@ By annotating each agent's work as a child span of the supervisor's span, you ca
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/trace"
 )
 

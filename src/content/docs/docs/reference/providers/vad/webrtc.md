@@ -15,7 +15,7 @@ Choose WebRTC VAD when you need a lightweight, pure Go voice activity detector w
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/voice/vad/providers/webrtc
+go get github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc
 ```
 
 ## Configuration
@@ -42,8 +42,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/webrtc"
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 )
 
 func main() {
@@ -134,7 +134,7 @@ for _, chunk := range audioChunks {
 For compile-time type safety, construct the provider directly:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/vad/providers/webrtc"
+import "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 
 vad := webrtc.New(1500.0, 0.08)
 ```

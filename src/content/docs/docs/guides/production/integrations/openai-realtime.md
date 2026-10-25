@@ -23,7 +23,7 @@ The OpenAI Realtime integration uses the `voice/s2s` package to enable bidirecti
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 Set your API key:
@@ -45,8 +45,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai_realtime"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai_realtime"
 )
 
 func main() {

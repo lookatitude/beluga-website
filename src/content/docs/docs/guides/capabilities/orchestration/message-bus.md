@@ -30,7 +30,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/agent"
+    "github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 bus := agent.NewInMemoryBus()
@@ -83,7 +83,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/agent"
+    "github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func main() {

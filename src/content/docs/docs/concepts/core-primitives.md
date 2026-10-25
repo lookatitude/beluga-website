@@ -72,7 +72,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func consumeStream[T any](ctx context.Context, stream core.Stream[T]) error {
@@ -120,7 +120,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func bufferExample[T any](ctx context.Context, src core.Stream[T]) error {
@@ -161,7 +161,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func pipeExample(ctx context.Context, retriever, promptBuild, llm core.Runnable) error {

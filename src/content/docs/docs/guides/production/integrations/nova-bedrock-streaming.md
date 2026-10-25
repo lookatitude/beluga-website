@@ -24,7 +24,7 @@ The Amazon Nova integration uses the `voice/s2s` package to enable bidirectional
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 Configure AWS credentials:
@@ -50,8 +50,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    "github.com/lookatitude/beluga-ai/voice/s2s/providers/amazon_nova"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/amazon_nova"
 )
 
 func main() {

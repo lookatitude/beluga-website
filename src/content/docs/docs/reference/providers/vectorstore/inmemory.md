@@ -15,7 +15,7 @@ Use the in-memory store for unit tests and development. It requires no setup, no
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory
 ```
 
 ## Quick Start
@@ -28,10 +28,10 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
 )
 
 func main() {
@@ -79,7 +79,7 @@ store, err := vectorstore.New("inmemory", config.ProviderConfig{})
 
 ```go
 import (
-    memstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
+    memstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
 )
 
 store := memstore.New()

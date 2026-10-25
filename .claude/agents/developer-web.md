@@ -41,7 +41,7 @@ Astro 5, Starlight, React 19, TypeScript, Tailwind v4 via `@tailwindcss/vite`, M
 ## Rules
 
 - Reuse existing component patterns under `src/components/` — don't invent new primitives without a documented reason.
-- All Go code examples in MDX must compile. Full imports (`github.com/lookatitude/beluga-ai/...`). Errors handled explicitly.
+- All Go code examples in MDX must compile. Full imports (`github.com/lookatitude/beluga-ai/v2/...`). Errors handled explicitly.
 - Responsive at 320 / 768 / 1024 / 1440 px. Test at all four.
 - WCAG AA accessibility — color contrast, keyboard navigation, semantic HTML, alt text.
 - Touch Starlight overrides (`src/components/override-components/`) carefully — upstream Starlight updates may require refreshing them.

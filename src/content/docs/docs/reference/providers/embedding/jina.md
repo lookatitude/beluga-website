@@ -15,7 +15,7 @@ Choose Jina embeddings when you need language-specific models (German, Chinese, 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/jina
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/jina
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/jina"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/jina"
 )
 
 func main() {
@@ -79,7 +79,7 @@ func main() {
 
 ```go
 import (
-    jinaemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/jina"
+    jinaemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/jina"
 )
 
 emb, err := jinaemb.New(config.ProviderConfig{

@@ -46,7 +46,7 @@ import (
     "context"
     "time"
 
-    "github.com/lookatitude/beluga-ai/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 func setupBargeInDetection(ctx context.Context) (voice.FrameProcessor, error) {

@@ -15,7 +15,7 @@ Choose Firecrawl when you need to scrape web pages — including JavaScript-rend
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/loader/providers/firecrawl
+go get github.com/lookatitude/beluga-ai/v2/rag/loader/providers/firecrawl
 ```
 
 This provider depends on the official Firecrawl Go SDK (`github.com/mendableai/firecrawl-go`).
@@ -31,9 +31,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/firecrawl"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/firecrawl"
 )
 
 func main() {

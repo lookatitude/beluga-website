@@ -80,7 +80,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // TiktokenSplitter splits text into chunks based on token count.

@@ -15,7 +15,7 @@ Choose RAGAS when you are evaluating RAG pipelines and need metrics that specifi
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/eval/providers/ragas
+go get github.com/lookatitude/beluga-ai/v2/eval/providers/ragas
 ```
 
 ## Configuration
@@ -46,9 +46,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/eval"
-    "github.com/lookatitude/beluga-ai/eval/providers/ragas"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/eval"
+    "github.com/lookatitude/beluga-ai/v2/eval/providers/ragas"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {

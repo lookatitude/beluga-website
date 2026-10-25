@@ -24,13 +24,13 @@ The MCP implementation uses the Streamable HTTP transport (March 2025 spec) with
 ## Prerequisites
 
 - Go 1.23 or later
-- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai`)
+- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - For testing: an MCP client (Cursor, Claude Code, MCP CLI, or `curl`)
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Exposing Tools via MCP Server
@@ -49,8 +49,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/protocol/mcp"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 type EchoInput struct {
@@ -120,12 +120,12 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -183,9 +183,9 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/protocol/mcp"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {

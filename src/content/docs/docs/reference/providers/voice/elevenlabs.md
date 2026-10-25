@@ -16,10 +16,10 @@ Choose ElevenLabs when voice quality is the top priority — particularly for ap
 
 ```go
 // STT (Scribe)
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/elevenlabs"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/elevenlabs"
 
 // TTS
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 ```
 
 ## STT (Scribe)
@@ -50,8 +50,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/elevenlabs"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/elevenlabs"
 )
 
 func main() {
@@ -124,8 +124,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 func main() {
@@ -153,7 +153,7 @@ func main() {
 ### Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 
 engine, err := elevenlabs.New(tts.Config{
     Voice: "rachel",

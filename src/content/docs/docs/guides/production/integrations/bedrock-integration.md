@@ -35,7 +35,7 @@ Key benefits:
 Install the Bedrock provider and AWS SDK dependencies:
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/bedrock
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock
 ```
 
 Configure AWS credentials using one of the standard methods:
@@ -65,10 +65,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -181,10 +181,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -255,7 +255,7 @@ model, err := llm.New("bedrock", config.ProviderConfig{
 Use Beluga's LLM Router to route between Bedrock models based on cost, latency, or capability:
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm"
+import "github.com/lookatitude/beluga-ai/v2/llm"
 
 router := llm.NewRouter(
 	llm.Route("complex", complexModel),

@@ -4,9 +4,9 @@ import EditorialSection from "@/components/marketing/EditorialSection.astro";
 import CodeProof from "@/components/marketing/CodeProof.astro";
 
 const buildCode = `import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/tool"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 model, _ := llm.New("anthropic", llm.Config{Model: "claude-sonnet-4-6"})
@@ -25,10 +25,10 @@ for ev, err := range stream.Range {
 }`;
 
 const knowCode = `import (
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 store, _ := vectorstore.New("pgvector", vectorstore.Config{
@@ -56,11 +56,11 @@ safeModel := llm.ApplyMiddleware(base,
 )`;
 
 const voiceCode = `import (
-    "github.com/lookatitude/beluga-ai/voice"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/cartesia"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 )
 
 pipeline, _ := voice.NewPipeline(voice.Config{
@@ -76,8 +76,8 @@ pipeline, _ := voice.NewPipeline(voice.Config{
 pipeline.Run(ctx)`;
 
 const protocolCode = `import (
-    "github.com/lookatitude/beluga-ai/protocol/mcp"
-    "github.com/lookatitude/beluga-ai/runtime"
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
+    "github.com/lookatitude/beluga-ai/v2/runtime"
 )
 
 runner, _ := runtime.NewRunner(runtime.Config{

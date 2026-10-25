@@ -43,9 +43,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice/backend"
-	vbiface "github.com/lookatitude/beluga-ai/voice/backend/iface"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/livekit"
+	"github.com/lookatitude/beluga-ai/v2/voice/backend"
+	vbiface "github.com/lookatitude/beluga-ai/v2/voice/backend/iface"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/backend/providers/livekit"
 )
 
 func main() {
@@ -138,9 +138,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice/backend"
-	vbiface "github.com/lookatitude/beluga-ai/voice/backend/iface"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/vapi"
+	"github.com/lookatitude/beluga-ai/v2/voice/backend"
+	vbiface "github.com/lookatitude/beluga-ai/v2/voice/backend/iface"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/backend/providers/vapi"
 )
 
 func main() {

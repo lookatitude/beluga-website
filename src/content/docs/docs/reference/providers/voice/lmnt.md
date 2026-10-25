@@ -15,7 +15,7 @@ Choose LMNT when you need the lowest possible TTS latency for real-time conversa
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/lmnt"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/lmnt"
 ```
 
 The blank import registers the `"lmnt"` provider with the TTS registry.
@@ -46,8 +46,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/lmnt"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/lmnt"
 )
 
 func main() {
@@ -75,7 +75,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/lmnt"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/lmnt"
 
 engine, err := lmnt.New(tts.Config{
     Voice: "lily",

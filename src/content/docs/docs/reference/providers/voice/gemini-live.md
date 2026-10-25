@@ -15,7 +15,7 @@ Choose Gemini Live when you want native speech-to-speech with Google's multimoda
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/gemini"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/gemini"
 ```
 
 The blank import registers the `"gemini_live"` provider with the S2S registry.
@@ -48,8 +48,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/gemini"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/gemini"
 )
 
 func main() {
@@ -95,7 +95,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/s2s/providers/gemini"
+import "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/gemini"
 
 engine, err := gemini.New(s2s.Config{
     Model:        "gemini-2.0-flash-exp",

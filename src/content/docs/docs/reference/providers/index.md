@@ -10,7 +10,7 @@ head:
 
 Beluga AI v2 ships with 108 provider implementations across 15 categories. Every provider follows the same registry pattern: import the package, and it auto-registers via `init()`. Switch between providers by changing an import path and configuration — no code changes required.
 
-Each provider page documents configuration options, code examples, and guidance on when to choose that provider. All examples use the `github.com/lookatitude/beluga-ai` module path and handle errors explicitly.
+Each provider page documents configuration options, code examples, and guidance on when to choose that provider. All examples use the `github.com/lookatitude/beluga-ai/v2` module path and handle errors explicitly.
 
 ## Provider Categories
 
@@ -38,10 +38,10 @@ Every provider category uses the same pattern:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"     // auto-registers
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"  // auto-registers
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"     // auto-registers
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"  // auto-registers
 )
 
 // Create by name

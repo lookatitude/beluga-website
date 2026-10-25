@@ -11,7 +11,7 @@ head:
 ## tts
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts"
 ```
 
 Package tts provides the text-to-speech (TTS) interface and provider registry
@@ -40,7 +40,7 @@ Providers register via `Register` in their init() function and are created
 with `New`. Use `List` to discover available providers.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 
 engine, err := tts.New("elevenlabs", tts.Config{Voice: "rachel"})
 audio, err := engine.Synthesize(ctx, "Hello, world!")
@@ -88,7 +88,7 @@ OnError. Use `ComposeHooks` to merge multiple hooks.
 ## cartesia
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/cartesia"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
 ```
 
 Package cartesia provides the Cartesia TTS provider for the Beluga AI voice
@@ -101,7 +101,7 @@ This package registers itself as "cartesia" with the tts registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/cartesia"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
 ```
 
 ## Usage
@@ -134,7 +134,7 @@ specified as a Cartesia voice ID.
 ## elevenlabs
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 ```
 
 Package elevenlabs provides the ElevenLabs TTS provider for the Beluga AI
@@ -147,7 +147,7 @@ This package registers itself as "elevenlabs" with the tts registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 ```
 
 ## Usage
@@ -180,7 +180,7 @@ is "eleven_monolingual_v1". Output format defaults to audio/mpeg.
 ## fish
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/fish"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/fish"
 ```
 
 Package fish provides the Fish Audio TTS provider for the Beluga AI voice
@@ -192,7 +192,7 @@ This package registers itself as "fish" with the tts registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/fish"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/fish"
 ```
 
 ## Usage
@@ -225,7 +225,7 @@ Fish Audio API.
 ## groq
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/groq"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/groq"
 ```
 
 Package groq provides the Groq TTS provider for the Beluga AI voice pipeline.
@@ -237,7 +237,7 @@ This package registers itself as "groq" with the tts registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/groq"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/groq"
 ```
 
 ## Usage
@@ -270,7 +270,7 @@ Speed and output format are configurable through [tts.Config].
 ## lmnt
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/lmnt"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/lmnt"
 ```
 
 Package lmnt provides the LMNT TTS provider for the Beluga AI voice pipeline.
@@ -282,7 +282,7 @@ This package registers itself as "lmnt" with the tts registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/lmnt"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/lmnt"
 ```
 
 ## Usage
@@ -315,7 +315,7 @@ through [tts.Config].
 ## playht
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/playht"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/playht"
 ```
 
 Package playht provides the PlayHT TTS provider for the Beluga AI voice
@@ -327,7 +327,7 @@ This package registers itself as "playht" with the tts registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/playht"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/playht"
 ```
 
 ## Usage
@@ -361,7 +361,7 @@ format is MP3.
 ## smallest
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/smallest"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/smallest"
 ```
 
 Package smallest provides the Smallest.ai TTS provider for the Beluga AI
@@ -374,7 +374,7 @@ This package registers itself as "smallest" with the tts registry. Import it
 with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/smallest"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/smallest"
 ```
 
 ## Usage

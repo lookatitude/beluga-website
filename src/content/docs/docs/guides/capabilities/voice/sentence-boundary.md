@@ -43,8 +43,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice/turndetection"
-	_ "github.com/lookatitude/beluga-ai/voice/turndetection/providers/heuristic"
+	"github.com/lookatitude/beluga-ai/v2/voice/turndetection"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/turndetection/providers/heuristic"
 )
 
 func main() {
@@ -112,10 +112,10 @@ Combine the heuristic turn detector with a voice session for a complete pipeline
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/session"
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	"github.com/lookatitude/beluga-ai/voice/turndetection"
+	"github.com/lookatitude/beluga-ai/v2/voice/session"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+	"github.com/lookatitude/beluga-ai/v2/voice/turndetection"
 )
 
 func createSessionWithTurnDetection(ctx context.Context) {

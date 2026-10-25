@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/retriever"
+import "github.com/lookatitude/beluga-ai/v2/rag/retriever"
 ```
 
 Package retriever provides the Retriever interface and implementations for

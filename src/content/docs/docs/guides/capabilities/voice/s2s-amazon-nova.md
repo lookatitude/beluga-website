@@ -51,8 +51,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/s2s"
-	_ "github.com/lookatitude/beluga-ai/voice/s2s/providers/amazon_nova"
+	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/amazon_nova"
 )
 
 func main() {

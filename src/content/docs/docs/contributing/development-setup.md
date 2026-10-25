@@ -119,7 +119,7 @@ The linter checks are the same ones that run in CI, so fix any issues before ope
 
 ## Project Structure
 
-Beluga AI follows a flat package layout with no `pkg/` prefix. This keeps import paths short (`github.com/lookatitude/beluga-ai/llm` rather than `github.com/lookatitude/beluga-ai/pkg/llm`) and aligns with Go conventions for library modules. Here's a high-level overview:
+Beluga AI follows a flat package layout with no `pkg/` prefix. This keeps import paths short (`github.com/lookatitude/beluga-ai/v2/llm` rather than `github.com/lookatitude/beluga-ai/v2/pkg/llm`) and aligns with Go conventions for library modules. Here's a high-level overview:
 
 ```
 beluga-ai/

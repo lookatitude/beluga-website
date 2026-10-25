@@ -61,11 +61,11 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
     // Register the Cohere provider
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere"
 )
 
 func main() {
@@ -122,10 +122,10 @@ import (
     "math"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere"
 )
 
 func main() {
@@ -233,12 +233,12 @@ Connect Cohere embeddings to a vector store for similarity search:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/cohere"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/cohere"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 emb, err := embedding.New("cohere", config.ProviderConfig{

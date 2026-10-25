@@ -52,12 +52,12 @@ import (
     "fmt"
     "math"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // SQLQueryInput defines the input schema for the SQL tool.
@@ -263,7 +263,7 @@ apiTool := tool.NewFuncTool[APIQueryInput](
 An agent with SQL access could potentially execute destructive queries (DROP TABLE, DELETE). Beluga AI's guard pipeline applies a tool guard that validates SQL input before execution, blocking write operations at the framework level rather than relying on database permissions alone. This defense-in-depth approach catches prompt injection attempts that try to trick the agent into running unauthorized queries:
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
 // Guard that blocks write operations in SQL
 sqlGuard := guard.GuardFunc("sql-read-only", func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
@@ -286,7 +286,7 @@ sqlGuard := guard.GuardFunc("sql-read-only", func(ctx context.Context, input gua
 Wrap database and API calls with retry logic for transient failures:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 policy := resilience.RetryPolicy{
     MaxAttempts:    3,

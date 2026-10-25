@@ -40,7 +40,7 @@ The `protocol/mcp` package provides `MCPServer`, which processes JSON-RPC 2.0 re
 - **Prompts** -- Reusable prompt templates with parameterized arguments. Clients can list available prompts and fill in arguments, enabling consistent prompt engineering across tools.
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
 
 server := mcp.NewServer("my-tools", "1.0.0")
 ```
@@ -57,8 +57,8 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/protocol/mcp"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 type WeatherInput struct {

@@ -26,7 +26,7 @@ A research workflow that executes an agent as an activity, waits for a human app
 The `workflow` package defines a `DurableExecutor` interface that follows Beluga AI's registry pattern -- `workflow.New()` creates an executor by name ("default" for the built-in engine, "temporal" for the Temporal provider). The built-in executor uses event sourcing to persist workflow state: every activity completion, signal receipt, and state transition is recorded as an event. On restart, the executor replays the event log to reconstruct the workflow's state without re-executing completed activities.
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow"
+import "github.com/lookatitude/beluga-ai/v2/workflow"
 
 // DurableExecutor manages workflow lifecycle.
 type DurableExecutor interface {
@@ -57,7 +57,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
 )
 
 // researchActivity performs the AI research step.
@@ -184,7 +184,7 @@ func waitForResult(ctx context.Context, handle workflow.WorkflowHandle) {
 For production deployments requiring distributed execution across multiple workers, persistent storage with a database backend, and advanced features like visibility queries and workflow versioning, use the Temporal provider. The provider wraps your `WorkflowFunc` and `ActivityFunc` types into native Temporal workflows and activities, handling serialization, retries, and signal routing transparently. Your workflow code does not change -- only the provider name and configuration.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+import _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 
 executor, err := workflow.New("temporal", workflow.Config{
     Extra: map[string]any{

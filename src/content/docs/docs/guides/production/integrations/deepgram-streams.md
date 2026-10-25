@@ -22,7 +22,7 @@ The Deepgram integration uses the `voice/stt` package to connect to Deepgram's s
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 Set your API key:
@@ -44,7 +44,7 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 func main() {
@@ -101,7 +101,7 @@ func streamTranscription(ctx context.Context, provider *deepgram.DeepgramSTT, au
 Use the Deepgram provider in a voice session:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/session"
+import "github.com/lookatitude/beluga-ai/v2/voice/session"
 
 sttProvider, err := deepgram.NewDeepgramSTT(ctx, deepgram.Config{
     APIKey: os.Getenv("DEEPGRAM_API_KEY"),

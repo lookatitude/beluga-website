@@ -15,15 +15,15 @@ Use the Llama provider when you want to standardize your code around Llama model
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/llama
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/llama
 ```
 
 You also need to import the backend provider you intend to use:
 
 ```go
 import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/llama"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/together"  // or your chosen backend
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/llama"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/together"  // or your chosen backend
 )
 ```
 
@@ -64,11 +64,11 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/llama"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/together"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/llama"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/together"
 )
 
 func main() {
@@ -171,8 +171,8 @@ if err != nil {
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/llm/providers/llama"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/together"
+    "github.com/lookatitude/beluga-ai/v2/llm/providers/llama"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/together"
 )
 
 model, err := llama.New(config.ProviderConfig{

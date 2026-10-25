@@ -11,7 +11,7 @@ head:
 ## silero
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+import "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 ```
 
 Package silero provides the Silero VAD (Voice Activity Detection) provider
@@ -27,7 +27,7 @@ This package registers itself as "silero" with the voice VAD registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 ```
 
 ## Usage
@@ -62,7 +62,7 @@ fallback calibrated to approximate Silero's behavior.
 ## webrtc
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/vad/providers/webrtc"
+import "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 ```
 
 Package webrtc provides a pure Go WebRTC-style VAD (Voice Activity Detection)
@@ -76,7 +76,7 @@ This package registers itself as "webrtc" with the voice VAD registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/vad/providers/webrtc"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 ```
 
 ## Usage

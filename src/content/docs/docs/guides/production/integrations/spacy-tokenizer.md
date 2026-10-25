@@ -74,7 +74,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // SpaCySplitter splits text into chunks at sentence boundaries.

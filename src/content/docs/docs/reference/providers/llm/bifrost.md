@@ -15,7 +15,7 @@ Choose Bifrost when you need infrastructure-level load balancing and automatic f
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/bifrost
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/bifrost
 ```
 
 **Prerequisites:** A running Bifrost gateway instance.
@@ -41,10 +41,10 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/bifrost"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/bifrost"
 )
 
 func main() {
@@ -124,7 +124,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/bifrost"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/bifrost"
 
 model, err := bifrost.New(config.ProviderConfig{
     Model:   "gpt-4o",

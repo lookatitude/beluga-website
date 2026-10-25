@@ -57,12 +57,12 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // createBillingAgent builds an agent specialized in billing inquiries.
@@ -197,8 +197,8 @@ Not every issue can be resolved by AI. Beluga AI's HITL (Human-in-the-Loop) syst
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/hitl"
-    _ "github.com/lookatitude/beluga-ai/hitl/providers/default"
+    "github.com/lookatitude/beluga-ai/v2/hitl"
+    _ "github.com/lookatitude/beluga-ai/v2/hitl/providers/default"
 )
 
 func setupEscalation(ctx context.Context) (hitl.Manager, error) {
@@ -263,7 +263,7 @@ func escalateToHuman(ctx context.Context, manager hitl.Manager, toolName string,
 For complex multi-step support cases, use workflow agents to coordinate a sequence of actions:
 
 ```go
-import "github.com/lookatitude/beluga-ai/agent/workflow"
+import "github.com/lookatitude/beluga-ai/v2/agent/workflow"
 
 // Sequential workflow: verify identity → diagnose → resolve → follow up
 supportWorkflow, err := workflow.NewSequential(
@@ -301,7 +301,7 @@ span.SetAttributes(
 Use Beluga AI's 3-stage guard pipeline to screen agent inputs, outputs, and tool calls. The guard pipeline is always input guards first, then output guards, then tool guards — this ordering ensures that malicious inputs are caught before they reach the LLM, PII is caught before it reaches the user, and tool calls are validated before they execute.
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
 // Input guard: prevent prompt injection attacks
 // Output guard: prevent PII leakage in responses
@@ -318,7 +318,7 @@ pipeline := guard.NewPipeline(
 Restrict agent capabilities per customer tier using Beluga AI's auth system:
 
 ```go
-import "github.com/lookatitude/beluga-ai/auth"
+import "github.com/lookatitude/beluga-ai/v2/auth"
 
 policy, err := auth.New("rbac", auth.Config{})
 

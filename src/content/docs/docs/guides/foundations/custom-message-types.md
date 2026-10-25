@@ -51,7 +51,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // TransactionData holds structured financial payload.

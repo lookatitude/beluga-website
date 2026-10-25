@@ -29,7 +29,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // Define a typed input struct. Tags control the JSON Schema.
@@ -101,7 +101,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -182,7 +182,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // loggingMiddleware logs every tool execution with timing.
@@ -291,7 +291,7 @@ import (
 	"log/slog"
 	"sync/atomic"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -363,7 +363,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // DynamicRegistry allows adding and removing tools at runtime.
@@ -468,7 +468,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -533,7 +533,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -602,7 +602,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {

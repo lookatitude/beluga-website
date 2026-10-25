@@ -19,9 +19,9 @@ import (
     "context"
     "fmt"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -56,10 +56,10 @@ model := llm.ApplyMiddleware(base,
 
 const providerCode = `// One import, fully wired. Every provider registers in init().
 import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )`;
 ---
 

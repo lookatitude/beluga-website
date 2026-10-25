@@ -15,7 +15,7 @@ Choose Lakera Guard when prompt injection and jailbreak detection are your prima
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/guard/providers/lakera
+go get github.com/lookatitude/beluga-ai/v2/guard/providers/lakera
 ```
 
 ## Quick Start
@@ -29,8 +29,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/guard"
-    "github.com/lookatitude/beluga-ai/guard/providers/lakera"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard/providers/lakera"
 )
 
 func main() {

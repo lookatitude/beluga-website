@@ -92,8 +92,8 @@ STT converts audio input into text that an LLM can process. Beluga AI supports b
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 engine, err := stt.New("deepgram", stt.Config{
@@ -145,8 +145,8 @@ TTS converts the LLM's text response into audio that the user hears. For real-ti
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	_ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 engine, err := tts.New("elevenlabs", tts.Config{
@@ -208,8 +208,8 @@ Speech-to-Speech models process audio natively — they take audio input and pro
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/s2s"
-	_ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 engine, err := s2s.New("openai", s2s.Config{
@@ -283,7 +283,7 @@ wg.Wait()
 VAD determines when the user is speaking and when they have stopped. This is critical for turn-taking: the pipeline should only process audio that contains speech, and it should detect end-of-utterance to trigger LLM processing. VAD also enables interruption handling — if the user starts speaking while the agent is responding, VAD detects the new speech and can signal the pipeline to stop the current output.
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice"
+import "github.com/lookatitude/beluga-ai/v2/voice"
 
 vad := voice.NewVAD(voice.VADConfig{
 	Threshold:      0.5,  // Speech probability threshold
@@ -319,8 +319,8 @@ The transport layer handles the connection between the voice pipeline and the en
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/voice/transport"
-	_ "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+	"github.com/lookatitude/beluga-ai/v2/voice/transport"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 )
 
 // WebSocket transport (built-in)
@@ -393,16 +393,16 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/voice"
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	"github.com/lookatitude/beluga-ai/voice/transport"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+	"github.com/lookatitude/beluga-ai/v2/voice/transport"
 
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-	_ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 func main() {

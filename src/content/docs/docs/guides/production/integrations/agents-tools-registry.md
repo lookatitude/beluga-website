@@ -25,13 +25,13 @@ Agents receive tools at construction time via `agent.WithTools()` and invoke the
 ## Prerequisites
 
 - Go 1.23 or later
-- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai`)
+- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - An LLM provider configured (any provider that supports tool calling)
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Creating Tools with FuncTool
@@ -46,12 +46,12 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // GreetInput defines the tool's input parameters.
@@ -104,8 +104,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // WeatherTool implements tool.Tool manually.
@@ -151,8 +151,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -210,7 +210,7 @@ func main() {
 Wrap tools with middleware to add cross-cutting concerns like logging, metrics, or timeouts.
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 
 // Apply middleware to a tool
 wrapped := tool.ApplyMiddleware(myTool,

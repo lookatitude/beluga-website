@@ -41,8 +41,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/s2s"
-	_ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai_realtime"
+	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai_realtime"
 )
 
 func main() {

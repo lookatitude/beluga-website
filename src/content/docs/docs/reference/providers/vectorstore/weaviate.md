@@ -15,7 +15,7 @@ Choose Weaviate when you need a schema-enforced data model with built-in hybrid 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/weaviate
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/weaviate
 ```
 
 Start Weaviate locally:
@@ -33,10 +33,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/weaviate"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/weaviate"
 )
 
 func main() {
@@ -76,7 +76,7 @@ func main() {
 
 ```go
 import (
-    weaviatestore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/weaviate"
+    weaviatestore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/weaviate"
 )
 
 store := weaviatestore.New("http://localhost:8080",

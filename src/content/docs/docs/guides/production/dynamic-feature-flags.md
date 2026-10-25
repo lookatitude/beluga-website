@@ -45,8 +45,8 @@ import (
     "fmt"
     "sync"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
 )
 
 // FeatureFlag represents a dynamic feature flag.

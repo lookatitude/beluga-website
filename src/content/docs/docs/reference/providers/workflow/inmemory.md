@@ -15,7 +15,7 @@ Choose the In-Memory workflow store for development, testing, and CI pipelines w
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/workflow/providers/inmemory
+go get github.com/lookatitude/beluga-ai/v2/workflow/providers/inmemory
 ```
 
 ## Quick Start
@@ -28,8 +28,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/workflow"
-    "github.com/lookatitude/beluga-ai/workflow/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow/providers/inmemory"
 )
 
 func main() {

@@ -57,13 +57,13 @@ import (
     "os/exec"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // GitDiffInput specifies which PR diff to fetch.
@@ -306,7 +306,7 @@ func postReviewComment(ctx context.Context, repo string, prNumber int, report Re
 Guard the agent's output to ensure reviews are constructive and accurate. Beluga AI's guard pipeline provides output guards that screen the agent's responses before they are posted. The tone guard catches harsh or personal language, and the security guard prevents the agent from suggesting code patterns that could introduce vulnerabilities. These guards implement the output stage of Beluga AI's 3-stage guard pipeline (Input, Output, Tool).
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
 // Guard against overly harsh or personal criticism
 toneGuard := guard.GuardFunc("constructive-tone", func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {

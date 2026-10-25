@@ -22,7 +22,7 @@ Load documents recursively from local filesystem.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders"
 )
 
 fsys := os.DirFS("/path/to/documents")
@@ -43,7 +43,7 @@ Extract text from PDF files.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/pdf"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/pdf"
 )
 
 loader := pdf.NewLoader("/path/to/file.pdf",
@@ -63,7 +63,7 @@ Load documents from S3 buckets.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/s3"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/s3"
     "github.com/aws/aws-sdk-go/aws/session"
 )
 
@@ -91,7 +91,7 @@ Load from GCS buckets.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/gcs"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/gcs"
     "cloud.google.com/go/storage"
 )
 
@@ -111,7 +111,7 @@ Load from Azure containers.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/azureblob"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/azureblob"
 )
 
 loader := azureblob.NewLoader(
@@ -132,7 +132,7 @@ Scrape and parse HTML content.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/html"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/html"
 )
 
 loader := html.NewLoader("https://example.com",
@@ -151,7 +151,7 @@ Crawl entire websites via sitemaps.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/sitemap"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/sitemap"
 )
 
 loader := sitemap.NewLoader("https://example.com/sitemap.xml",
@@ -171,7 +171,7 @@ Load data from SQL databases.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/sql"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/sql"
     "database/sql"
     _ "github.com/lib/pq"
 )
@@ -193,7 +193,7 @@ Load documents from MongoDB collections.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/mongodb"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/mongodb"
     "go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -217,7 +217,7 @@ Load data from REST APIs.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/restapi"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/restapi"
 )
 
 loader := restapi.NewLoader("https://api.example.com/documents",
@@ -241,7 +241,7 @@ Load documents from Google Drive.
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/pkg/documentloaders/providers/googledrive"
+    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/googledrive"
     "google.golang.org/api/drive/v3"
 )
 
@@ -265,7 +265,7 @@ package custom
 
 import (
     "context"
-    "github.com/lookatitude/beluga-ai/pkg/schema"
+    "github.com/lookatitude/beluga-ai/v2/pkg/schema"
 )
 
 type CustomLoader struct {

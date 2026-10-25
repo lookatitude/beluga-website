@@ -47,7 +47,7 @@ export AWS_SECRET_ACCESS_KEY="your-secret"
 Before building the custom loader, review the interface it must satisfy:
 
 ```go
-// From github.com/lookatitude/beluga-ai/rag/loader
+// From github.com/lookatitude/beluga-ai/v2/rag/loader
 type DocumentLoader interface {
     Load(ctx context.Context, source string) ([]schema.Document, error)
 }
@@ -74,7 +74,7 @@ import (
     "github.com/aws/aws-sdk-go-v2/aws"
     awsconfig "github.com/aws/aws-sdk-go-v2/config"
     "github.com/aws/aws-sdk-go-v2/service/s3"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // S3Loader loads documents from an S3 bucket. It implements a Load method
@@ -284,11 +284,11 @@ Connect the S3 loader to splitters, embedders, and vector stores:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 // Load documents from S3

@@ -15,7 +15,7 @@ Choose OpenAI Realtime when you need native speech-to-speech with GPT-4o's reaso
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 ```
 
 The blank import registers the `"openai_realtime"` provider with the S2S registry.
@@ -48,8 +48,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 func main() {
@@ -98,7 +98,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import openai_realtime "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+import openai_realtime "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 
 engine, err := openai_realtime.New(s2s.Config{
     Voice:        "alloy",

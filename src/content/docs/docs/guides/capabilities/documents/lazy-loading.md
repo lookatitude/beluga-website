@@ -26,7 +26,7 @@ A document ingestion pipeline that loads files from a directory, applies metadat
 Every loader implements the `DocumentLoader` interface. This is the same interface-first pattern used across Beluga AI: define a minimal contract, then provide implementations via the registry pattern (`loader.New("text", ...)`, `loader.New("json", ...)`, etc.). Custom loaders for proprietary formats implement the same interface and integrate into the same pipeline.
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/loader"
+import "github.com/lookatitude/beluga-ai/v2/rag/loader"
 
 type DocumentLoader interface {
     Load(ctx context.Context, source string) ([]schema.Document, error)
@@ -49,7 +49,7 @@ pipeline := loader.NewPipeline(
 Documents carry content, metadata, and optional embeddings. The `Metadata` map uses `map[string]any` for flexibility -- different file types contribute different metadata (file size, author, page count), and downstream components (splitters, retrievers) can use these fields for filtering and ranking.
 
 ```go
-import "github.com/lookatitude/beluga-ai/schema"
+import "github.com/lookatitude/beluga-ai/v2/schema"
 
 doc := schema.Document{
     ID:       "doc-001",
@@ -69,11 +69,11 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
 
     // Register built-in loaders.
-    _ "github.com/lookatitude/beluga-ai/rag/loader" // registers "text", "json", "csv", "markdown"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader" // registers "text", "json", "csv", "markdown"
 )
 
 func main() {
@@ -140,9 +140,9 @@ import (
     "strings"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func loadDirectory(ctx context.Context, pipeline *loader.LoaderPipeline, dirPath string) ([]schema.Document, error) {

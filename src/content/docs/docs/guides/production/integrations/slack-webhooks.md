@@ -61,7 +61,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -234,7 +234,7 @@ In production, verify that incoming requests originate from Slack by validating 
 Slack enforces rate limits on the Web API (typically one message per second per channel for `chat.postMessage`). Use the `resilience` package to add retry logic with exponential backoff:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 ```
 
 ### Threaded Conversations

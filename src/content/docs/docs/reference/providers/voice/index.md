@@ -48,8 +48,8 @@ Instantiate via the registry or direct construction:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 engine, err := stt.New("deepgram", stt.Config{
@@ -74,8 +74,8 @@ Instantiate via the registry or direct construction:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 engine, err := tts.New("elevenlabs", tts.Config{
@@ -107,8 +107,8 @@ Instantiate via the registry:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 engine, err := s2s.New("openai_realtime", s2s.Config{

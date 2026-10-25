@@ -11,7 +11,7 @@ head:
 ## transport
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport"
 ```
 
 Package transport provides the audio transport interface and registry for the
@@ -42,7 +42,7 @@ Providers register via `Register` in their init() function and are created
 with `New`. Use `List` to discover available providers.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/transport"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/transport"
 
 t, err := transport.New("websocket", transport.Config{URL: "ws://..."})
 frames, err := t.Recv(ctx)
@@ -80,7 +80,7 @@ channel count, and provider-specific extras. Use functional options
 ## daily
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/daily"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/daily"
 ```
 
 Package daily provides the Daily.co transport provider for the Beluga AI
@@ -93,7 +93,7 @@ This package registers itself as "daily" with the transport registry. Import
 it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/transport/providers/daily"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/daily"
 ```
 
 ## Usage
@@ -121,7 +121,7 @@ and sample rate (default 16000 Hz) can be provided via [transport.Config].
 ## livekit
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 ```
 
 Package livekit provides the LiveKit transport provider for the Beluga AI
@@ -138,7 +138,7 @@ This package registers itself as "livekit" with the transport registry.
 Import it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 ```
 
 ## Usage
@@ -175,7 +175,7 @@ Default sample rate is 16000 Hz, default channel count is 1 (mono).
 ## pipecat
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat"
 ```
 
 Package pipecat provides the Pipecat transport provider for the Beluga AI
@@ -188,7 +188,7 @@ This package registers itself as "pipecat" with the transport registry.
 Import it with a blank identifier to enable:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat"
 ```
 
 ## Usage

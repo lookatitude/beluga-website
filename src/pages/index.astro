@@ -5,8 +5,8 @@ import CodeProof from "@/components/marketing/CodeProof.astro";
 import LayerStack from "@/components/marketing/LayerStack.astro";
 
 const heroCode = `import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    "github.com/lookatitude/beluga-ai/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 model, _ := llm.New("anthropic", llm.Config{Model: "claude-sonnet-4-6"})
@@ -44,15 +44,15 @@ const providerCode = `// 110 providers across 19 categories. Every provider
 // registers itself in init(). Import for side-effect, and
 // call <pkg>.New — middleware, hooks, and tracing attach.
 import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )`;
 
 const workflowCode = `import (
-    "github.com/lookatitude/beluga-ai/workflow"
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )
 
 store, _ := workflow.New("temporal", workflow.Config{

@@ -15,7 +15,7 @@ Choose LiveKit when you need a self-hostable, open-source WebRTC infrastructure 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/voice/transport/providers/livekit
+go get github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit
 ```
 
 ## Configuration
@@ -43,8 +43,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice/transport"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+    "github.com/lookatitude/beluga-ai/v2/voice/transport"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 )
 
 func main() {
@@ -105,7 +105,7 @@ t, err := transport.New("livekit", transport.Config{
 Wrap the transport for use with Beluga's voice pipeline:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport"
 
 audioTransport, err := transport.New("livekit", cfg)
 if err != nil {
@@ -119,7 +119,7 @@ voiceTransport := &transport.AsVoiceTransport{T: audioTransport}
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 
 t, err := livekit.New(transport.Config{
     URL:        "wss://myapp.livekit.cloud",

@@ -15,7 +15,7 @@ Choose Silero when you need high-accuracy, neural network-based voice activity d
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/voice/vad/providers/silero
+go get github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero
 ```
 
 This package uses the `cgo` build tag. Ensure CGO is enabled in your build environment.
@@ -46,8 +46,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {
@@ -120,7 +120,7 @@ Lower thresholds increase sensitivity (more false positives), while higher thres
 For compile-time type safety, construct the provider directly:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+import "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 
 vad, err := silero.New(silero.Config{
     Threshold:  0.5,

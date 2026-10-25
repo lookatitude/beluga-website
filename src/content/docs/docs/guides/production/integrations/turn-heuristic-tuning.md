@@ -21,7 +21,7 @@ The `voice/turndetection` package's heuristic provider offers a lightweight, con
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration
@@ -37,7 +37,7 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/voice/turndetection"
+    "github.com/lookatitude/beluga-ai/v2/voice/turndetection"
 )
 
 func main() {
@@ -124,7 +124,7 @@ Increase `MinSilenceDuration` (600-700 ms). Optionally increase `MinTurnLength` 
 The heuristic package registers itself via `init()`. Ensure you import the `voice/turndetection` package:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/turndetection"
+import "github.com/lookatitude/beluga-ai/v2/voice/turndetection"
 ```
 
 ## Advanced Topics

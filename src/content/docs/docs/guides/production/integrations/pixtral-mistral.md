@@ -54,8 +54,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/mistral"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm/providers/mistral"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -112,7 +112,7 @@ go run main.go
 Pixtral supports several vision-language task patterns:
 
 ```go
-import "github.com/lookatitude/beluga-ai/schema"
+import "github.com/lookatitude/beluga-ai/v2/schema"
 
 // Image captioning (image only, no text prompt)
 messages := []schema.Message{
@@ -156,8 +156,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm/providers/mistral"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/llm/providers/mistral"
 )
 
 func main() {
@@ -204,8 +204,8 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/mistral"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm/providers/mistral"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/trace"

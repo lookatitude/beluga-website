@@ -23,7 +23,7 @@ The `voice/vad` package's `webrtc` provider uses WebRTC-compatible VAD logic run
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration
@@ -38,8 +38,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice/vad"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/webrtc"
+    "github.com/lookatitude/beluga-ai/v2/voice/vad"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 )
 
 func main() {
@@ -114,7 +114,7 @@ Use smaller audio chunks and `ProcessStream`. Keep WebSocket or HTTP round-trips
 Import the WebRTC provider to trigger registration:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/vad/providers/webrtc"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 ```
 
 ## Advanced Topics

@@ -15,7 +15,7 @@ Choose OpenAI when you need the broadest ecosystem support, the most mature tool
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/openai
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/openai
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -180,7 +180,7 @@ if err != nil {
 For compile-time type safety, construct the provider directly instead of using the registry:
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/openai"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 
 model, err := openai.New(config.ProviderConfig{
     Model:  "gpt-4o",

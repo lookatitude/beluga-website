@@ -11,7 +11,7 @@ head:
 ## workflow
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow"
+import "github.com/lookatitude/beluga-ai/v2/workflow"
 ```
 
 Package workflow provides a durable execution engine for the Beluga AI framework.
@@ -168,7 +168,7 @@ wrapped := workflow.ApplyMiddleware(executor, workflow.WithHooks(hooks))
 ## dapr
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow/providers/dapr"
+import "github.com/lookatitude/beluga-ai/v2/workflow/providers/dapr"
 ```
 
 Package dapr provides a Dapr state store-backed [workflow.WorkflowStore]
@@ -207,7 +207,7 @@ without a running Dapr sidecar.
 ## inmemory
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/workflow/providers/inmemory"
 ```
 
 Package inmemory provides an in-memory [workflow.WorkflowStore] for
@@ -233,7 +233,7 @@ handle, err := executor.Execute(ctx, myWorkflow, workflow.WorkflowOptions{
 ## inngest
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow/providers/inngest"
+import "github.com/lookatitude/beluga-ai/v2/workflow/providers/inngest"
 ```
 
 Package inngest provides an Inngest-backed [workflow.WorkflowStore]
@@ -268,7 +268,7 @@ http.DefaultClient).
 ## kafka
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow/providers/kafka"
+import "github.com/lookatitude/beluga-ai/v2/workflow/providers/kafka"
 ```
 
 Package kafka provides a Kafka-backed [workflow.WorkflowStore] implementation
@@ -311,7 +311,7 @@ unit testing without a running Kafka broker.
 ## nats
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow/providers/nats"
+import "github.com/lookatitude/beluga-ai/v2/workflow/providers/nats"
 ```
 
 Package nats provides a NATS JetStream KV-backed [workflow.WorkflowStore]
@@ -353,7 +353,7 @@ and JetStream support (github.com/nats-io/nats.go/jetstream).
 ## temporal
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+import "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 ```
 
 Package temporal provides a Temporal-backed [workflow.DurableExecutor] and

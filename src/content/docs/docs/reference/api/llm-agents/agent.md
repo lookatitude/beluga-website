@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/agent"
+import "github.com/lookatitude/beluga-ai/v2/agent"
 ```
 
 Package agent provides the agent runtime for the Beluga AI framework.
@@ -47,9 +47,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -207,7 +207,7 @@ Use `ListPlanners` for discovery:
 package main
 
 import (
-    "github.com/lookatitude/beluga-ai/agent"
+    "github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func init() {
@@ -234,8 +234,8 @@ to tools named `transfer_to_{id}` that appear in the LLM's tool list:
 package main
 
 import (
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 func buildTeam(model llm.ChatModel) agent.Agent {
@@ -312,7 +312,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
+    "github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func main() {

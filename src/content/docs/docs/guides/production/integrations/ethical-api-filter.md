@@ -17,14 +17,14 @@ While Beluga AI includes built-in guards for prompt injection detection, PII red
 ## Prerequisites
 
 - Go 1.23 or later
-- Beluga AI framework installed (`github.com/lookatitude/beluga-ai`)
+- Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - API credentials for your chosen safety service
 - Familiarity with the `guard` package and the `Guard` interface
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 No additional Go dependencies are required. The external API is called via the standard `net/http` client.
@@ -56,7 +56,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 // ThirdPartySafetyGuard wraps an external content safety API as a Beluga AI guard.
@@ -168,7 +168,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 func main() {
@@ -216,7 +216,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 // FallbackSafetyGuard tries the external API first and falls back to a local guard on failure.
@@ -268,7 +268,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"

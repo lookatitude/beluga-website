@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/audit"
+import "github.com/lookatitude/beluga-ai/v2/audit"
 ```
 
 Package audit provides structured, queryable audit logging for the Beluga AI
@@ -91,7 +91,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/audit"
+    "github.com/lookatitude/beluga-ai/v2/audit"
 )
 
 store := audit.NewInMemoryStore()

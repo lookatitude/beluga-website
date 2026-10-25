@@ -26,11 +26,11 @@ type VectorStore interface {
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 
     // Register the provider you need via blank import
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
 )
 
 func main() {

@@ -72,10 +72,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
 
     // Register the executor provider via blank import
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )
 
 func main() {
@@ -129,8 +129,8 @@ Beluga provides a built-in `DefaultExecutor` that runs workflows in goroutines w
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/workflow"
-    "github.com/lookatitude/beluga-ai/workflow/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow/providers/inmemory"
 )
 
 store := inmemory.New()

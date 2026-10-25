@@ -37,7 +37,7 @@ type Tool interface {
 Writing JSON Schema by hand is tedious and error-prone — every field needs a type, description, and validation rules, and any mismatch between the schema and your code causes runtime failures. `FuncTool` eliminates this by deriving the JSON Schema automatically from Go struct tags. You define a typed input struct with `json`, `description`, `required`, and `default` tags, and the framework generates a correct schema at construction time. This approach leverages Go's type system for compile-time safety while producing the JSON Schema that LLMs need for argument generation.
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 
 // 1. Define the input struct with tags
 type WeatherInput struct {
@@ -176,7 +176,7 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io) is an open s
 Connect to a remote MCP server using the convenience function `tool.FromMCP`, which connects, lists tools, and returns both the tools and the client in one call:
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 
 // Connect to an MCP server and discover tools in one call.
 // FromMCP returns ([]tool.Tool, *tool.MCPClient, error).
@@ -247,7 +247,7 @@ a := agent.New("multi-mcp",
 You can also expose your Go tools as an MCP server, making them available to any MCP-compatible agent or application. This is useful for building reusable tool services that multiple agents or teams can share. The server handles protocol negotiation, tool discovery, argument validation, and result serialization.
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
 
 server := mcp.NewServer(mcp.ServerConfig{
 	Name:    "my-tools",

@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
+	"github.com/lookatitude/beluga-ai/v2/config"
 )
 
 // AppConfig holds your application's configurable settings.
@@ -294,8 +294,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/core"
-	"github.com/lookatitude/beluga-ai/resilience"
+	"github.com/lookatitude/beluga-ai/v2/core"
+	"github.com/lookatitude/beluga-ai/v2/resilience"
 )
 
 func main() {
@@ -358,7 +358,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 func main() {
@@ -416,7 +416,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 func main() {
@@ -478,7 +478,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 func main() {
@@ -531,7 +531,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/o11y"
+	"github.com/lookatitude/beluga-ai/v2/o11y"
 )
 
 func main() {
@@ -676,8 +676,8 @@ import (
 	"iter"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/core"
-	"github.com/lookatitude/beluga-ai/orchestration"
+	"github.com/lookatitude/beluga-ai/v2/core"
+	"github.com/lookatitude/beluga-ai/v2/orchestration"
 )
 
 // labeledNode is a local core.Runnable implementation for illustration.
@@ -738,8 +738,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/core"
-	"github.com/lookatitude/beluga-ai/orchestration"
+	"github.com/lookatitude/beluga-ai/v2/core"
+	"github.com/lookatitude/beluga-ai/v2/orchestration"
 )
 
 // graphNode is a local core.Runnable implementation for illustration.
@@ -841,8 +841,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/prompt"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/prompt"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -901,10 +901,10 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/schema"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -961,7 +961,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lookatitude/beluga-ai/o11y"
+	"github.com/lookatitude/beluga-ai/v2/o11y"
 )
 
 // traceAgentCall creates a child span for an agent invocation.
@@ -1033,7 +1033,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/resilience"
+	"github.com/lookatitude/beluga-ai/v2/resilience"
 )
 
 func main() {

@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 ```
 
 Package tool provides the tool system for the Beluga AI framework.
@@ -47,7 +47,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 type SearchInput struct {
@@ -115,7 +115,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -165,7 +165,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -232,7 +232,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -282,7 +282,7 @@ package main
 import (
     "time"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func withResilience(t tool.Tool) tool.Tool {
@@ -306,7 +306,7 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func withLogging(t tool.Tool) tool.Tool {

@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/embedding"
+import "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 ```
 
 Package embedding provides the Embedder interface and registry for

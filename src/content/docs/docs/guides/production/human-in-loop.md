@@ -42,7 +42,7 @@ A human-in-the-loop system with policy-based auto-approval, webhook notification
 Policies determine when human approval is required. Each policy matches tools by **glob pattern** (using `path.Match()` semantics) and evaluates confidence and risk levels. The glob pattern enables flexible matching: `get_*` matches all read-only tools, `delete_*` matches all destructive tools, and `*` matches everything. This pattern-based approach means you do not need to enumerate every tool individually -- you define categories and let the pattern matching handle discovery.
 
 ```go
-import "github.com/lookatitude/beluga-ai/hitl"
+import "github.com/lookatitude/beluga-ai/v2/hitl"
 
 policy := hitl.ApprovalPolicy{
     Name:          "read-only-auto",
@@ -84,7 +84,7 @@ import (
     "log/slog"
     "time"
 
-    "github.com/lookatitude/beluga-ai/hitl"
+    "github.com/lookatitude/beluga-ai/v2/hitl"
 )
 
 func main() {
