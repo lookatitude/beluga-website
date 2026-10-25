@@ -332,4 +332,4 @@ func (ta *TraceAggregator) ShouldSample(traceID string) bool {
 
 ## Related Recipes
 
-- [Custom S2S Voice Metrics](/docs/recipes/s2s-voice-metrics) — Custom metrics patterns for voice operations
+- [Custom S2S Voice Metrics](/docs/recipes/voice/s2s-voice-metrics/) — Custom metrics patterns for voice operations

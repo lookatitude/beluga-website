@@ -337,6 +337,6 @@ span.SetAttributes(
 
 ## Related Resources
 
-- [Beluga AI Auth Package](/docs/guides/auth) -- RBAC and ABAC integration
+- [Beluga AI Auth Package](/docs/reference/api/infrastructure/auth/) -- RBAC and ABAC integration
 - [Kubernetes Helm Deployment](/docs/guides/production/integrations/kubernetes-helm) -- Deploy authenticated services to Kubernetes
-- [Server Package Guide](/docs/reference/api/server) -- Full server configuration reference
+- [Server Package Guide](/docs/reference/api/protocol/server/) -- Full server configuration reference

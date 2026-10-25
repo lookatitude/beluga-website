@@ -323,5 +323,5 @@ The provided image format is not recognized by Pixtral. Supported formats are PN
 ## Related Resources
 
 - [Google Vertex AI Vision](/docs/guides/production/integrations/vertex-ai-vision) -- Google Vertex AI multimodal integration
-- [LLM Providers](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
-- [Monitoring](/docs/guides/production/integrations/monitoring) -- Observability and tracing setup
+- [LLM Providers](/docs/reference/providers/llm/) -- All supported LLM providers
+- [Monitoring](/docs/guides/production/monitoring-dashboards/) -- Observability and tracing setup

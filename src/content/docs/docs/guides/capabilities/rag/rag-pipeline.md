@@ -462,7 +462,7 @@ graph LR
   Web --> LLM
 ```
 
-CRAG is a registered `Retriever` strategy — enable it with a one-line config change: `retriever.New("crag", cfg)`. See [DOC-10 — RAG Pipeline](../../../../../architecture/10-rag-pipeline.md#crag--corrective-retrieval) for the full list of pluggable strategies (HyDE, Adaptive RAG, Parent-document retrieval).
+CRAG is a registered `Retriever` strategy — enable it with a one-line config change: `retriever.New("crag", cfg)`. See [DOC-10 — RAG Pipeline](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/10-rag-pipeline.md#crag--corrective-retrieval) for the full list of pluggable strategies (HyDE, Adaptive RAG, Parent-document retrieval).
 
 ## Retriever Hooks
 
@@ -485,7 +485,7 @@ hooks := retriever.Hooks{
 
 ## Next Steps
 
-- [Working with LLMs](/docs/guides/working-with-llms/) — The ChatModel that generates answers
-- [Memory System](/docs/guides/memory-system/) — Persistent memory with vector search
-- [Tools & MCP](/docs/guides/tools-and-mcp/) — Give agents retrieval as a tool
-- [Monitoring & Observability](/docs/guides/observability/) — Trace RAG pipeline performance
+- [Working with LLMs](/docs/guides/foundations/working-with-llms/) — The ChatModel that generates answers
+- [Memory System](/docs/guides/capabilities/memory/memory-system/) — Persistent memory with vector search
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) — Give agents retrieval as a tool
+- [Monitoring & Observability](/docs/guides/production/observability/) — Trace RAG pipeline performance

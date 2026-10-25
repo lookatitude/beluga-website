@@ -218,5 +218,5 @@ func (sm *SecretMasker) partialMask(value string) string {
 
 ## Related Recipes
 
-- **[Config Hot-reloading](./config-hot-reload)** — Reload configs without restart
-- **[PII Redaction](./pii-redaction)** — General PII redaction patterns for user data
+- **[Config Hot-reloading](/docs/recipes/infrastructure/config-hot-reload/)** — Reload configs without restart
+- **[PII Redaction](/docs/recipes/infrastructure/pii-redaction/)** — General PII redaction patterns for user data

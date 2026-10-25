@@ -527,7 +527,7 @@ graph LR
   TC --> EL[Event log · persistent]
 ```
 
-Use for long-running or human-in-the-loop workflows. See [DOC-16 — Durable Workflows](../../../../architecture/16-durable-workflows.md).
+Use for long-running or human-in-the-loop workflows. See [DOC-16 — Durable Workflows](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/16-durable-workflows.md).
 
 ## Picking a mode
 
@@ -571,5 +571,5 @@ This checklist covers the essential configuration for a production Beluga deploy
 
 - [Monitoring & Observability](/docs/guides/production/observability/) — Production monitoring setup with distributed tracing
 - [Safety & Guards](/docs/guides/production/safety-and-guards/) — Production safety configuration and guard pipelines
-- [Working with LLMs](/docs/guides/working-with-llms/) — Multi-provider resilience and fallback strategies
-- [Memory System](/docs/guides/memory-system/) — Production memory backends with Redis and PostgreSQL
+- [Working with LLMs](/docs/guides/foundations/working-with-llms/) — Multi-provider resilience and fallback strategies
+- [Memory System](/docs/guides/capabilities/memory/memory-system/) — Production memory backends with Redis and PostgreSQL

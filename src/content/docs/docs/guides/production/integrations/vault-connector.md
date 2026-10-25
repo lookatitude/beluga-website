@@ -372,4 +372,4 @@ vault token capabilities secret/beluga/llm/openai
 ## Related Resources
 
 - [Viper and Environment Overrides](/docs/guides/production/integrations/viper-environment) -- Configuration management with Viper
-- [Infrastructure Integrations](/docs/guides/production/integrations/infrastructure) -- Deployment and infrastructure overview
+- [Infrastructure Integrations](/docs/guides/production/) -- Deployment and infrastructure overview

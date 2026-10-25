@@ -187,5 +187,5 @@ func detectLanguage(filename string) string {
 
 ## Related Recipes
 
-- **[Sentence-Boundary Splitting](./sentence-splitting)** -- Preserve sentence boundaries in prose text
-- **[Document Ingestion](./document-ingestion)** -- Document loading patterns
+- **[Sentence-Boundary Splitting](/docs/recipes/rag/sentence-splitting/)** -- Preserve sentence boundaries in prose text
+- **[Document Ingestion](/docs/recipes/rag/document-ingestion/)** -- Document loading patterns

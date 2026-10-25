@@ -300,5 +300,5 @@ func (tmw *TTLMemoryWrapper) GradualExpiration(ctx context.Context) {
 
 ## Related Recipes
 
-- [Window-Based Context Recovery](/docs/recipes/memory-context-recovery) -- Recover context from sliding windows
-- [Conversation Expiry Logic](/docs/recipes/conversation-expiry) -- Expire inactive conversations
+- [Window-Based Context Recovery](/docs/recipes/memory/memory-context-recovery/) -- Recover context from sliding windows
+- [Conversation Expiry Logic](/docs/recipes/memory/conversation-expiry/) -- Expire inactive conversations

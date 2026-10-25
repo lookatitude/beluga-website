@@ -190,6 +190,6 @@ Use spectral subtraction to remove noise in the frequency domain for more sophis
 
 ## Related Recipes
 
-- **[Jitter Buffer Management](./jitter-buffer)** -- Handle network jitter in audio streams
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
-- **[VAD Sensitivity Profiles](./vad-sensitivity)** -- Tune voice activity detection for noisy environments
+- **[Jitter Buffer Management](/docs/recipes/voice/jitter-buffer/)** -- Handle network jitter in audio streams
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup
+- **[VAD Sensitivity Profiles](/docs/guides/capabilities/voice/sensitivity-tuning/)** -- Tune voice activity detection for noisy environments

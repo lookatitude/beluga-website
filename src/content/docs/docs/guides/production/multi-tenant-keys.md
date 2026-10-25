@@ -357,6 +357,6 @@ func (r *RateLimiter) Allow(tenantID string, limit int) bool {
 
 ## Related Resources
 
-- [Configuration Guide](/docs/guides/configuration/) for encrypted config patterns
-- [Dynamic Feature Flags](/docs/guides/dynamic-feature-flags/) for related config use cases
-- [Security Guide](/docs/guides/security/) for authentication and authorization patterns
+- [Configuration Guide](/docs/guides/production/dynamic-feature-flags/) for encrypted config patterns
+- [Dynamic Feature Flags](/docs/guides/production/dynamic-feature-flags/) for related config use cases
+- [Security Guide](/docs/guides/production/safety-and-guards/) for authentication and authorization patterns

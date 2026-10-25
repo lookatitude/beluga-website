@@ -341,4 +341,4 @@ LangChain prompt formats can vary. When encountering incompatible formats, inspe
 ## Related Resources
 
 - [Filesystem Template Store](/docs/guides/production/integrations/filesystem-templates) -- Local prompt storage
-- [Prompt Package Reference](/docs/reference/api/prompt) -- Prompt management API
+- [Prompt Package Reference](/docs/reference/api/infrastructure/prompt/) -- Prompt management API

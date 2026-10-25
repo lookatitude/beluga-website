@@ -235,4 +235,4 @@ Use a valid Azure region such as `eastus`, `westus2`, or `westeurope`. The regio
 ## Related Resources
 
 - [ElevenLabs Streaming API](/docs/guides/production/integrations/elevenlabs-streaming)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

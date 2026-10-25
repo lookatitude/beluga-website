@@ -346,5 +346,5 @@ if err != nil {
 ## Related Resources
 
 - [Document Loaders](/docs/guides/production/integrations/document-loaders) -- All document loader integrations
-- [Embedding Providers](/docs/guides/production/integrations/embedding-providers) -- Generating embeddings for loaded documents
+- [Embedding Providers](/docs/reference/providers/embedding/) -- Generating embeddings for loaded documents
 - [Google Drive Scraper](/docs/guides/production/integrations/google-drive-scraper) -- Google Drive document loading

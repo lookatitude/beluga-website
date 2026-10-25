@@ -545,7 +545,7 @@ func (k *KnowledgeQASystem) AnswerWithAccessControl(ctx context.Context, userID,
 
 ## Related Resources
 
-- [Enterprise RAG Guide](/docs/guides/enterprise-rag/) for complete RAG pipeline
-- [Retriever Guide](/docs/guides/retriever-patterns/) for advanced retrieval
-- [Vector Store Guide](/docs/guides/vector-stores/) for scaling strategies
-- [Recommendation Engine](/docs/guides/recommendation-engine/) for similarity patterns
+- [Enterprise RAG Guide](/docs/guides/capabilities/rag/enterprise-rag/) for complete RAG pipeline
+- [Retriever Guide](/docs/guides/capabilities/rag/rag-strategies/) for advanced retrieval
+- [Vector Store Guide](/docs/reference/providers/vectorstore/) for scaling strategies
+- [Recommendation Engine](/docs/guides/capabilities/rag/recommendation-engine/) for similarity patterns

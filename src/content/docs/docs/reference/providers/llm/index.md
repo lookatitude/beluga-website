@@ -152,4 +152,4 @@ model = llm.ApplyMiddleware(model,
 )
 ```
 
-See the [LLM middleware guide](/docs/guides/middleware) for details.
+See the [LLM middleware guide](/docs/guides/foundations/middleware-implementation/) for details.

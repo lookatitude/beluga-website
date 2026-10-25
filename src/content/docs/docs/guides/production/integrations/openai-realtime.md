@@ -166,4 +166,4 @@ Check network connectivity and firewall rules. The Realtime API uses WebSocket c
 ## Related Resources
 
 - [Amazon Nova Bedrock Streaming](/docs/guides/production/integrations/nova-bedrock-streaming)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

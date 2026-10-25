@@ -196,6 +196,6 @@ Fade out TTS over 50-100ms instead of stopping abruptly for a smoother auditory 
 
 ## Related Recipes
 
-- **[Glass-to-Glass Latency](./glass-to-glass-latency)** -- Optimize end-to-end latency
-- **[Jitter Buffer Management](./jitter-buffer)** -- Handle network audio issues
-- **[ML-Based Barge-In](./ml-barge-in)** -- ML-based interruption detection
+- **[Glass-to-Glass Latency](/docs/recipes/voice/glass-to-glass-latency/)** -- Optimize end-to-end latency
+- **[Jitter Buffer Management](/docs/recipes/voice/jitter-buffer/)** -- Handle network audio issues
+- **[ML-Based Barge-In](/docs/guides/capabilities/voice/barge-in-detection/)** -- ML-based interruption detection

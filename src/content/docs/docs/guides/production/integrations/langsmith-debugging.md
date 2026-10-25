@@ -235,5 +235,5 @@ Check that the API key is valid and the endpoint is reachable, and check the err
 ## Related Resources
 
 - [Datadog Dashboards](/docs/guides/production/integrations/datadog-dashboards) -- Metrics and dashboard monitoring
-- [Observability and Tracing](/docs/guides/observability-tracing) -- Beluga AI observability setup
+- [Observability and Tracing](/docs/guides/production/otel-tracing/) -- Beluga AI observability setup
 - [LLM Providers](/docs/reference/providers/llm/openai) -- Configuring LLM providers

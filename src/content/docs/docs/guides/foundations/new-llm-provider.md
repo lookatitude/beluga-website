@@ -16,8 +16,8 @@ A custom LLM provider that implements `ChatModel`, registers with the provider r
 
 ## Prerequisites
 
-- Understanding of the [ChatModel interface](/docs/guides/llm)
-- Familiarity with Go interfaces and the [registry pattern](/docs/guides/architecture)
+- Understanding of the [ChatModel interface](/docs/guides/foundations/working-with-llms/)
+- Familiarity with Go interfaces and the [registry pattern](/docs/reference/architecture/overview/)
 
 ## The ChatModel Interface
 

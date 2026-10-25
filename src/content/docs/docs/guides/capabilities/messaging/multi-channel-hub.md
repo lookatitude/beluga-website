@@ -368,5 +368,5 @@ After implementing the multi-channel marketing hub, the agency achieved:
 
 ## Related Resources
 
-- [Messaging Integration](/docs/guides/production/integrations/) for channel-specific configuration
-- [Observability Guide](/docs/guides/observability/) for campaign analytics setup
+- [Messaging Integration](/docs/guides/production/) for channel-specific configuration
+- [Observability Guide](/docs/guides/production/observability/) for campaign analytics setup

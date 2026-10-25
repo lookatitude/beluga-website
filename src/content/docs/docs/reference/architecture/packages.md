@@ -1159,7 +1159,7 @@ graph TD
 - `tool/` → `agent/`: tools are invoked by agents, not the reverse.
 - Cross-capability imports in Layer 3: `llm/`, `memory/`, `voice/` do not import each other.
 
-Run `/arch-validate all` to detect violations. See [DOC-18](../../../../architecture/18-package-dependency-map.md) for the full enforcement guide.
+Run `/arch-validate all` to detect violations. See [DOC-18](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/18-package-dependency-map.md) for the full enforcement guide.
 
 ## Statistics
 

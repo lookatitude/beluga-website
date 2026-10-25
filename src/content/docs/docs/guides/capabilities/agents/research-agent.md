@@ -16,7 +16,7 @@ An autonomous research agent using the ReAct pattern that searches for informati
 
 ## Prerequisites
 
-- Understanding of the [ChatModel interface](/docs/guides/llm) and [tool system](/docs/guides/tools)
+- Understanding of the [ChatModel interface](/docs/guides/foundations/working-with-llms/) and [tool system](/docs/guides/capabilities/agents/tools-and-mcp/)
 - A configured LLM provider
 
 ## Step 1: Define the Tools

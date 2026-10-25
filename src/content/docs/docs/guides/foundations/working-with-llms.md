@@ -443,6 +443,6 @@ Token counts come from `llm.SimpleTokenizer` unless you supply your own `llm.Tok
 
 - [Building Your First Agent](/docs/guides/foundations/first-agent/) — Use ChatModel inside an agent
 - [Structured Output](/docs/guides/foundations/structured-output/) — Deep dive into typed LLM responses
-- [Tools & MCP](/docs/guides/tools-and-mcp/) — Tool binding and MCP integration
-- [RAG Pipeline](/docs/guides/rag-pipeline/) — Retrieval-augmented generation
-- [Monitoring & Observability](/docs/guides/observability/) — Track LLM usage and performance
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) — Tool binding and MCP integration
+- [RAG Pipeline](/docs/guides/capabilities/rag/rag-pipeline/) — Retrieval-augmented generation
+- [Monitoring & Observability](/docs/guides/production/observability/) — Track LLM usage and performance

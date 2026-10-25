@@ -260,5 +260,5 @@ The agent or downstream logic exceeds Vapi's timeout. Reduce processing time by:
 
 ## Related Resources
 
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services) -- All supported voice providers
+- [Voice Services Overview](/docs/reference/providers/voice/) -- All supported voice providers
 - [LiveKit Webhooks Integration](/docs/guides/production/integrations/livekit-webhooks) -- LiveKit webhook handling

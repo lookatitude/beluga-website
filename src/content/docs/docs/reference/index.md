@@ -13,7 +13,7 @@ The reference section is the structured surface of Beluga's documentation. It is
 |---|---|
 | [Providers](/docs/reference/providers/) | All 110 providers across 19 categories — LLM, embedding, vector store, voice, guard, workflow, observability, and more. |
 | [API](/docs/reference/api/) | Generated API documentation per package — foundation, LLM and agents, memory and RAG, voice, infrastructure, protocol and server. |
-| [Architecture](/docs/reference/architecture/) | The 7-layer model, the package dependency map, the four extensibility rings, and the provider integration model. |
+| [Architecture](/docs/reference/architecture/overview/) | The 7-layer model, the package dependency map, the four extensibility rings, and the provider integration model. |
 | [Config Schema](/docs/reference/config-schema/) | Every `WithX()` option across the framework, with defaults and constraints. |
 
 ## When to use Reference

@@ -134,4 +134,4 @@ Transport or load balancer may assign different IDs on reconnect. Use a stable i
 ## Related Resources
 
 - [Multi-Provider Session Routing](/docs/guides/production/integrations/session-routing)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

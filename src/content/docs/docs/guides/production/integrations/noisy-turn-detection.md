@@ -190,4 +190,4 @@ import _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 ## Related Resources
 
 - [Heuristic Turn Detection Tuning](/docs/guides/production/integrations/turn-heuristic-tuning)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

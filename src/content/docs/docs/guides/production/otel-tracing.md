@@ -193,5 +193,5 @@ Access the Jaeger UI at `http://localhost:16686`. Select the `beluga-agent` serv
 
 ## Next Steps
 
-- [Prometheus and Grafana](/docs/guides/foundations/prometheus-grafana) — Metrics visualization
+- [Prometheus and Grafana](/docs/guides/production/prometheus-grafana/) — Metrics visualization
 - [Health Checks](/docs/guides/foundations/health-checks) — Component health monitoring

@@ -286,6 +286,6 @@ The embedding vector dimension does not match the index configuration. Ensure th
 
 ## Related Resources
 
-- [Vector Stores Overview](/docs/guides/production/integrations/vector-stores) -- All supported vector store providers
+- [Vector Stores Overview](/docs/reference/providers/vectorstore/) -- All supported vector store providers
 - [Qdrant Cloud Integration](/docs/guides/production/integrations/qdrant-cloud) -- Managed Qdrant clusters
-- [RAG Tutorial](/docs/guides/rag-pipeline) -- Build end-to-end RAG applications
+- [RAG Tutorial](/docs/guides/capabilities/rag/rag-pipeline/) -- Build end-to-end RAG applications

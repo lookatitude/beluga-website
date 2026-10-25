@@ -252,4 +252,4 @@ type WeightedNode struct {
 ## Related Recipes
 
 - **[Agents Parallel Step Execution](/docs/recipes/agents/agents-parallel-execution)** — Parallel agent steps using `core.Parallel`
-- **[Workflow Checkpointing](./workflow-checkpoints)** — Save and resume workflows
+- **[Workflow Checkpointing](/docs/recipes/infrastructure/workflow-checkpoints/)** — Save and resume workflows

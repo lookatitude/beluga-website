@@ -183,4 +183,4 @@ Increase `MinSilence` (600-700 ms) so mid-sentence pauses do not end the turn.
 ## Related Resources
 
 - [Custom Turn Detectors for Noisy Environments](/docs/guides/production/integrations/noisy-turn-detection)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

@@ -179,5 +179,5 @@ The framework is a **host** — everything else is a **plugin**. Core defines co
 
 - [Installation](/docs/start/installation/) — Set up Beluga AI in your project
 - [Quick Start](/docs/start/quick-start/) — Build your first agent in 5 minutes
-- [Building Your First Agent](/docs/guides/first-agent/) — In-depth agent tutorial
+- [Building Your First Agent](/docs/guides/foundations/first-agent/) — In-depth agent tutorial
 - [Architecture](/docs/concepts/) — Design decisions and rationale

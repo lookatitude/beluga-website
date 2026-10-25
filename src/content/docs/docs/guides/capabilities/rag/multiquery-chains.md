@@ -16,7 +16,7 @@ A multi-query retriever that generates query variations using an LLM, retrieves 
 
 ## Prerequisites
 
-- Understanding of [Hybrid Search](/docs/guides/capabilities/rag/hybrid-search) and the [ChatModel interface](/docs/guides/llm)
+- Understanding of [Hybrid Search](/docs/guides/capabilities/rag/hybrid-search) and the [ChatModel interface](/docs/guides/foundations/working-with-llms/)
 - A configured retriever and LLM provider
 
 ## The Problem

@@ -256,5 +256,5 @@ func (cr *CapabilityRouter) NegotiateBestMatch(ctx context.Context, requirements
 
 ## Related Recipes
 
-- [Processing Multiple Images per Prompt](/docs/recipes/multiple-images) -- Process multiple images
-- [LLMs Package Guide](/docs/guides/llm-providers) -- For a deeper understanding of multimodal
+- [Processing Multiple Images per Prompt](/docs/recipes/multimodal/multiple-images/) -- Process multiple images
+- [LLMs Package Guide](/docs/reference/api/llm-agents/llm-providers/) -- For a deeper understanding of multimodal

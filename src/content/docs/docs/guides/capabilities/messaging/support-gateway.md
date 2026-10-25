@@ -448,7 +448,7 @@ defer resp.Body.Close()
 
 ## Related Resources
 
-- [Server Package Guide](/docs/guides/server-patterns/) for REST API patterns
-- [Middleware Guide](/docs/guides/middleware/) for composable middleware
-- [Observability Guide](/docs/guides/observability/) for API monitoring
-- [Search Everything Gateway](/docs/guides/search-everything/) for API integration patterns
+- [Server Package Guide](/docs/guides/production/rest-deployment/) for REST API patterns
+- [Middleware Guide](/docs/guides/foundations/middleware-implementation/) for composable middleware
+- [Observability Guide](/docs/guides/production/observability/) for API monitoring
+- [Search Everything Gateway](/docs/guides/capabilities/rag/search-everything/) for API integration patterns

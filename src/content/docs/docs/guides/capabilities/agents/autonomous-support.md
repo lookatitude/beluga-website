@@ -486,6 +486,6 @@ Organizations using autonomous support with Beluga AI achieve:
 
 ## Related Resources
 
-- [Agent Types Guide](/docs/guides/agent-types/) for ReAct agent patterns
-- [Tool Integration](/docs/guides/tool-integration/) for tool development
-- [Memory Systems](/docs/guides/memory/) for conversation context management
+- [Agent Types Guide](/docs/guides/capabilities/agents/) for ReAct agent patterns
+- [Tool Integration](/docs/guides/capabilities/agents/tools-and-mcp/) for tool development
+- [Memory Systems](/docs/guides/capabilities/memory/memory-system/) for conversation context management

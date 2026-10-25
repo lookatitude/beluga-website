@@ -350,6 +350,6 @@ span.SetAttributes(
 
 ## Related Resources
 
-- [Memory System Guide](/docs/guides/memory-system/) for detailed memory configuration
-- [Building Your First Agent](/docs/guides/first-agent/) for combining memory with planning strategies
-- [Voice AI Applications](/docs/guides/voice-applications/) for adding voice interfaces to the assistant
+- [Memory System Guide](/docs/guides/capabilities/memory/memory-system/) for detailed memory configuration
+- [Building Your First Agent](/docs/guides/foundations/first-agent/) for combining memory with planning strategies
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for adding voice interfaces to the assistant

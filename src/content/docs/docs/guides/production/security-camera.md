@@ -380,6 +380,6 @@ func (a *SecurityAnalyzer) AnalyzeFrameWithMetrics(ctx context.Context, frameDat
 
 ## Related Resources
 
-- [Audio-Visual Search](/docs/guides/audio-visual-search/) for multimodal query patterns
-- [Monitoring Dashboards](/docs/guides/monitoring-dashboards/) for observability setup
-- [LLM Integration Guide](/docs/guides/llm/) for vision model configuration
+- [Audio-Visual Search](/docs/guides/production/audio-visual-search/) for multimodal query patterns
+- [Monitoring Dashboards](/docs/guides/production/monitoring-dashboards/) for observability setup
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for vision model configuration

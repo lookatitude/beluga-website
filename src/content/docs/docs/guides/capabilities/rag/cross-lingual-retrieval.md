@@ -385,6 +385,6 @@ For large multilingual document collections, consider language-specific sharding
 
 ## Related Resources
 
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for retrieval patterns
-- [Embedding Package Guide](/docs/guides/embeddings/) for embedding strategies
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for complete RAG system setup
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for retrieval patterns
+- [Embedding Package Guide](/docs/reference/providers/embedding/) for embedding strategies
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for complete RAG system setup

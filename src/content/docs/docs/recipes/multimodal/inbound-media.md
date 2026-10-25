@@ -207,5 +207,5 @@ type CachedMediaHandler struct {
 
 ## Related Recipes
 
-- [Conversation Expiry Logic](/docs/recipes/conversation-expiry) -- Manage conversation lifecycle
-- [Memory TTL and Cleanup](/docs/recipes/memory-ttl-cleanup) -- Automatic resource cleanup strategies
+- [Conversation Expiry Logic](/docs/recipes/memory/conversation-expiry/) -- Manage conversation lifecycle
+- [Memory TTL and Cleanup](/docs/recipes/memory/memory-ttl-cleanup/) -- Automatic resource cleanup strategies

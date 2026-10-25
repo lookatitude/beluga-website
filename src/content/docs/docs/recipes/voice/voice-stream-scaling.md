@@ -171,6 +171,6 @@ On shutdown, stop accepting new sessions and wait for active sessions to drain (
 
 ## Related Recipes
 
-- **[Voice Backends Configuration](./voice-backends)** -- Config and provider setup
-- **[S2S Voice Metrics](./s2s-voice-metrics)** -- Custom metrics for voice systems
-- **[LLM Error Handling](./llm-error-handling)** -- Similar error handling and retry patterns
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Config and provider setup
+- **[S2S Voice Metrics](/docs/recipes/voice/s2s-voice-metrics/)** -- Custom metrics for voice systems
+- **[LLM Error Handling](/docs/recipes/llm/llm-error-handling/)** -- Similar error handling and retry patterns

@@ -661,7 +661,7 @@ func (r *RecommendationEngine) IndexBatch(ctx context.Context, products []Produc
 
 ## Related Resources
 
-- [Vector Store Guide](/docs/guides/vector-stores/) for scaling strategies
-- [Embedding Guide](/docs/guides/embeddings/) for embedding optimization
-- [Knowledge QA System](/docs/guides/knowledge-qa/) for similarity patterns
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for RAG pipeline patterns
+- [Vector Store Guide](/docs/reference/providers/vectorstore/) for scaling strategies
+- [Embedding Guide](/docs/reference/providers/embedding/) for embedding optimization
+- [Knowledge QA System](/docs/guides/capabilities/rag/knowledge-qa/) for similarity patterns
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for RAG pipeline patterns

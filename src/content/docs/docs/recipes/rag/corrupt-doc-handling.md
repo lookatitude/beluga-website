@@ -266,5 +266,5 @@ func (rdl *RobustDocumentLoader) RecoverPartial(ctx context.Context, filePath st
 
 ## Related Recipes
 
-- [Parallel File Loading](/docs/recipes/parallel-file-loading) -- Parallel loading with worker pools
-- [Document Ingestion Recipes](/docs/recipes/document-ingestion) -- Additional document loading patterns
+- [Parallel File Loading](/docs/recipes/rag/parallel-file-loading/) -- Parallel loading with worker pools
+- [Document Ingestion Recipes](/docs/recipes/rag/document-ingestion/) -- Additional document loading patterns

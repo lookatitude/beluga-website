@@ -159,6 +159,6 @@ Track IVR completion rate, average time to route, and misroute rate before and a
 
 ## Related Resources
 
-- [Voice AI Applications](/docs/guides/voice-applications/) for full voice pipeline patterns
-- [Voice Sessions Overview](/docs/guides/voice-sessions-overview/) for session management
-- [Outbound Calling](/docs/guides/outbound-calling/) for outbound voice patterns
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for full voice pipeline patterns
+- [Voice Sessions Overview](/docs/guides/capabilities/voice/voice-sessions-overview/) for session management
+- [Outbound Calling](/docs/guides/capabilities/voice/outbound-calling/) for outbound voice patterns

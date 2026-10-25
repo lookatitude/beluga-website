@@ -350,6 +350,6 @@ Healthcare data requires strict security controls:
 
 ## Related Resources
 
-- [Schema Package Guide](/docs/guides/schema-validation/) for validation patterns
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for document processing
-- [Observability Guide](/docs/guides/observability/) for healthcare monitoring
+- [Schema Package Guide](/docs/recipes/infrastructure/schema-validation/) for validation patterns
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for document processing
+- [Observability Guide](/docs/guides/production/observability/) for healthcare monitoring

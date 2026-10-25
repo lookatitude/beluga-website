@@ -266,4 +266,4 @@ The challenge response must return the `challenge` value from the request body e
 ## Related Resources
 
 - [Twilio Conversations](/docs/guides/production/integrations/twilio-conversations) -- Multi-channel messaging integration
-- [Observability and Tracing](/docs/guides/observability-tracing) -- OpenTelemetry setup for Beluga AI
+- [Observability and Tracing](/docs/guides/production/otel-tracing/) -- OpenTelemetry setup for Beluga AI

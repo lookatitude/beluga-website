@@ -299,5 +299,5 @@ func (tc *TokenCounter) CountTokensBatch(ctx context.Context, texts []string) ([
 
 ## Related Recipes
 
-- **[Streaming Tool Calls](./streaming-tool-calls)** — Handle streaming with tool calls
-- **[S2S Voice Metrics](./s2s-voice-metrics)** — Track token usage metrics
+- **[Streaming Tool Calls](/docs/recipes/llm/streaming-tool-calls/)** — Handle streaming with tool calls
+- **[S2S Voice Metrics](/docs/recipes/voice/s2s-voice-metrics/)** — Track token usage metrics

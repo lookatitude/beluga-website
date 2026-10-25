@@ -346,6 +346,6 @@ After implementing the patient history tracker, the provider achieved:
 
 ## Related Resources
 
-- [Memory Guide](/docs/guides/memory/) for persistent memory patterns
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for semantic search setup
-- [Security Guide](/docs/guides/security/) for HIPAA compliance and encryption
+- [Memory Guide](/docs/guides/capabilities/memory/memory-system/) for persistent memory patterns
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for semantic search setup
+- [Security Guide](/docs/guides/production/safety-and-guards/) for HIPAA compliance and encryption

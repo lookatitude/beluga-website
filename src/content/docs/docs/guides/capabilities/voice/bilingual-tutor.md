@@ -173,6 +173,6 @@ func trackProgress(ctx context.Context, studentID string, transcript string) {
 
 ## Related Resources
 
-- [Hotel Concierge](/docs/guides/hotel-concierge/) for S2S voice conversation patterns
-- [Voice AI Applications](/docs/guides/voice-applications/) for voice pipeline architecture
-- [Voice Sessions Overview](/docs/guides/voice-sessions-overview/) for session management
+- [Hotel Concierge](/docs/guides/capabilities/voice/hotel-concierge/) for S2S voice conversation patterns
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for voice pipeline architecture
+- [Voice Sessions Overview](/docs/guides/capabilities/voice/voice-sessions-overview/) for session management

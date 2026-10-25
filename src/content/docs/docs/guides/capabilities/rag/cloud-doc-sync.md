@@ -431,6 +431,6 @@ func (c *SyncCoordinator) recordMetrics(ctx context.Context, bucket string, dura
 
 ## Related Resources
 
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for document processing patterns
-- [Legacy Archive Ingestion](/docs/guides/legacy-archive/) for batch ingestion patterns
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for complete RAG system setup
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for document processing patterns
+- [Legacy Archive Ingestion](/docs/guides/capabilities/documents/legacy-archive/) for batch ingestion patterns
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for complete RAG system setup

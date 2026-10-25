@@ -251,6 +251,6 @@ Enterprise accounts have higher rate limits, but they can still be exceeded unde
 
 ## Related Resources
 
-- [LLM Providers Overview](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
+- [LLM Providers Overview](/docs/reference/providers/llm/) -- All supported LLM providers
 - [AWS Bedrock Integration](/docs/guides/production/integrations/bedrock-integration) -- Alternative cloud LLM provider
-- [Resilience Package](/docs/guides/resilience) -- Retry, circuit breaker, and rate limiting
+- [Resilience Package](/docs/guides/production/resilience/) -- Retry, circuit breaker, and rate limiting

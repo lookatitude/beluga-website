@@ -171,6 +171,6 @@ func (a *InteractiveAudiobook) NarrateNext(ctx context.Context, userChoice strin
 
 ## Related Resources
 
-- [E-Learning Voiceovers](/docs/guides/elearning-voiceovers/) for multi-language TTS patterns
-- [Voice AI Applications](/docs/guides/voice-applications/) for voice pipeline architecture
-- [Hotel Concierge](/docs/guides/hotel-concierge/) for interactive voice conversation patterns
+- [E-Learning Voiceovers](/docs/guides/capabilities/voice/elearning-voiceovers/) for multi-language TTS patterns
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for voice pipeline architecture
+- [Hotel Concierge](/docs/guides/capabilities/voice/hotel-concierge/) for interactive voice conversation patterns

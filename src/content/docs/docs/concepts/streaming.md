@@ -220,7 +220,7 @@ graph LR
   Ex --> C[Client]
 ```
 
-Five `EventType`s propagate: `EventData` (text chunk), `EventToolCall`, `EventToolResult`, `EventDone`, and `EventError`. Hooks see tool events; plugins see the full turn; the client receives data and terminal events. See [DOC-04 — Data Flow](../../../../architecture/04-data-flow.md#event-propagation) for the complete description.
+Five `EventType`s propagate: `EventData` (text chunk), `EventToolCall`, `EventToolResult`, `EventDone`, and `EventError`. Hooks see tool events; plugins see the full turn; the client receives data and terminal events. See [DOC-04 — Data Flow](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/04-data-flow.md#event-propagation) for the complete description.
 
 ## Backpressure
 
@@ -351,6 +351,6 @@ Two rules for producers:
 ## Related reading
 
 - [Core Primitives](/docs/concepts/core-primitives) — `Event[T]`, `Stream[T]`, `Runnable` definitions.
-- [DOC-02 — Core Primitives](/docs/reference/architecture/overview/core-primitives) — extended rationale including the channel comparison table.
+- [DOC-02 — Core Primitives](/docs/concepts/core-primitives/) — extended rationale including the channel comparison table.
 - [`core/stream.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/stream.go) — all stream types and combinators.
 - [`core/runnable.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/runnable.go) — `Pipe` and `Parallel` over `Runnable`.

@@ -167,5 +167,5 @@ func isAbbreviation(word string) bool {
 
 ## Related Recipes
 
-- **[Code Splitting with Tree-sitter](./code-splitting)** -- Structure-aware code splitting
-- **[Document Ingestion](./document-ingestion)** -- Document loading patterns
+- **[Code Splitting with Tree-sitter](/docs/recipes/rag/code-splitting/)** -- Structure-aware code splitting
+- **[Document Ingestion](/docs/recipes/rag/document-ingestion/)** -- Document loading patterns

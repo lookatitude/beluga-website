@@ -369,4 +369,4 @@ When using structured output in production:
 Now that you understand structured output:
 - Learn about [Prompt Engineering](/docs/guides/foundations/prompt-engineering/) for better extraction prompts
 - Explore [Working with LLMs](/docs/guides/foundations/working-with-llms/) for provider-specific capabilities
-- Read [Tools & MCP](/docs/guides/tools-and-mcp/) for tool-based structured extraction patterns
+- Read [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) for tool-based structured extraction patterns

@@ -149,4 +149,4 @@ Question: {{.question}}
 ## Related Resources
 
 - [LangChain Hub Loading](/docs/guides/production/integrations/langchain-hub) -- Load community prompts from LangChain Hub
-- [Prompt Package Reference](/docs/reference/api/prompt) -- Prompt management API
+- [Prompt Package Reference](/docs/reference/api/infrastructure/prompt/) -- Prompt management API

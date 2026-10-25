@@ -271,5 +271,5 @@ type HybridScorer struct {
 
 ## Related Recipes
 
-- [Parent Document Retrieval (PDR)](/docs/recipes/parent-document-retrieval) -- Retrieve parent documents
-- [Vectorstores Advanced Meta-filtering](/docs/recipes/meta-filtering) -- Advanced filtering
+- [Parent Document Retrieval (PDR)](/docs/recipes/rag/parent-document-retrieval/) -- Retrieve parent documents
+- [Vectorstores Advanced Meta-filtering](/docs/recipes/rag/meta-filtering/) -- Advanced filtering

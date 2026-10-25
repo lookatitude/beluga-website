@@ -278,5 +278,5 @@ gcloud auth application-default login
 ## Related Resources
 
 - [Pixtral (Mistral) Integration](/docs/guides/production/integrations/pixtral-mistral) -- Mistral AI vision-language integration
-- [LLM Providers](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
-- [Monitoring](/docs/guides/production/integrations/monitoring) -- Observability and tracing setup
+- [LLM Providers](/docs/reference/providers/llm/) -- All supported LLM providers
+- [Monitoring](/docs/guides/production/monitoring-dashboards/) -- Observability and tracing setup

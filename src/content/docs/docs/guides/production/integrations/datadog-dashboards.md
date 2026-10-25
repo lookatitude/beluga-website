@@ -305,4 +305,4 @@ Confirm that the OTLP endpoint is correct for your Datadog site. For EU customer
 ## Related Resources
 
 - [LangSmith Debugging](/docs/guides/production/integrations/langsmith-debugging) -- LLM call debugging and tracing
-- [Observability and Tracing](/docs/guides/observability-tracing) -- Beluga AI observability setup
+- [Observability and Tracing](/docs/guides/production/otel-tracing/) -- Beluga AI observability setup

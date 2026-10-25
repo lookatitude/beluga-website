@@ -272,5 +272,5 @@ func (s *CheckpointStore) SaveCompressed(ctx context.Context, workflowID string,
 
 ## Related Recipes
 
-- [Parallel Node Execution in Graphs](/docs/recipes/parallel-nodes) — Parallel execution
-- [Core Advanced Context Timeout Management](/docs/recipes/core-advanced-context-timeout-management) — Timeout handling
+- [Parallel Node Execution in Graphs](/docs/recipes/infrastructure/parallel-nodes/) — Parallel execution
+- [Core Advanced Context Timeout Management](/docs/recipes/infrastructure/context-timeout/) — Timeout handling

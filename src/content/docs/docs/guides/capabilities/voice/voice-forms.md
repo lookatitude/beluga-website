@@ -188,6 +188,6 @@ Track form completion rate, per-field reprompt rate, and how often callers corre
 
 ## Related Resources
 
-- [Voice Sessions Overview](/docs/guides/voice-sessions-overview/) for session and transport patterns
-- [Voice AI Applications](/docs/guides/voice-applications/) for voice pipeline architecture
-- [Conversational AI Assistant](/docs/guides/conversational-ai/) for broader conversational patterns
+- [Voice Sessions Overview](/docs/guides/capabilities/voice/voice-sessions-overview/) for session and transport patterns
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for voice pipeline architecture
+- [Conversational AI Assistant](/docs/guides/capabilities/agents/conversational-ai/) for broader conversational patterns

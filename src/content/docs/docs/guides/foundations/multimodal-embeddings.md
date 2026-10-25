@@ -20,7 +20,7 @@ An embedding pipeline that embeds text documents and image descriptions into one
 
 - A Google Cloud API key with the Generative Language API enabled (or another embedding provider)
 - A vision-capable chat model (for example OpenAI `gpt-4o`) for the image-description step
-- Understanding of the [RAG pipeline](/docs/guides/rag)
+- Understanding of the [RAG pipeline](/docs/recipes/rag/)
 
 ## The Embedder Interface
 

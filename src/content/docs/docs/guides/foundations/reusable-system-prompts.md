@@ -17,7 +17,7 @@ A prompt registry with persona definitions, template variable support, versionin
 ## Prerequisites
 
 - Understanding of [Message Template Design](/docs/guides/foundations/message-templates)
-- Familiarity with the [schema package](/docs/guides/schema)
+- Familiarity with the [schema package](/docs/reference/api/foundation/schema/)
 
 ## Step 1: Define Personas
 

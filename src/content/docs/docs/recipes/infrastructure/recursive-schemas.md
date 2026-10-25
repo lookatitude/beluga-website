@@ -220,5 +220,5 @@ func (gv *GraphValidator) validateNodeParallel(ctx context.Context, nodeID strin
 
 ## Related Recipes
 
-- **[Schema Validation Middleware](./schema-validation)** — Apply custom validation rules
-- **[Parallel Node Execution](./parallel-nodes)** — Execute graph nodes in parallel
+- **[Schema Validation Middleware](/docs/recipes/infrastructure/schema-validation/)** — Apply custom validation rules
+- **[Parallel Node Execution](/docs/recipes/infrastructure/parallel-nodes/)** — Execute graph nodes in parallel

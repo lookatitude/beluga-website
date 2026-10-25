@@ -129,4 +129,4 @@ import _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/webrtc"
 ## Related Resources
 
 - [ONNX Runtime Edge VAD](/docs/guides/production/integrations/onnx-edge-vad)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

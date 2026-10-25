@@ -420,7 +420,7 @@ Before deploying to production, verify each layer:
 
 ## Related Resources
 
-- [Observability Guide](/docs/guides/observability/) for OpenTelemetry configuration
-- [Safety & Guards](/docs/guides/safety-and-guards/) for auth and guard patterns
-- [Multi-Agent Customer Support](/docs/guides/multi-agent-support/) for agent orchestration patterns
-- [Enterprise RAG Knowledge Base](/docs/guides/enterprise-rag/) for RAG in production
+- [Observability Guide](/docs/guides/production/observability/) for OpenTelemetry configuration
+- [Safety & Guards](/docs/guides/production/safety-and-guards/) for auth and guard patterns
+- [Multi-Agent Customer Support](/docs/guides/capabilities/agents/multi-agent-support/) for agent orchestration patterns
+- [Enterprise RAG Knowledge Base](/docs/guides/capabilities/rag/enterprise-rag/) for RAG in production

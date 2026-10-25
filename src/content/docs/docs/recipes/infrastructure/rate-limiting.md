@@ -222,5 +222,5 @@ func (d *DistributedRateLimiter) Allow(ctx context.Context, projectID string) (b
 
 ## Related Recipes
 
-- **[Request ID Correlation](./request-id-correlation)** -- Track requests across services
-- **[Global Retry Wrappers](./global-retry)** -- Handle rate limit errors with retries
+- **[Request ID Correlation](/docs/recipes/infrastructure/request-id-correlation/)** -- Track requests across services
+- **[Global Retry Wrappers](/docs/recipes/llm/global-retry/)** -- Handle rate limit errors with retries

@@ -170,4 +170,4 @@ Ensure your IAM role or user has the required Bedrock permissions. Add `bedrock:
 ## Related Resources
 
 - [OpenAI Realtime API](/docs/guides/production/integrations/openai-realtime)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

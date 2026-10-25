@@ -197,4 +197,4 @@ A `voice.VoicePipeline` keeps the processors it was built with. Provider failove
 ## Related Resources
 
 - [Voice Session Persistence](/docs/guides/production/integrations/session-persistence)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

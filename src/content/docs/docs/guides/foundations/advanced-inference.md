@@ -17,7 +17,7 @@ Configurations for different use cases — deterministic code generation, creati
 ## Prerequisites
 
 - A configured LLM provider (OpenAI, Anthropic, or any registered provider)
-- Understanding of the [ChatModel interface](/docs/guides/llm)
+- Understanding of the [ChatModel interface](/docs/guides/foundations/working-with-llms/)
 
 ## Generate Options
 

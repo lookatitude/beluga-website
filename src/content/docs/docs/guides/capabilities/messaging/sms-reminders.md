@@ -317,6 +317,6 @@ After implementing SMS appointment reminders, the provider achieved:
 
 ## Related Resources
 
-- [Messaging Integration](/docs/guides/production/integrations/) for SMS provider configuration
-- [Server Providers](/docs/reference/providers/server/) for the HTTP adapters that host the webhook
-- [Agent Guide](/docs/guides/agents/) for intelligent response handling patterns
+- [Messaging Integration](/docs/guides/production/) for SMS provider configuration
+- [Server Providers](/docs/reference/api/protocol/server/) for the HTTP adapters that host the webhook
+- [Agent Guide](/docs/guides/capabilities/agents/) for intelligent response handling patterns

@@ -363,6 +363,6 @@ defer cancel()
 
 ## Related Resources
 
-- [LLM Providers](/docs/guides/production/integrations/llm-providers) — Built-in provider options including OpenAI
+- [LLM Providers](/docs/reference/providers/llm/) — Built-in provider options including OpenAI
 - [Mock ChatModel for Testing](/docs/guides/production/integrations/mock-ui-testing) — Test without real API calls
-- [Agent System](/docs/guides/agents) — Using ChatModel providers in agents
+- [Agent System](/docs/guides/capabilities/agents/) — Using ChatModel providers in agents

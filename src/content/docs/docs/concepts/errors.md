@@ -211,7 +211,7 @@ func handleErr(err error) {
 
 ## Related reading
 
-- [Resilience](/docs/reference/architecture/overview/resilience) — circuit breakers and retry middleware that consume `IsRetryable`.
+- [Resilience](/docs/reference/api/infrastructure/resilience/) — circuit breakers and retry middleware that consume `IsRetryable`.
 - [Extensibility](/docs/concepts/extensibility) — where `core.Error` fits in the middleware chain.
 - [`core/errors.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go) — canonical source for all error types and codes.
 - [`.guild/wiki/patterns/error-handling.md`](https://github.com/lookatitude/beluga-ai/blob/main/.guild/wiki/patterns/error-handling.md) — patterns and anti-patterns with file:line references.

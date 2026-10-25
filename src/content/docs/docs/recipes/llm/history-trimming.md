@@ -293,5 +293,5 @@ func (ht *HistoryTrimmer) TrimWithUsage(ctx context.Context, messages []schema.M
 
 ## Related Recipes
 
-- **[Streaming Chunks with Metadata](./streaming-metadata)** — Capture `Usage` from streaming responses
-- **[Token Counting without Latency](./token-counting)** — Estimate token counts without API round-trips
+- **[Streaming Chunks with Metadata](/docs/recipes/llm/streaming-metadata/)** — Capture `Usage` from streaming responses
+- **[Token Counting without Latency](/docs/recipes/llm/token-counting/)** — Estimate token counts without API round-trips

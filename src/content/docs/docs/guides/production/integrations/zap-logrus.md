@@ -285,4 +285,4 @@ logger, err := NewZapLogger(zapcore.DebugLevel)
 ## Related Resources
 
 - [Context Deep Dive](/docs/guides/production/integrations/context-deep-dive) -- Advanced context patterns for cancellation and timeouts
-- [Infrastructure Integrations](/docs/guides/production/integrations/infrastructure) -- Deployment and infrastructure overview
+- [Infrastructure Integrations](/docs/guides/production/) -- Deployment and infrastructure overview

@@ -343,6 +343,6 @@ After implementing semantic image search, the platform achieved:
 
 ## Related Resources
 
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for embedding and retrieval patterns
-- [Vector Store Integration](/docs/guides/production/integrations/vector-stores/) for provider-specific configuration
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for embedding and retrieval patterns
+- [Vector Store Integration](/docs/reference/providers/vectorstore/) for provider-specific configuration
 - [Embedding Providers](/docs/reference/providers/embedding/) for multimodal embedding options

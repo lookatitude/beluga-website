@@ -507,7 +507,7 @@ func (s *SearchOrchestrator) canAccess(userID string, result SearchResult) bool 
 
 ## Related Resources
 
-- [Server Package Guide](/docs/guides/server-patterns/) for REST and MCP APIs
-- [Retriever Guide](/docs/guides/retriever-patterns/) for multi-source retrieval
-- [Customer Support Gateway](/docs/guides/support-gateway/) for API gateway patterns
-- [Knowledge QA System](/docs/guides/knowledge-qa/) for semantic search patterns
+- [Server Package Guide](/docs/guides/production/rest-deployment/) for REST and MCP APIs
+- [Retriever Guide](/docs/guides/capabilities/rag/rag-strategies/) for multi-source retrieval
+- [Customer Support Gateway](/docs/guides/capabilities/messaging/support-gateway/) for API gateway patterns
+- [Knowledge QA System](/docs/guides/capabilities/rag/knowledge-qa/) for semantic search patterns

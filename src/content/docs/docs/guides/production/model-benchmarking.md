@@ -367,6 +367,6 @@ After implementing model benchmarking, the platform achieved:
 
 ## Related Resources
 
-- [LLM Integration Guide](/docs/guides/llm-integration/) for multi-provider setup
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for multi-provider setup
 - [LLM Providers](/docs/reference/providers/llm/) for available provider options
-- [Observability Guide](/docs/guides/observability/) for metrics and tracing setup
+- [Observability Guide](/docs/guides/production/observability/) for metrics and tracing setup

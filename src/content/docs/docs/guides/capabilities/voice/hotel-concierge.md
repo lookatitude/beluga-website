@@ -192,6 +192,6 @@ func runToolCall(ctx context.Context, tools map[string]tool.Tool, call schema.To
 
 ## Related Resources
 
-- [Bilingual Conversation Tutor](/docs/guides/bilingual-tutor/) for S2S language learning patterns
-- [Conversational AI Assistant](/docs/guides/conversational-ai/) for adding memory to voice agents
-- [Voice AI Applications](/docs/guides/voice-applications/) for voice pipeline architecture
+- [Bilingual Conversation Tutor](/docs/guides/capabilities/voice/bilingual-tutor/) for S2S language learning patterns
+- [Conversational AI Assistant](/docs/guides/capabilities/agents/conversational-ai/) for adding memory to voice agents
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for voice pipeline architecture

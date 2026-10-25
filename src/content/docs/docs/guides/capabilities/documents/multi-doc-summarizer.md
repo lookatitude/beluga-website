@@ -427,6 +427,6 @@ Multi-document summarization delivered significant improvements:
 
 ## Related Resources
 
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for RAG pipeline patterns
-- [Regulatory Search](/docs/guides/regulatory-search/) for retrieval patterns
-- [RAG Configuration](/docs/guides/rag-pipeline/) for retriever setup
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for RAG pipeline patterns
+- [Regulatory Search](/docs/guides/capabilities/rag/regulatory-search/) for retrieval patterns
+- [RAG Configuration](/docs/guides/capabilities/rag/rag-pipeline/) for retriever setup

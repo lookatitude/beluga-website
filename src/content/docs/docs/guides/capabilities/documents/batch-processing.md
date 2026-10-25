@@ -543,6 +543,6 @@ func (dlq *DeadLetterQueue) Close() error {
 
 ## Next Steps
 
-- Learn about [Workflow Orchestration](/docs/guides/workflow-orchestration) for complex multi-step processing
-- Explore [Production Agent Platform](/docs/guides/production-platform) for deployment patterns
-- Read [Infrastructure Recipes](/docs/recipes/infrastructure-recipes) for resilience patterns
+- Learn about [Workflow Orchestration](/docs/guides/production/workflow-orchestration/) for complex multi-step processing
+- Explore [Production Agent Platform](/docs/guides/production/production-platform/) for deployment patterns
+- Read [Infrastructure Recipes](/docs/recipes/infrastructure/) for resilience patterns

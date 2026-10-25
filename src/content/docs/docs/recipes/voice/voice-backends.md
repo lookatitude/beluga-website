@@ -211,6 +211,6 @@ Other services (Google, Azure, AWS Transcribe, OpenAI TTS) can be added by imple
 
 ## Related Recipes
 
-- **[LLM Error Handling](./llm-error-handling)** -- Similar error handling and retry patterns
-- **[Voice Stream Scaling](./voice-stream-scaling)** -- Scaling concurrent voice streams
-- **[S2S Voice Metrics](./s2s-voice-metrics)** -- Custom metrics for voice systems
+- **[LLM Error Handling](/docs/recipes/llm/llm-error-handling/)** -- Similar error handling and retry patterns
+- **[Voice Stream Scaling](/docs/recipes/voice/voice-stream-scaling/)** -- Scaling concurrent voice streams
+- **[S2S Voice Metrics](/docs/recipes/voice/s2s-voice-metrics/)** -- Custom metrics for voice systems

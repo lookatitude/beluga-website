@@ -372,6 +372,6 @@ When working with document loaders:
 
 ## Next Steps
 
-- Learn about [Text Splitter Integrations](/docs/guides/production/integrations/text-splitters) for chunking
-- Explore [Document Processing](/docs/guides/document-processing) for complete pipelines
-- Read [RAG Pipeline](/docs/guides/rag-pipeline) for integration patterns
+- Learn about [Text Splitter Integrations](/docs/reference/api/memory-rag/rag-splitter/) for chunking
+- Explore [Document Processing](/docs/guides/capabilities/documents/document-processing/) for complete pipelines
+- Read [RAG Pipeline](/docs/guides/capabilities/rag/rag-pipeline/) for integration patterns

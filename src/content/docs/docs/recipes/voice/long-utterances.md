@@ -205,6 +205,6 @@ The `maxTurn` cap in the example is a hard time-based limit. Tune it to your use
 
 ## Related Recipes
 
-- **[Preemptive Generation](./voice-preemptive-gen)** -- Interim results and latency reduction
-- **[Sentence-Boundary Turns](./sentence-boundary-turns)** -- Turn boundaries with sentence detection
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
+- **[Preemptive Generation](/docs/guides/capabilities/voice/preemptive-generation/)** -- Interim results and latency reduction
+- **[Sentence-Boundary Turns](/docs/guides/capabilities/voice/sentence-boundary/)** -- Turn boundaries with sentence detection
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup

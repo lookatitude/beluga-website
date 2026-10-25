@@ -478,6 +478,6 @@ Financial compliance firewall delivered significant improvements:
 
 ## Related Resources
 
-- [Children's Story Safety](/docs/guides/children-stories-safety/) for content safety patterns
-- [Guard Configuration](/docs/guides/safety-guardrails/) for compliance pipeline setup
-- [Safety Integration](/docs/guides/production/integrations/) for provider-specific configuration
+- [Children's Story Safety](/docs/guides/production/children-stories-safety/) for content safety patterns
+- [Guard Configuration](/docs/guides/production/safety-and-guards/) for compliance pipeline setup
+- [Safety Integration](/docs/guides/production/) for provider-specific configuration

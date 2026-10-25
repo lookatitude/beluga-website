@@ -303,4 +303,4 @@ if err == context.Canceled {
 ## Related Resources
 
 - [Zap and Logrus Logger Providers](/docs/guides/production/integrations/zap-logrus) -- Structured logging integration
-- [Infrastructure Integrations](/docs/guides/production/integrations/infrastructure) -- Deployment and infrastructure overview
+- [Infrastructure Integrations](/docs/guides/production/) -- Deployment and infrastructure overview

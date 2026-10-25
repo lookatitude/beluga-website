@@ -403,6 +403,6 @@ func (p *InvoiceProcessor) ProcessBatch(ctx context.Context, invoices []Invoice)
 
 ## Related Resources
 
-- [Multi-Stage ETL](/docs/guides/multi-stage-etl/) for complex pipeline patterns
-- [Orchestration Guide](/docs/guides/orchestration/) for workflow design
-- [Resilience Patterns](/docs/guides/resilience/) for retry and circuit breaker setup
+- [Multi-Stage ETL](/docs/guides/capabilities/documents/multi-stage-etl/) for complex pipeline patterns
+- [Orchestration Guide](/docs/guides/production/orchestration/) for workflow design
+- [Resilience Patterns](/docs/guides/production/resilience/) for retry and circuit breaker setup

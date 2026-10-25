@@ -172,5 +172,5 @@ if err := config.Validate(&cfg); err != nil {
 
 ## Next Steps
 
-- [Vault Integration](/docs/guides/foundations/vault-integration) — Dynamic secret loading from HashiCorp Vault
+- [Vault Integration](/docs/guides/production/integrations/vault-connector/) — Dynamic secret loading from HashiCorp Vault
 - [Health Checks](/docs/guides/foundations/health-checks) — Monitor service and provider health

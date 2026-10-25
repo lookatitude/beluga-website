@@ -302,6 +302,6 @@ Collections are not created automatically. Call `store.EnsureCollection(ctx)` be
 
 ## Related Resources
 
-- [Vector Stores Overview](/docs/guides/production/integrations/vector-stores) -- All supported vector store providers
+- [Vector Stores Overview](/docs/reference/providers/vectorstore/) -- All supported vector store providers
 - [Pinecone Serverless Integration](/docs/guides/production/integrations/pinecone-serverless) -- Serverless vector storage
-- [RAG Tutorial](/docs/guides/rag-pipeline) -- Build end-to-end RAG applications
+- [RAG Tutorial](/docs/guides/capabilities/rag/rag-pipeline/) -- Build end-to-end RAG applications

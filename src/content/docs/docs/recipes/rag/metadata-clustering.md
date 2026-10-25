@@ -360,5 +360,5 @@ func (mac *MetadataAwareClusterer) FindOptimalK(ctx context.Context, docs []Docu
 
 ## Related Recipes
 
-- [Batch Embedding Optimization](/docs/recipes/batch-embeddings) -- Optimize batch embedding operations
-- [Advanced Metadata Filtering](/docs/recipes/meta-filtering) -- Filter vector store results with metadata
+- [Batch Embedding Optimization](/docs/recipes/rag/batch-embeddings/) -- Optimize batch embedding operations
+- [Advanced Metadata Filtering](/docs/recipes/rag/meta-filtering/) -- Filter vector store results with metadata

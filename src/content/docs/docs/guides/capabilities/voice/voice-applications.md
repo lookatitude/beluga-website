@@ -510,6 +510,6 @@ span.SetAttributes(
 
 ## Related Resources
 
-- [Voice AI Pipeline](/docs/guides/voice-ai/) for detailed voice configuration
-- [Conversational AI Assistant](/docs/guides/conversational-ai/) for adding memory to voice agents
-- [Production Agent Platform](/docs/guides/production-platform/) for deployment patterns
+- [Voice AI Pipeline](/docs/guides/capabilities/voice/voice-ai/) for detailed voice configuration
+- [Conversational AI Assistant](/docs/guides/capabilities/agents/conversational-ai/) for adding memory to voice agents
+- [Production Agent Platform](/docs/guides/production/production-platform/) for deployment patterns

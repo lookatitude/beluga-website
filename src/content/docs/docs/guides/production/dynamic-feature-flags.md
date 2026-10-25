@@ -301,6 +301,6 @@ The flag manager is stateless and scales horizontally. Each application instance
 
 ## Related Resources
 
-- [Configuration Guide](/docs/guides/configuration/) for config package patterns
-- [Observability Guide](/docs/guides/observability/) for metrics and tracing
-- [Multi-tenant API Keys](/docs/guides/multi-tenant-keys/) for related config patterns
+- [Configuration Guide](/docs/guides/production/dynamic-feature-flags/) for config package patterns
+- [Observability Guide](/docs/guides/production/observability/) for metrics and tracing
+- [Multi-tenant API Keys](/docs/guides/production/multi-tenant-keys/) for related config patterns

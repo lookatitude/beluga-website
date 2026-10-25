@@ -401,6 +401,6 @@ Few-shot SQL generation delivered significant improvements:
 
 ## Related Resources
 
-- [Dynamic Tool Injection](/docs/guides/dynamic-tool-injection/) for runtime prompt patterns
-- [Prompt Management Guide](/docs/guides/prompt-management/) for template best practices
-- [LLM Configuration](/docs/guides/production/integrations/llm-providers/) for provider-specific tuning
+- [Dynamic Tool Injection](/docs/guides/capabilities/agents/dynamic-tool-injection/) for runtime prompt patterns
+- [Prompt Management Guide](/docs/guides/foundations/prompt-engineering/) for template best practices
+- [LLM Configuration](/docs/reference/providers/llm/) for provider-specific tuning

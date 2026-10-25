@@ -242,4 +242,4 @@ model = llm.ApplyMiddleware(base,
 ## Next Steps
 
 - [Custom Runnable](/docs/guides/foundations/custom-runnable) — Build composable components
-- [OpenTelemetry Tracing](/docs/guides/foundations/otel-tracing) — Distributed tracing for LLM calls
+- [OpenTelemetry Tracing](/docs/guides/production/otel-tracing/) — Distributed tracing for LLM calls

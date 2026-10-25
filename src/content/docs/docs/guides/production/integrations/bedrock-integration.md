@@ -302,6 +302,6 @@ Temporary AWS credentials (from STS or instance profiles) have expired. Refresh 
 
 ## Related Resources
 
-- [LLM Providers Overview](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
+- [LLM Providers Overview](/docs/reference/providers/llm/) -- All supported LLM providers
 - [Anthropic Claude Enterprise](/docs/guides/production/integrations/anthropic-enterprise) -- Direct Anthropic API access
-- [Resilience Package](/docs/guides/resilience) -- Retry and circuit breaker patterns
+- [Resilience Package](/docs/guides/production/resilience/) -- Retry and circuit breaker patterns

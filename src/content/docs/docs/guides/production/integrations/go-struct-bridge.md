@@ -413,5 +413,5 @@ When `StrictMode` is enabled, unknown JSON fields cause unmarshaling to fail. Ei
 ## Related Resources
 
 - [JSON Schema Validation](/docs/guides/production/integrations/json-schema-validation/) -- Validate data structures with JSON Schema
-- [Schema Package](/docs/reference/api/schema/) -- Core message and document types
-- [A2A Protocol](/docs/guides/a2a/) -- Agent-to-agent communication across services
+- [Schema Package](/docs/reference/api/foundation/schema/) -- Core message and document types
+- [A2A Protocol](/docs/reference/api/protocol/protocol-a2a/) -- Agent-to-agent communication across services

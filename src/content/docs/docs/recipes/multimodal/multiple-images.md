@@ -229,5 +229,5 @@ type ImageRelationship struct {
 
 ## Related Recipes
 
-- [Capability-based Fallbacks](/docs/recipes/capability-fallbacks) -- Handle capability limitations across providers
-- [Voice Providers Guide](/docs/guides/voice-providers) -- For a deeper understanding of multimodal pipelines
+- [Capability-based Fallbacks](/docs/recipes/multimodal/capability-fallbacks/) -- Handle capability limitations across providers
+- [Voice Providers Guide](/docs/reference/providers/voice/) -- For a deeper understanding of multimodal pipelines

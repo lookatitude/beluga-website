@@ -152,6 +152,6 @@ func processMeeting(ctx context.Context, audioStream iter.Seq2[[]byte, error]) e
 
 ## Related Resources
 
-- [Industrial Control](/docs/guides/industrial-control/) for STT in noisy environments
-- [Multi-Speaker Segmentation](/docs/guides/multi-speaker-segmentation/) for speaker diarization patterns
-- [Enterprise RAG Knowledge Base](/docs/guides/enterprise-rag/) for document summarization
+- [Industrial Control](/docs/guides/capabilities/voice/industrial-control/) for STT in noisy environments
+- [Multi-Speaker Segmentation](/docs/guides/capabilities/voice/multi-speaker-segmentation/) for speaker diarization patterns
+- [Enterprise RAG Knowledge Base](/docs/guides/capabilities/rag/enterprise-rag/) for document summarization

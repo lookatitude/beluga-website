@@ -233,5 +233,5 @@ func (v *CustomValidator) ValidateMessageParallel(ctx context.Context, msg schem
 
 ## Related Recipes
 
-- **[Recursive Schema Handling](./recursive-schemas)** — Handle nested/recursive schema structures
+- **[Recursive Schema Handling](/docs/recipes/infrastructure/recursive-schemas/)** — Handle nested/recursive schema structures
 - **[LLM Error Handling](/docs/recipes/llm/llm-error-handling)** — Error handling patterns that complement validation

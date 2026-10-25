@@ -159,4 +159,4 @@ Raise `threshold`, and smooth decisions over time with a wrapper detector; see [
 ## Related Resources
 
 - [WebRTC VAD in Browser](/docs/guides/production/integrations/webrtc-browser-vad)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

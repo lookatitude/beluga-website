@@ -301,5 +301,5 @@ mongosh "mongodb://localhost:27017"
 ## Related Resources
 
 - [Redis Distributed Locking](/docs/guides/production/integrations/redis-locking) -- Distributed coordination for memory operations
-- [Memory System Guide](/docs/guides/memory) -- Full memory architecture documentation
-- [LLM Providers Overview](/docs/guides/production/integrations/llm-providers) -- Connecting LLM models
+- [Memory System Guide](/docs/guides/capabilities/memory/memory-system/) -- Full memory architecture documentation
+- [LLM Providers Overview](/docs/reference/providers/llm/) -- Connecting LLM models

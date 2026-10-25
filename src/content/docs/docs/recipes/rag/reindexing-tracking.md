@@ -226,5 +226,5 @@ func (p *PersistentReindexTracker) SaveStatus(ctx context.Context, job *ReindexJ
 
 ## Related Recipes
 
-- **[Advanced Metadata Filtering](./meta-filtering)** -- Complex vectorstore filtering
-- **[Parallel File Loading](./parallel-file-loading)** -- Parallel document loading for reindexing
+- **[Advanced Metadata Filtering](/docs/recipes/rag/meta-filtering/)** -- Complex vectorstore filtering
+- **[Parallel File Loading](/docs/recipes/rag/parallel-file-loading/)** -- Parallel document loading for reindexing

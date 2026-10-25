@@ -361,6 +361,6 @@ func (d *PIIDetector) DetectBatch(ctx context.Context, texts []string) ([][]PIID
 
 ## Related Resources
 
-- [Guard Pipeline Guide](/docs/guides/safety/) for input/output validation patterns
-- [Token Cost Attribution](/docs/guides/token-cost-attribution/) for user-level monitoring
-- [Monitoring Dashboards](/docs/guides/monitoring-dashboards/) for observability setup
+- [Guard Pipeline Guide](/docs/guides/production/safety-and-guards/) for input/output validation patterns
+- [Token Cost Attribution](/docs/guides/production/token-cost-attribution/) for user-level monitoring
+- [Monitoring Dashboards](/docs/guides/production/monitoring-dashboards/) for observability setup

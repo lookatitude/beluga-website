@@ -144,6 +144,6 @@ Stream dialogue turns as they become available using a channel-based API for liv
 
 ## Related Recipes
 
-- **[SSML Emphasis and Pause Tuning](./ssml-tuning)** -- Fine-tune speech with SSML markup
-- **[Glass-to-Glass Latency](./glass-to-glass-latency)** -- Reduce end-to-end latency
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
+- **[SSML Emphasis and Pause Tuning](/docs/guides/capabilities/voice/ssml-tuning/)** -- Fine-tune speech with SSML markup
+- **[Glass-to-Glass Latency](/docs/recipes/voice/glass-to-glass-latency/)** -- Reduce end-to-end latency
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup

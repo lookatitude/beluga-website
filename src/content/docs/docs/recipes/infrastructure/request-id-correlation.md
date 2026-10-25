@@ -156,5 +156,5 @@ func GenerateChildID(parentID string) string {
 
 ## Related Recipes
 
-- **[Rate Limiting per Project](./rate-limiting)** — Per-project rate limiting
-- **[Trace Aggregation for Multi-Agents](./trace-aggregation)** — Aggregate traces across agents
+- **[Rate Limiting per Project](/docs/recipes/infrastructure/rate-limiting/)** — Per-project rate limiting
+- **[Trace Aggregation for Multi-Agents](/docs/recipes/infrastructure/trace-aggregation/)** — Aggregate traces across agents

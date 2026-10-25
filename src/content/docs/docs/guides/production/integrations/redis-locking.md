@@ -410,5 +410,5 @@ This occurs when `Release` is called after the TTL has expired and another insta
 ## Related Resources
 
 - [MongoDB Context Persistence](/docs/guides/production/integrations/mongodb-persistence) -- Persistent memory storage
-- [Memory System Guide](/docs/guides/memory) -- Full memory architecture documentation
-- [Resilience Package](/docs/guides/resilience) -- Framework-level retry and circuit breaker patterns
+- [Memory System Guide](/docs/guides/capabilities/memory/memory-system/) -- Full memory architecture documentation
+- [Resilience Package](/docs/guides/production/resilience/) -- Framework-level retry and circuit breaker patterns

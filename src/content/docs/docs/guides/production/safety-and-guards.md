@@ -423,7 +423,7 @@ graph TD
   Check -->|denied| Deny[Reject with 403]
 ```
 
-This model is simpler than RBAC and avoids permission explosion: no roles, just capabilities. See [DOC-13 — Security Model](../../../../architecture/13-security-model.md) for configuration.
+This model is simpler than RBAC and avoids permission explosion: no roles, just capabilities. See [DOC-13 — Security Model](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/13-security-model.md) for configuration.
 
 ## Defense in depth
 
@@ -445,7 +445,7 @@ graph TD
 
 ## Next Steps
 
-- [Building Your First Agent](/docs/guides/first-agent/) — Agent fundamentals
-- [Tools & MCP](/docs/guides/tools-and-mcp/) — Tool system and execution
+- [Building Your First Agent](/docs/guides/foundations/first-agent/) — Agent fundamentals
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) — Tool system and execution
 - [Monitoring & Observability](/docs/guides/production/observability/) — Audit guard decisions with distributed tracing
 - [Deploying to Production](/docs/guides/production/deployment/) — Production safety configuration and resilience

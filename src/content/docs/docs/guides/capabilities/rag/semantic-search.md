@@ -407,6 +407,6 @@ search:
 
 ## Related Resources
 
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for complete RAG setup
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for production RAG patterns
-- [Vector Store Integration](/docs/guides/production/integrations/vector-stores/) for provider-specific configuration
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for complete RAG setup
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for production RAG patterns
+- [Vector Store Integration](/docs/reference/providers/vectorstore/) for provider-specific configuration

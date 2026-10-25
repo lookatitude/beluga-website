@@ -299,5 +299,5 @@ func (t *APITool) Execute(ctx context.Context, input map[string]any) (*tool.Resu
 ## Related Resources
 
 - [MCP Tools Integration](/docs/guides/production/integrations/agents-mcp-integration) — Expose tools over the Model Context Protocol
-- [Tool System API Reference](/docs/reference/api/tool) — Complete tool package documentation
+- [Tool System API Reference](/docs/reference/api/llm-agents/tool/) — Complete tool package documentation
 - [Working with Tools](/docs/start/quick-start) — Getting started guide

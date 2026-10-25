@@ -321,6 +321,6 @@ Set targets per stage and measure against them with the metrics above. These are
 
 ## Related Resources
 
-- [Voice AI Applications](/docs/guides/voice-applications/) for complete voice pipeline patterns
-- [Voice Forms](/docs/guides/voice-forms/) for multi-turn voice form collection
-- [Production Agent Platform](/docs/guides/production-platform/) for deployment patterns
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for complete voice pipeline patterns
+- [Voice Forms](/docs/guides/capabilities/voice/voice-forms/) for multi-turn voice form collection
+- [Production Agent Platform](/docs/guides/production/production-platform/) for deployment patterns

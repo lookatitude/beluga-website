@@ -445,6 +445,6 @@ Safe children's story generation delivered significant improvements:
 
 ## Related Resources
 
-- [Financial Compliance](/docs/guides/financial-compliance/) for compliance checking patterns
-- [Guard Configuration](/docs/guides/safety-guardrails/) for safety pipeline setup
-- [Content Moderation](/docs/guides/production/integrations/) for provider-specific configuration
+- [Financial Compliance](/docs/guides/production/financial-compliance/) for compliance checking patterns
+- [Guard Configuration](/docs/guides/production/safety-and-guards/) for safety pipeline setup
+- [Content Moderation](/docs/guides/production/) for provider-specific configuration

@@ -201,6 +201,6 @@ Use packet timestamps instead of sequence numbers when sequence information is u
 
 ## Related Recipes
 
-- **[Background Noise Reduction](./background-noise)** -- Improve STT quality with preprocessing
-- **[Glass-to-Glass Latency](./glass-to-glass-latency)** -- End-to-end latency optimization
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
+- **[Background Noise Reduction](/docs/recipes/voice/background-noise/)** -- Improve STT quality with preprocessing
+- **[Glass-to-Glass Latency](/docs/recipes/voice/glass-to-glass-latency/)** -- End-to-end latency optimization
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup

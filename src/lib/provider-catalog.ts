@@ -103,6 +103,19 @@ const CATEGORY_HREF_BASE: Record<string, string | null> = {
   server: null, // not in the current docs tree
 };
 
+/**
+ * Providers whose reference page slug differs from the package name in
+ * providers.md, keyed by `${category}/${provider}`.
+ */
+const PAGE_SLUG_ALIAS: Record<string, string> = {
+  "embedding/sentence_transformers": "sentence-transformers",
+  "stt/groq": "groq-whisper",
+  "tts/groq": "groq-whisper",
+  "s2s/gemini": "gemini-live",
+  "s2s/nova": "nova-s2s",
+  "s2s/openai": "openai-realtime",
+};
+
 type ParseState = "outside" | "in-section" | "in-table";
 
 function parseProvidersMarkdown(md: string): {
@@ -153,7 +166,8 @@ function parseProvidersMarkdown(md: string): {
       const description = row[2].trim().replace(/\s+/g, " ");
       if (!currentSlug) continue;
       const hrefBase = currentHrefBase;
-      const href = hrefBase ? `${hrefBase}/${slug}/` : "";
+      const pageSlug = PAGE_SLUG_ALIAS[`${currentSlug}/${slug}`] ?? slug;
+      const href = hrefBase ? `${hrefBase}/${pageSlug}/` : "";
       providers.push({
         category: currentSlug,
         categoryLabel: currentLabel,

@@ -432,6 +432,6 @@ Regulatory policy search delivered significant improvements:
 
 ## Related Resources
 
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for RAG pipeline patterns
-- [Multi-Document Summarizer](/docs/guides/multi-doc-summarizer/) for document processing
-- [Retriever Configuration](/docs/guides/rag-pipeline/) for hybrid search setup
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for RAG pipeline patterns
+- [Multi-Document Summarizer](/docs/guides/capabilities/documents/multi-doc-summarizer/) for document processing
+- [Retriever Configuration](/docs/guides/capabilities/rag/rag-pipeline/) for hybrid search setup

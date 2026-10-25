@@ -16,7 +16,7 @@ Three model switching strategies -- reliability fallbacks, cost-optimizing routi
 
 ## Prerequisites
 
-- Understanding of the [ChatModel interface](/docs/guides/llm) and [middleware](/docs/guides/foundations/middleware-implementation)
+- Understanding of the [ChatModel interface](/docs/guides/foundations/working-with-llms/) and [middleware](/docs/guides/foundations/middleware-implementation)
 - API keys for at least two LLM providers
 
 ## Pattern 1: Fallback Middleware
