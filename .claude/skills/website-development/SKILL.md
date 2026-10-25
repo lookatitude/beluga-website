@@ -72,7 +72,7 @@ description: Website development patterns for the Beluga AI docs and marketing s
 ### Component Rules
 - Astro components for static/server-rendered UI (default choice)
 - React components only when `client:*` directives are needed (interactive widgets)
-- Component files use PascalCase: `HeroTabs.astro`, `LinkButton.astro`
+- Component files use PascalCase: `HeroTabs.astro`, `CodeProof.astro`
 - Override components mirror Starlight's naming in `override-components/` — only overrides listed in `astro.config.mjs` are active; files in the directory that aren't wired there are dead
 - Marketing primitives go in `components/marketing/`
 - User-facing reusable components go in `user-components/`
