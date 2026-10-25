@@ -37,7 +37,7 @@
     "astro-vtbot": "^3.1.0",
     "estree-walker": "^3.0.3",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "packageManager": "yarn@1.22.22",
   "engines": {
