@@ -134,4 +134,4 @@ Content that doesn't come through `/design-feature` (i.e., briefs from `/plan-fe
 | "This feature is coming soon, I'll document it now" | Only write about shipped features. |
 | "The reader can figure out the setup" | Show prerequisites and env-var patterns explicitly. |
 | "I'll verify the code compiles later" | Verify NOW. Broken examples erode trust. |
-| "This comparison with competitors is widely known" | Cite `../framework/.wiki/competitors/` with a date, or cut the claim. |
+| "This comparison with competitors is widely known" | Cite `../research/competitor-signals.md` with the scan date, or cut the claim. |

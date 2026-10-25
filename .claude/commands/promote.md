@@ -12,7 +12,7 @@ For a **full release or major feature launch** where multiple pieces of content 
 ## Workflow
 
 ### Step 1 — Competitive context
-Read `../framework/.wiki/competitors/*.md` when running inside the multi-repo workspace (those files live in the framework repo). If the workspace isn't available, note which comparisons need the file and cut them from the promo copy rather than inventing claims.
+Read `../research/competitor-signals.md` (the workspace's weekly competitor scan digest) when running inside the multi-repo workspace. If the workspace isn't available, note which comparisons need the file and cut them from the promo copy rather than inventing claims.
 
 If deeper competitive research is needed (new competitor, new benchmark, market shift), STOP and file a research brief upward to the workspace researcher. Do not attempt competitive research here.
 
@@ -32,7 +32,7 @@ If `marketeer` does not yet exist or lives in a different repo, write the releas
 If the release introduces user-visible changes worth highlighting on the landing page or `src/content/docs/docs/start/`, propose edits to those pages in the same PR. Do NOT rewrite marketing copy wholesale — reuse existing hero/CTA/feature-card components.
 
 ### Step 5 — Competitor positioning
-If any claim in the content depends on `framework/.wiki/competitors/`, cite the exact file and the date of its last update. If a cited claim is older than 6 months, flag it in the PR description so the reviewer can decide whether to re-verify before publishing.
+If any claim in the content depends on `research/competitor-signals.md`, cite the dated scan section it comes from. If a cited claim is older than 6 months, flag it in the PR description so the reviewer can decide whether to re-verify before publishing.
 
 ### Step 6 — Output and PR
 Everything lands in a single PR against `main` per branch discipline:
