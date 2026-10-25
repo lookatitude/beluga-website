@@ -22,6 +22,10 @@ export const locales = locals
 
 // https://astro.build/config
 export default defineConfig({
+  // Astro 7 compresses HTML more aggressively and drops the newline whitespace
+  // before inline elements (e.g. "concerns.<em>Build"), gluing words together
+  // on hand-written .astro pages. Keep source whitespace as Astro 5 did.
+  compressHTML: false,
   site: "https://beluga-ai.org",
   image: {
     service: { entrypoint: "astro/assets/services/noop" },
