@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Public documentation and marketing site for the Beluga AI framework. Astro 5 + Starlight + React 19 + Tailwind v4. Deployed to GitHub Pages at `https://beluga-ai.org` (custom domain set via `public/CNAME`).
+Public documentation and marketing site for the Beluga AI framework. Astro 7 + Starlight 0.42 + React 19 + Tailwind v4. Deployed to GitHub Pages at `https://beluga-ai.org` (custom domain set via `public/CNAME`).
 
 This repo was split out of `beluga-ai` (framework) in 2026 — history was preserved with `git filter-repo --subdirectory-filter docs/website`, so every commit here originated in the framework repo's `docs/website/` tree.
 
@@ -39,7 +39,7 @@ yarn build            # production build → dist/
 yarn preview          # serve the built dist/ locally
 ```
 
-Node 22 (matches `.github/workflows/deploy.yml`).
+Node 22.23.4 or later (Astro 7 requires it; CI uses the latest Node 22 via `.github/workflows/deploy.yml`).
 
 ## Deploy
 

@@ -2,7 +2,7 @@
 import { Icon } from "@astrojs/starlight/components";
 import { Badge } from "@astrojs/starlight/components";
 import SidebarRestorePoint from "./SidebarRestorePoint.astro";
-import { flattenSidebar } from "node_modules/@astrojs/starlight/utils/navigation";
+import { flattenSidebar } from "@/lib/flatten-sidebar";
 import { plainLabel, getIconFromLabel } from "@/lib/utils/textConverter";
 
 const { sublist, nested } = Astro.props;

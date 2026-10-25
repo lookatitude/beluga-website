@@ -8,7 +8,7 @@ alwaysApply: true
 
 ## Stack
 
-- Astro 5 + Starlight (see `CLAUDE.md` for the full override list and architecture notes)
+- Astro 7 + Starlight 0.42 (see `CLAUDE.md` for the full override list and architecture notes)
 - React 19 for interactive components
 - Tailwind v4 via `@tailwindcss/vite`
 - MDX for documentation pages
