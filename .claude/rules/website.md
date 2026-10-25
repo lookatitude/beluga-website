@@ -8,11 +8,11 @@ alwaysApply: true
 
 ## Stack
 
-- Astro 7 + Starlight 0.42 (see `CLAUDE.md` for the full override list and architecture notes)
+- Astro 7 + Starlight 0.42 (see `AGENTS.md` for the full override list and architecture notes)
 - React 19 for interactive components
 - Tailwind v4 via `@tailwindcss/vite`
 - MDX for documentation pages
-- Go API reference comes from the pre-built `docs-bundle.tar.gz` attached to each framework release — never run gomarkdoc/pkgsite from this repo. See `scripts/fetch-docs-bundle.sh` and `CLAUDE.md`.
+- Go API reference comes from the pre-built `docs-bundle.tar.gz` attached to each framework release — never run gomarkdoc/pkgsite from this repo. See `scripts/fetch-docs-bundle.sh` and `AGENTS.md`.
 
 ## Content rules
 
@@ -27,12 +27,12 @@ alwaysApply: true
 - Responsive at 320px / 768px / 1024px / 1440px. Test at all four breakpoints.
 - WCAG AA accessibility — color contrast, keyboard navigation, semantic HTML, alt text.
 - Reuse existing component patterns under `src/components/` — don't invent new primitives without a documented reason.
-- Starlight overrides live in `src/components/override-components/` and are wired via `astro.config.mjs`. Only overrides listed in `astro.config.mjs` are active — see `CLAUDE.md` for the full list and the "exists-but-unwired" gotcha.
+- Starlight overrides live in `src/components/override-components/` and are wired via `astro.config.mjs`. Only overrides listed in `astro.config.mjs` are active — see `AGENTS.md` for the full list and the "exists-but-unwired" gotcha.
 - Design tokens, typography, and color come from the global styles under `src/styles/`. Match the existing type scale and spacing.
 
 ## Before editing
 
-- Read `CLAUDE.md` for the deploy model, three triggers, override list, and `fetch-docs-bundle.sh` failure modes.
+- Read `AGENTS.md` for the deploy model, three triggers, override list, and `fetch-docs-bundle.sh` failure modes.
 - Read `.guild/wiki/index.md` — currently a scoped stub, but it tells you what knowledge lives where (website vs framework vs workspace).
 - Explore the current `src/` tree — match existing conventions before adding anything new.
 

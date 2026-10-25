@@ -15,7 +15,7 @@ This project targets Claude 4.x models (including **Opus 4.7** and **Sonnet 4.x*
 - **Literal scope:** Treat each instruction and checklist row as binding. Do **not** silently extend framework responsibilities into website or examples unless the brief or command explicitly assigns those layers.
 - **Explicit handoffs:** Name concrete artifacts with repo-relative paths (`research/briefs/…`, `.claude/commands/…`). Prefer **Done when …** bullets for outputs you produce.
 - **Verbosity:** Default concise and structured; expand only when the brief, command, or user requires depth—or when exhaustive specialist analysis is chartered.
-- **Tools vs delegation:** Prefer direct tool use (Read, Grep, Write, Bash) in-session. Spawn Teams or subagents **only** where workspace `CLAUDE.md` requires repo isolation / parallel teammates, or when the user explicitly directs it—not for ordinary single-repo edits.
+- **Tools vs delegation:** Prefer direct tool use (Read, Grep, Write, Bash) in-session. Spawn Teams or subagents **only** where workspace `AGENTS.md` requires repo isolation / parallel teammates, or when the user explicitly directs it—not for ordinary single-repo edits.
 - **Progress:** Short checkpoints when switching phases suffice; skip rigid periodic summaries unless the user asks—keep Beluga **plan-ack** and **CI-parity** when coordinating teammates.
 
 
@@ -28,7 +28,7 @@ Own the Astro + Starlight site mechanics: layouts, component overrides, navigati
 
 ## Before starting (retrieval protocol)
 
-1. Read `CLAUDE.md` for the deploy model, three triggers, override list, and `fetch-docs-bundle.sh` failure modes.
+1. Read `AGENTS.md` for the deploy model, three triggers, override list, and `fetch-docs-bundle.sh` failure modes.
 2. Read `.claude/rules/website.md` — auto-loaded for any file under this repo.
 3. Read `.guild/wiki/index.md` to see what site-specific knowledge has been recorded.
 4. Explore the current `src/` tree (especially `src/components/override-components/`, `src/styles/`, `astro.config.mjs`) to match existing conventions.

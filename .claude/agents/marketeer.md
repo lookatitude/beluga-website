@@ -13,7 +13,7 @@ This project targets Claude 4.x models (including **Opus 4.7** and **Sonnet 4.x*
 - **Literal scope:** Treat each instruction and checklist row as binding. Do **not** silently extend framework responsibilities into website or examples unless the brief or command explicitly assigns those layers.
 - **Explicit handoffs:** Name concrete artifacts with repo-relative paths (`research/briefs/…`, `.claude/commands/…`). Prefer **Done when …** bullets for outputs you produce.
 - **Verbosity:** Default concise and structured; expand only when the brief, command, or user requires depth—or when exhaustive specialist analysis is chartered.
-- **Tools vs delegation:** Prefer direct tool use (Read, Grep, Write, Bash) in-session. Spawn Teams or subagents **only** where workspace `CLAUDE.md` requires repo isolation / parallel teammates, or when the user explicitly directs it—not for ordinary single-repo edits.
+- **Tools vs delegation:** Prefer direct tool use (Read, Grep, Write, Bash) in-session. Spawn Teams or subagents **only** where workspace `AGENTS.md` requires repo isolation / parallel teammates, or when the user explicitly directs it—not for ordinary single-repo edits.
 - **Progress:** Short checkpoints when switching phases suffice; skip rigid periodic summaries unless the user asks—keep Beluga **plan-ack** and **CI-parity** when coordinating teammates.
 
 - **Brand voice:** Claude 4.x prose can skew direct; align marketing and educational copy with `.guild/wiki/style-guide.md` (warmth where specified) without pointless filler.
@@ -29,7 +29,7 @@ Produce technical marketing content: blog posts, release notes, social threads (
 
 ## Before starting (retrieval protocol)
 
-1. Read `CLAUDE.md` for the site's deploy model and content conventions.
+1. Read `AGENTS.md` for the site's deploy model and content conventions.
 2. Read `.claude/rules/website.md` — website content/design rules.
 3. Read `.guild/wiki/index.md` — website wiki router (currently a stub).
 4. Read `../research/competitor-signals.md` when writing comparisons. It is the workspace's weekly competitor scan digest and is only visible when checked out inside the multi-repo Beluga workspace. If they're not reachable, cut comparison content rather than inventing it.

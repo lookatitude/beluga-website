@@ -117,7 +117,7 @@ yarn build      # Production build → dist/
 yarn preview    # Preview the built dist/
 ```
 
-Node 22. See `CLAUDE.md` for the full deploy model and three triggers.
+Node 22. See `AGENTS.md` for the full deploy model and three triggers.
 
 ## Don'ts
 
