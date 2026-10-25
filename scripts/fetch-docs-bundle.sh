@@ -25,7 +25,11 @@
 #   website builds (blog posts, feature pages) are never blocked by an
 #   in-progress or broken framework release. The build then runs without
 #   godoc pages and with placeholder report bodies — the same state as a
-#   local dev build that skips this script entirely.
+#   local dev build that skips this script entirely. In GitHub Actions it
+#   also emits a ::warning:: annotation so the gap is visible.
+#
+#   Set DOCS_BUNDLE_REQUIRED=1 to make these failures fatal. The deploy
+#   workflow does this for repository_dispatch (release-triggered) builds.
 
 set -euo pipefail
 
@@ -42,6 +46,13 @@ trap 'rm -rf "$TMP"' EXIT
 warn() { printf 'warning: %s\n' "$*" >&2; }
 
 soft_fail() {
+  if [ "${DOCS_BUNDLE_REQUIRED:-0}" = "1" ]; then
+    # Release-triggered builds (repository_dispatch) must ship the bundle.
+    [ -n "${GITHUB_ACTIONS:-}" ] && printf '::error::docs bundle: %s\n' "$1"
+    warn "$1"
+    exit 1
+  fi
+  [ -n "${GITHUB_ACTIONS:-}" ] && printf '::warning::docs bundle missing: %s\n' "$1"
   warn "$1"
   warn "continuing without docs bundle: godoc pages will 404 and project-report stubs will keep their placeholder bodies"
   mkdir -p public/godoc

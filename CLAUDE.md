@@ -51,7 +51,9 @@ GitHub Pages, via `.github/workflows/deploy.yml`. Three triggers:
 | `repository_dispatch: framework-release` | Sent automatically when a new framework release ships | Tag from `client_payload.tag` |
 | `workflow_dispatch` (manual) | Rebuild against a pinned tag, or force a rebuild | `inputs.framework_tag` if set, else latest release |
 
-All three converge on the same `build` job, so content-only deploys and framework-release deploys are interchangeable.
+All three converge on the same `build` job, so content-only deploys and framework-release deploys are interchangeable. The tag is passed to the shell through `env:` and must match `vMAJOR.MINOR.PATCH`.
+
+Pull requests run `.github/workflows/pr.yml`: a guard against the pre-v2 module path, `yarn install --frozen-lockfile && yarn build`, and `scripts/check-links.py dist` (fails on any broken internal link). An advisory job runs `scripts/snippets/check.sh` against the latest framework release: it lints every Go block for nonexistent framework packages/symbols and compiles every block that has a `package` clause. Intentionally partial snippets fail that compile, so the job reports in the run summary instead of blocking. Actions are pinned to commit SHAs; Dependabot (`.github/dependabot.yml`) proposes npm and action updates weekly.
 
 The `repository_dispatch` from the framework repo is sent by `framework/.github/workflows/release.yml`'s `dispatch-website` job using a PAT in the framework repo's `WEBSITE_DISPATCH_TOKEN` secret. If that token expires or loses access to `lookatitude/beluga-website`, framework releases will still publish but the website won't auto-rebuild — fix it by repasting a fresh PAT (fine-grained: `Contents: write` on this repo) into the framework repo secret.
 
@@ -80,7 +82,7 @@ Requirements: `gh` CLI authenticated with read access to `lookatitude/beluga-ai`
 
 The script defaults to the latest release; pass a tag to pin (`scripts/fetch-docs-bundle.sh v2.8.5`).
 
-**Failure mode worth knowing:** the script runs with `set -euo pipefail`. If the latest framework release exists but is missing `docs-bundle.tar.gz` (e.g. a release where goreleaser succeeded but the docs-bundle job failed mid-flight), the script aborts and the whole website build fails — even for content-only changes. The remediation is to repair the framework release (re-run the failed `docs-bundle` job to attach the asset) or pin to the previous release manually via `workflow_dispatch` with `framework_tag`.
+**Failure mode worth knowing:** the script is soft-fail. If the release is missing `docs-bundle.tar.gz`, the checksum doesn't match, or the extract fails, it prints a warning (a `::warning::` annotation in Actions) and exits 0, so the build goes green with godoc pages 404ing and placeholder report bodies. Release-triggered builds (`repository_dispatch`) set `DOCS_BUNDLE_REQUIRED=1`, which makes the same failures fatal, because a release build without its bundle is a real failure. Remediation: repair the framework release (re-run its `docs-bundle` job) or rebuild with `workflow_dispatch` pinned to a good `framework_tag`.
 
 Locally, running without the fetch is fine — godoc pages will 404 and report pages will show the placeholder body.
 
