@@ -65,7 +65,7 @@ func main() {
 | [ChromaDB](/docs/reference/providers/vectorstore/chroma) | `chroma` | Self-hosted | Cosine |
 | [Elasticsearch](/docs/reference/providers/vectorstore/elasticsearch) | `elasticsearch` | Self-hosted / cloud | Cosine |
 | [Redis](/docs/reference/providers/vectorstore/redis) | `redis` | Self-hosted / cloud | Cosine |
-| [MongoDB Atlas](/docs/reference/providers/vectorstore/mongodb) | `mongodb` | Managed cloud | Cosine |
+| [MongoDB Atlas](/docs/reference/providers/vectorstore/mongodb) | `mongodb` | Managed cloud | Cosine, Dot Product, Euclidean (set by the Atlas index) |
 | [SQLite-vec](/docs/reference/providers/vectorstore/sqlitevec) | `sqlitevec` | Embedded (CGO) | Euclidean (L2) |
 | [Turbopuffer](/docs/reference/providers/vectorstore/turbopuffer) | `turbopuffer` | Managed cloud | Cosine, Dot Product, Euclidean |
 | [Vespa](/docs/reference/providers/vectorstore/vespa) | `vespa` | Self-hosted / cloud | Cosine, Dot Product, Euclidean |

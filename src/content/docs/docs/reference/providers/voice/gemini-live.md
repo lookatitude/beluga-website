@@ -25,7 +25,7 @@ The blank import registers the `"gemini_live"` provider with the S2S registry.
 | Field          | Type                      | Default                    | Description                          |
 |----------------|---------------------------|----------------------------|--------------------------------------|
 | `Voice`        | `string`                  | —                          | Prebuilt voice name                  |
-| `Model`        | `string`                  | `"gemini-2.0-flash-exp"`  | Gemini model identifier              |
+| `Model`        | `string`                  | `"gemini-3.8-live"`  | Gemini model identifier              |
 | `Instructions` | `string`                  | —                          | System instruction for the session   |
 | `Tools`        | `[]schema.ToolDefinition` | —                          | Tools available to the model         |
 | `Extra`        | —                         | —                          | See below                            |
@@ -56,7 +56,7 @@ func main() {
     ctx := context.Background()
 
     engine, err := s2s.New("gemini_live", s2s.Config{
-        Model: "gemini-2.0-flash-exp",
+        Model: "gemini-3.8-live",
         Extra: map[string]any{"api_key": os.Getenv("GOOGLE_API_KEY")},
     })
     if err != nil {
@@ -109,7 +109,7 @@ func playAudio(pcm []byte) {
 import "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/gemini"
 
 engine, err := gemini.New(s2s.Config{
-    Model:        "gemini-2.0-flash-exp",
+    Model:        "gemini-3.8-live",
     Instructions: "You are a helpful voice assistant.",
     Extra:        map[string]any{"api_key": os.Getenv("GOOGLE_API_KEY")},
 })
@@ -117,7 +117,7 @@ engine, err := gemini.New(s2s.Config{
 
 ## Session Lifecycle
 
-1. **Start**: Opens a WebSocket connection with the API key as a query parameter and sends a setup message configuring the model, generation config (audio modalities, voice), system instructions, and tools.
+1. **Start**: Opens a WebSocket connection with the API key in the `x-goog-api-key` handshake header (not a `?key=` URL parameter, so it cannot leak through dial errors or logged URLs) and sends a setup message configuring the model, generation config (audio modalities, voice), system instructions, and tools.
 2. **Audio I/O**: Audio is sent via `SendAudio` as base64-encoded PCM (16kHz) in `realtimeInput.mediaChunks`. Output audio arrives as base64-encoded `inlineData` in `serverContent.modelTurn.parts`.
 3. **Text**: Send text via `SendText` using `clientContent.turns` with `turnComplete: true`.
 4. **Tool Calls**: The model emits function calls via `toolCall.functionCalls`. Send results back via `SendToolResult` using the `toolResponse` message format.
@@ -165,7 +165,7 @@ for event, err := range session.Recv(ctx) {
 
 ```go
 processor := s2s.AsFrameProcessor(engine,
-    s2s.WithModel("gemini-2.0-flash-exp"),
+    s2s.WithModel("gemini-3.8-live"),
     s2s.WithInstructions("You are a helpful voice assistant."),
 )
 pipeline := voice.Chain(vadProcessor, processor)
@@ -180,7 +180,7 @@ The voice is set in the setup message under `generationConfig.speechConfig.voice
 ```go
 session, err := engine.Start(ctx,
     s2s.WithVoice("Charon"),
-    s2s.WithModel("gemini-2.0-flash-exp"),
+    s2s.WithModel("gemini-3.8-live"),
 )
 ```
 
@@ -197,7 +197,7 @@ Gemini Live uses server-side voice activity detection. The model automatically d
 ```go
 session, err := engine.Start(ctx,
     s2s.WithVoice("Kore"),
-    s2s.WithModel("gemini-2.0-flash-exp"),
+    s2s.WithModel("gemini-3.8-live"),
     s2s.WithInstructions("You are a concise assistant. Keep responses under 30 seconds."),
 )
 ```
@@ -206,7 +206,7 @@ session, err := engine.Start(ctx,
 
 ```go
 engine, err := s2s.New("gemini_live", s2s.Config{
-    Model: "gemini-2.0-flash-exp",
+    Model: "gemini-3.8-live",
     Extra: map[string]any{
         "api_key":  os.Getenv("GOOGLE_API_KEY"),
         "base_url": "wss://custom-gemini-endpoint.example.com/ws",

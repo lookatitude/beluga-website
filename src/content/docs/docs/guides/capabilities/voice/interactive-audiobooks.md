@@ -36,7 +36,7 @@ The story graph approach is chosen over linear scripting because it separates na
 
 ### Character Voice Mapping
 
-Each character in the story is mapped to a specific TTS voice and speaking speed. This per-character voice configuration ensures consistency — the same character always sounds the same regardless of which story branch the listener is on. The TTS engine's functional options (`WithVoice`, `WithSpeed`) allow per-line customization without creating separate engine instances for each character. Option support varies by provider: `playht`, `lmnt`, `smallest`, and `groq` apply `WithSpeed`, while no current provider applies `WithPitch`, so give each character its own voice rather than relying on pitch shifts.
+Each character in the story is mapped to a specific TTS voice and speaking speed. This per-character voice configuration ensures consistency — the same character always sounds the same regardless of which story branch the listener is on. The TTS engine's functional options (`WithVoice`, `WithSpeed`) allow per-line customization without creating separate engine instances for each character. Option support varies by provider: `lmnt`, `smallest`, and `groq` apply `WithSpeed` (as does the deprecated `playht`), while no current provider applies `WithPitch`, so give each character its own voice rather than relying on pitch shifts.
 
 ```go
 package audiobook
@@ -48,7 +48,7 @@ import (
 
     "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
-    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/playht"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/lmnt"
 )
 
 // Character represents a story character with a distinct voice.

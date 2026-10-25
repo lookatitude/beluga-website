@@ -234,7 +234,7 @@ func resilientGenerate(ctx context.Context, model llm.ChatModel, limiter *resili
 }
 ```
 
-For request-per-minute and concurrency limits only, `llm.ApplyMiddleware(model, llm.WithProviderLimits(llm.ProviderLimits{RPM: 600, MaxConcurrent: 20}))` wraps the model directly. That middleware does not enforce `TPM` today; use `resilience.RateLimiter.ConsumeTokens` when you need a token budget.
+To apply the limits directly to a model, `llm.ApplyMiddleware(model, llm.WithProviderLimits(llm.ProviderLimits{RPM: 600, TPM: 100000, MaxConcurrent: 20}))` wraps it. The middleware records each response's `Usage.TotalTokens` and stops admitting requests once the trailing-minute `TPM` budget is spent.
 
 ## Configuration Management
 

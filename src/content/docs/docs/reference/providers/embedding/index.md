@@ -55,7 +55,7 @@ func main() {
 |---|---|---|---|
 | [OpenAI](/docs/reference/providers/embedding/openai) | `openai` | `text-embedding-3-small` | 1536 |
 | [Cohere](/docs/reference/providers/embedding/cohere) | `cohere` | `embed-english-v3.0` | 1024 |
-| [Google](/docs/reference/providers/embedding/google) | `google` | `text-embedding-004` | 768 |
+| [Google](/docs/reference/providers/embedding/google) | `google` | `gemini-embedding-001` | 3072 |
 | [Ollama](/docs/reference/providers/embedding/ollama) | `ollama` | `nomic-embed-text` | 768 |
 | [Jina](/docs/reference/providers/embedding/jina) | `jina` | `jina-embeddings-v2-base-en` | 768 |
 | [Voyage](/docs/reference/providers/embedding/voyage) | `voyage` | `voyage-2` | 1024 |

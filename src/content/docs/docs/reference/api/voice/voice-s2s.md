@@ -122,7 +122,7 @@ import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/gemini"
 
 ```go
 engine, err := s2s.New("gemini_live", s2s.Config{
-    Model: "gemini-2.0-flash-exp",
+    Model: "gemini-3.8-live",
     Extra: map[string]any{"api_key": "..."},
 })
 session, err := engine.Start(ctx)
@@ -133,10 +133,12 @@ defer session.Close()
 
 Required configuration in Config.Extra:
 
-- api_key — Google AI API key (required)
+- api_key — Google AI API key (required). It is sent in the
+  x-goog-api-key handshake header, not as a ?key= URL parameter, so it
+  cannot leak through dial errors or logged URLs.
 - base_url — Custom WebSocket endpoint (optional, defaults to Gemini Live production URL)
 
-The default model is "gemini-2.0-flash-exp". Voice, instructions, and tools
+The default model is "gemini-3.8-live". Voice, instructions, and tools
 are passed through [s2s.Config] fields.
 
 ## Exported Types
@@ -152,9 +154,13 @@ are passed through [s2s.Config] fields.
 import "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 ```
 
-Package nova provides the Amazon Nova S2S provider for the Beluga AI voice
-pipeline. It uses the AWS Bedrock Runtime API for bidirectional audio
-streaming with Amazon Nova Sonic.
+Package nova provides the Amazon Nova Sonic S2S provider for the Beluga AI
+voice pipeline.
+
+The provider uses the Bedrock Runtime InvokeModelWithBidirectionalStream
+API through aws-sdk-go-v2 (HTTP/2 event stream, SigV4-signed). Earlier
+releases dialed an unsigned WebSocket at a non-existent
+".../converse-stream" endpoint; that transport was removed.
 
 ## Registration
 
@@ -170,6 +176,7 @@ import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 ```go
 engine, err := s2s.New("nova", s2s.Config{
     Model: "amazon.nova-sonic-v1:0",
+    Voice: "matthew",
     Extra: map[string]any{"region": "us-east-1"},
 })
 session, err := engine.Start(ctx)
@@ -181,10 +188,14 @@ defer session.Close()
 Configuration in Config.Extra:
 
 - region — AWS region (optional, defaults to "us-east-1")
-- base_url — Custom WebSocket endpoint (optional, defaults to Bedrock Runtime URL)
+- access_key_id, secret_access_key, session_token — static AWS
+  credentials (optional; the default AWS credential chain is used
+  otherwise)
+- base_url — Bedrock Runtime endpoint override, http(s) only (optional)
 
-The default model is "amazon.nova-sonic-v1:0". Instructions and tools are
-passed through [s2s.Config] fields.
+The default model is "amazon.nova-sonic-v1:0" and the default voice is
+"matthew". Instructions and tools are passed through [s2s.Config] fields.
+Barge-in is detected by Nova from the audio stream, so Interrupt is a no-op.
 
 ## Exported Types
 
@@ -218,7 +229,7 @@ import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 ```go
 engine, err := s2s.New("openai_realtime", s2s.Config{
     Voice: "alloy",
-    Model: "gpt-4o-realtime-preview",
+    Model: "gpt-realtime-2.1",
     Extra: map[string]any{"api_key": "sk-..."},
 })
 session, err := engine.Start(ctx)
@@ -232,9 +243,12 @@ Required configuration in Config.Extra:
 - api_key — OpenAI API key (required)
 - base_url — Custom WebSocket endpoint (optional, defaults to wss://api.openai.com/v1/realtime)
 
-The default model is "gpt-4o-realtime-preview" and the default voice is
+The default model is "gpt-realtime-2.1" and the default voice is
 "alloy". Instructions and tools are passed through [s2s.Config] fields.
-Audio uses PCM16 format with server-side VAD for turn detection.
+Audio uses 24 kHz PCM16 ("audio/pcm") with server-side VAD for turn
+detection. Sessions use the GA Realtime API (session.type "realtime", no
+OpenAI-Beta header); both GA (response.output_audio.*) and preview
+(response.audio.*) server event names are understood.
 
 ## Exported Types
 

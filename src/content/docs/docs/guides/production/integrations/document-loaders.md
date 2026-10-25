@@ -126,7 +126,7 @@ Provider loaders live under `rag/loader/providers/` and register themselves when
 
 | Name | Import | Source argument | Configuration |
 |------|--------|-----------------|---------------|
-| `cloudstorage` | `rag/loader/providers/cloudstorage` | `s3://bucket/key`, `gs://bucket/key`, `az://container/key` | `APIKey` (access key), `Options["secret_key"]`, `Options["region"]` |
+| `cloudstorage` | `rag/loader/providers/cloudstorage` | `s3://bucket/key`, `gs://bucket/key`, `az://account/container/blob` | `APIKey` (S3 access key ID or GCS/Azure bearer token), `Options["secret_key"]`, `Options["session_token"]`, `Options["region"]` |
 | `gdrive` | `rag/loader/providers/gdrive` | Drive file ID | `APIKey` (API key or OAuth token) |
 | `firecrawl` | `rag/loader/providers/firecrawl` | URL to crawl | `APIKey` |
 | `docling` | `rag/loader/providers/docling` | file path or URL (PDF, DOCX, images) | `BaseURL` of a Docling server |
@@ -172,7 +172,7 @@ func main() {
 }
 ```
 
-The cloud storage loader fetches one object per `Load` call (it does not list prefixes) and sends `APIKey` as a bearer token. It does not perform AWS SigV4 request signing, so for private S3 objects either make the object readable to the request or download it with the AWS SDK and pass the content to a format loader.
+The cloud storage loader fetches one object per `Load` call (it does not list prefixes) It signs S3 requests with AWS SigV4 (`APIKey` as the access key ID plus `Options["secret_key"]`) and sends `APIKey` as a bearer token to GCS and Azure. Without an `APIKey`, requests are anonymous and only reach public objects.
 
 ### Google Drive and Web Crawling
 

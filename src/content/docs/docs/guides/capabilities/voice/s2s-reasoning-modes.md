@@ -53,7 +53,7 @@ func main() {
 	ctx := context.Background()
 
 	engine, err := s2s.New("openai", s2s.Config{
-		Model: "gpt-4o-realtime-preview",
+		Model: "gpt-realtime-2.1",
 		Voice: "alloy",
 		Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
 	})
@@ -125,7 +125,7 @@ type ModeConfig struct {
 var modes = map[string]ModeConfig{
 	"concierge": {Instructions: conciergePrompt},
 	"assistant": {Instructions: assistantPrompt},
-	"tutor":     {Model: "gpt-4o-realtime-preview", Instructions: tutorPrompt},
+	"tutor":     {Model: "gpt-realtime-2.1", Instructions: tutorPrompt},
 }
 
 // SwitchMode closes the current session and starts a new one for modeName.

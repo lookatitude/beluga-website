@@ -15,7 +15,7 @@ Running VAD on the edge eliminates the network round-trip for speech detection, 
 The `voice/vad/providers/silero` package registers a `"silero"` detector with the voice VAD registry (`voice.NewVAD`). It implements `voice.ActivityDetector`: each call to `DetectActivity` takes a chunk of 16-bit PCM audio and returns a `voice.ActivityResult` with `IsSpeech`, an event type (`VADSpeechStart`, `VADSpeechEnd`, `VADSilence`), and a confidence.
 
 :::caution[No ONNX inference today]
-Despite its name, the `silero` provider does **not** load or run the Silero ONNX model. It accepts a `model_path` setting but ignores it, and scores speech with an energy-based approximation of Silero's behavior. The package is also compiled only when cgo is enabled (`//go:build cgo`). If you need real Silero model inference, implement `voice.ActivityDetector` yourself on top of an ONNX Runtime binding and register it with `voice.RegisterVAD`, as shown below.
+Despite its name, the `silero` provider does **not** load or run the Silero ONNX model. Setting `model_path` makes construction fail with `core.ErrInvalidInput`; without it, the provider scores speech with an energy-based approximation of Silero's behavior. The package is also compiled only when cgo is enabled (`//go:build cgo`). If you need real Silero model inference, implement `voice.ActivityDetector` yourself on top of an ONNX Runtime binding and register it with `voice.RegisterVAD`, as shown below.
 :::
 
 ## Prerequisites
@@ -140,7 +140,7 @@ func init() {
 |---------------|-------------------------------------|---------|----------------------------|
 | `threshold`   | Speech probability threshold (0-1)  | 0.5     | 0.5-0.6 typical            |
 | `sample_rate` | Audio sample rate (Hz)              | 16000   | 8000 or 16000; match input |
-| `model_path`  | Accepted but currently ignored      | -       | See the caution above      |
+| `model_path`  | Not supported; construction fails when set | -  | See the caution above      |
 
 ## Troubleshooting
 

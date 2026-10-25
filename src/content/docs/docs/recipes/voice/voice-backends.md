@@ -91,7 +91,7 @@ import (
 
 func setupS2S() (s2s.S2S, error) {
 	return s2s.New("openai_realtime", s2s.Config{
-		Model:        "gpt-4o-realtime-preview",
+		Model:        "gpt-realtime-2.1",
 		Voice:        "alloy",
 		Instructions: "You are a concise, friendly voice assistant.",
 		Extra:        map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
@@ -205,7 +205,7 @@ These are the providers that ship with Beluga AI today. Import each with a blank
 |---------------|---------|-------|
 | `openai_realtime` | `openai` | OpenAI Realtime API over WebSocket |
 | `gemini_live` | `gemini` | Gemini Live API |
-| `nova` | `nova` | Amazon Nova Sonic; does not sign requests with AWS SigV4 yet, so it cannot authenticate directly against Bedrock |
+| `nova` | `nova` | Amazon Nova Sonic via Bedrock `InvokeModelWithBidirectionalStream`, SigV4-signed through aws-sdk-go-v2 |
 
 Other services (Google, Azure, AWS Transcribe, OpenAI TTS) can be added by implementing `stt.STT` or `tts.TTS` and calling `stt.Register` / `tts.Register`.
 

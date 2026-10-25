@@ -22,7 +22,7 @@ The `mongodb` store implements the `memory.MessageStore` interface, storing each
 - Integration with MongoDB Atlas for managed cloud deployments
 
 :::note[Memory store vs. vector store]
-This page covers the **memory** store `memory/stores/mongodb`, which uses the official MongoDB Go driver and works with any MongoDB deployment, including Atlas clusters reached through a normal connection string. It is unrelated to the MongoDB **vector store** provider (`rag/vectorstore/providers/mongodb`), which is built on the Atlas Data API. MongoDB shut the Atlas Data API down on 30 September 2025, so that vector store provider no longer works; use another vector store (for example `pgvector` or `qdrant`) for embeddings.
+This page covers the **memory** store `memory/stores/mongodb`, which uses the official MongoDB Go driver and works with any MongoDB deployment, including Atlas clusters reached through a normal connection string. It is separate from the MongoDB **vector store** provider (`rag/vectorstore/providers/mongodb`), which also uses the official Go driver and stores embeddings for Atlas Vector Search (`$vectorSearch`); see [MongoDB Atlas vector store](/docs/reference/providers/vectorstore/mongodb/).
 :::
 
 ## Prerequisites

@@ -177,7 +177,7 @@ hooks := llm.Hooks{
 - `WithHooks(hooks Hooks) Middleware` — invokes lifecycle callbacks around Generate and Stream.
 - `WithLogging(logger *slog.Logger) Middleware` — logs Generate and Stream calls.
 - `WithFallback(fallback ChatModel) Middleware` — falls back to an alternative model on retryable errors.
-- `WithProviderLimits(limits ProviderLimits) Middleware` — enforces RPM and concurrency limits. The `TPM` field is accepted but not enforced by this middleware yet; for token budgets use `resilience.RateLimiter.ConsumeTokens`.
+- `WithProviderLimits(limits ProviderLimits) Middleware` — enforces RPM, TPM and concurrency limits. TPM usage is recorded from each response's `Usage.TotalTokens`; once the trailing-minute budget is spent, new requests are rejected with `core.ErrRateLimit` (after `CooldownOnRetry`, if set).
 
 Apply middleware with `ApplyMiddleware`. The first middleware in the list
 becomes the outermost wrapper and executes first:
@@ -387,12 +387,12 @@ falling back on retryable errors.
 
 ## Rate Limiting
 
-`WithProviderLimits` returns middleware that enforces per-provider request-rate and concurrency limits:
+`WithProviderLimits` returns middleware that enforces per-provider request-rate, token-rate and concurrency limits:
 
 ```go
 type ProviderLimits struct {
     RPM             int           // requests per minute
-    TPM             int           // tokens per minute (not yet enforced by WithProviderLimits)
+    TPM             int           // tokens per minute, from each response's Usage.TotalTokens
     MaxConcurrent   int           // max concurrent requests
     CooldownOnRetry time.Duration // wait before retry after hitting limit
 }

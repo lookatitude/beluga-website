@@ -21,7 +21,7 @@ An expressive TTS setup that:
 
 ## Prerequisites
 
-- An API key for one of Beluga's TTS providers (`elevenlabs`, `cartesia`, `fish`, `groq`, `lmnt`, `playht`, `smallest`)
+- An API key for one of Beluga's TTS providers (`elevenlabs`, `cartesia`, `fish`, `groq`, `lmnt`, `smallest`)
 - Basic familiarity with XML syntax
 
 ## How Beluga Handles SSML

@@ -8,6 +8,10 @@ head:
       content: "PlayHT, text-to-speech, TTS, voice cloning, AI voice generation, streaming, Go, Beluga AI"
 ---
 
+:::caution[Deprecated]
+PlayHT discontinued its service and public API in 2025, so requests through this provider are expected to fail. The `playht` package is deprecated and kept only so existing code compiles; it will be removed in a future release. Migrate to another TTS provider such as [ElevenLabs](/docs/reference/providers/voice/elevenlabs) or [Cartesia](/docs/reference/providers/voice/cartesia).
+:::
+
 PlayHT provides AI-powered text-to-speech with voice cloning and multiple output formats. The Beluga AI provider uses the PlayHT v2 API for synthesis, supporting configurable voice selection, output format, and speech speed.
 
 Choose PlayHT when you need voice cloning with flexible output formats (MP3, WAV, PCM, Opus) and fine-grained speed control. PlayHT's zero-shot voice cloning lets you create custom voices from short audio samples. For the lowest synthesis latency, consider [Cartesia](/docs/reference/providers/voice/cartesia) or [LMNT](/docs/reference/providers/voice/lmnt).

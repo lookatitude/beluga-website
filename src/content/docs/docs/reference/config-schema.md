@@ -40,7 +40,7 @@ Middleware options (wrap a `ChatModel` via `llm.ApplyMiddleware`):
 | `WithHooks(hooks Hooks)` | Lifecycle hooks (BeforeGenerate / AfterGenerate / OnError) |
 | `WithLogging(logger *slog.Logger)` | Structured request/response logging |
 | `WithFallback(fallback ChatModel)` | Failover to a secondary model on retryable error |
-| `WithProviderLimits(limits ProviderLimits)` | Per-provider rate limit (RPM and max concurrency; the TPM field is not enforced yet) |
+| `WithProviderLimits(limits ProviderLimits)` | Per-provider rate limit (RPM, TPM and max concurrency; TPM counts each response's `Usage.TotalTokens` over a trailing minute) |
 | `WithMaxRetries(n int)` | Retry count for retryable errors |
 | `WithContextStrategy(s ContextStrategy)` | History compaction policy |
 | `WithKeepSystemMessages(b bool)` | Pin system messages through compaction |

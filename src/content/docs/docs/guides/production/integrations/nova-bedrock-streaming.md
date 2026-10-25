@@ -14,9 +14,7 @@ For teams already running infrastructure on AWS, Amazon Nova provides end-to-end
 
 The Amazon Nova integration is the `voice/s2s/providers/nova` package. It registers itself as `"nova"` with the `s2s` registry and implements the standard `s2s.S2S` / `s2s.Session` interfaces, so the code you write against it is the same as for the OpenAI Realtime and Gemini Live providers.
 
-:::caution[Current limitation]
-The `nova` provider opens a plain WebSocket to `wss://bedrock-runtime.<region>.amazonaws.com/model/<model>/converse-stream` and does **not** sign the request with AWS SigV4 or read your AWS credentials. Bedrock exposes Nova Sonic through the `InvokeModelWithBidirectionalStream` API and rejects unsigned requests, so the provider does not work directly against AWS today. You can set `Extra["base_url"]` to point it at your own gateway that handles authentication. Treat the code on this page as the target shape of the integration, not a production-ready path.
-:::
+The provider talks to Bedrock through the `InvokeModelWithBidirectionalStream` API using `aws-sdk-go-v2`, so requests are SigV4-signed with your AWS credentials: static keys from `Extra["access_key_id"]` / `Extra["secret_access_key"]` (and optional `Extra["session_token"]`), or the default AWS credential chain when those are absent.
 
 ## Prerequisites
 
@@ -142,9 +140,10 @@ defer span.End()
 | Field               | Description                | Default                  | Required |
 |---------------------|----------------------------|--------------------------|----------|
 | `Extra["region"]`   | AWS region                 | `us-east-1`              | No       |
-| `Extra["base_url"]` | Custom WebSocket endpoint  | Bedrock Runtime URL      | No       |
+| `Extra["base_url"]` | Bedrock Runtime endpoint override (`http(s)` only) | SDK-resolved regional endpoint | No |
+| `Extra["access_key_id"]`, `Extra["secret_access_key"]`, `Extra["session_token"]` | Static AWS credentials | Default AWS credential chain | No |
 | `Model`             | Nova model ID              | `amazon.nova-sonic-v1:0` | No       |
-| `Voice`             | Voice selection            | -                        | No       |
+| `Voice`             | Voice selection            | `matthew`                | No       |
 | `Instructions`      | System instructions        | -                        | No       |
 
 ## Troubleshooting

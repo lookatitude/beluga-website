@@ -111,8 +111,7 @@ import "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/cloudstorage"
 
 Package cloudstorage provides a DocumentLoader that loads files from cloud
 storage services (S3, GCS, Azure Blob). It detects the provider by URL prefix
-(s3://, gs://, az://) and uses direct HTTP calls with pre-signed URLs or
-service-specific APIs.
+(s3://, gs://, az://) and fetches the object with a direct HTTPS GET.
 
 ## Registration
 
@@ -133,16 +132,29 @@ docs, err := l.Load(ctx, "s3://bucket/path/to/file.txt")
 
 ## Supported Providers
 
-- S3 — URLs starting with "s3://"
-- GCS — URLs starting with "gs://"
-- Azure Blob — URLs starting with "az://"
+- S3 — "s3://<bucket>/<key>", fetched from <bucket>.s3.<region>.amazonaws.com
+- GCS — "gs://<bucket>/<key>", fetched from storage.googleapis.com
+- Azure Blob — "az://<account>/<container>/<blob>", fetched from
+  <account>.blob.core.windows.net
+
+## Authentication
+
+- S3 — SigV4: APIKey is the access key ID, Options["secret_key"] the
+  secret access key, Options["session_token"] an optional session token.
+- GCS — APIKey is sent as an OAuth 2.0 bearer token.
+- Azure — APIKey is sent as a Microsoft Entra ID bearer token (with
+  x-ms-version).
+
+Without an APIKey requests are anonymous (public objects).
 
 ## Configuration
 
 ProviderConfig fields:
-- APIKey — access key (required)
-- Options["secret_key"] — secret key
-- Options["region"] — cloud region
+- APIKey — access key ID (S3) or bearer token (GCS, Azure); optional
+- Options["secret_key"] — S3 secret access key (required with APIKey for S3)
+- Options["session_token"] — S3 session token (optional)
+- Options["region"] — AWS region (default "us-east-1")
+- Options["max_bytes"] — maximum object size in bytes (default 32 MiB)
 
 ---
 

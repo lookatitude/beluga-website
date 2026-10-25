@@ -13,7 +13,7 @@ Beluga AI provides a unified `transport.AudioTransport` interface for bidirectio
 ## How It Works
 
 :::caution[Provider status]
-The `livekit`, `daily`, and `pipecat` providers are registered but not yet functional: they don't connect, and `Recv` never yields frames. The built-in WebSocket transport (`transport.NewWebSocketTransport`) works today.
+The `livekit`, `daily`, and `pipecat` providers are registered but not implemented: `transport.New` returns an error wrapping `transport.ErrNotImplemented` for each of them, so check for it with `errors.Is` and fall back to another transport. The built-in WebSocket transport (`transport.NewWebSocketTransport`) works today.
 :::
 
 All transport providers implement the same interface:

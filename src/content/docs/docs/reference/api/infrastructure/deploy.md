@@ -20,19 +20,30 @@ for Kubernetes liveness and readiness probes.
 ## GenerateDockerfile
 
 GenerateDockerfile produces a two-stage Dockerfile from DockerfileConfig. The
-builder stage compiles the agent binary with CGO disabled. The final stage
-uses a minimal runtime image (distroless by default) and runs as nonroot.
+builder stage compiles `BuildPath` (the module root by default) with CGO
+disabled. The final stage uses a minimal runtime image (distroless by default)
+and runs as a non-root user.
 
 ### DockerfileConfig
 
 ```go
 type DockerfileConfig struct {
     BaseImage   string // default: "gcr.io/distroless/static-debian12"
-    GoVersion   string // default: "1.23"; must match ^[0-9]+\.[0-9]+(\.[0-9]+)?$
+    GoVersion   string // default: deploy.DefaultGoVersion ("1.26"); must match ^[0-9]+\.[0-9]+(\.[0-9]+)?$
     AgentConfig string // path to agent config file; required; no path traversal
     Port        int    // required; must be in [1, 65535]
+    BuildPath   string // package passed to `go build`; default: deploy.DefaultBuildPath (".")
+    User        string // runtime USER; default: "nonroot:nonroot" on distroless, "65532:65532" otherwise
 }
 ```
+
+`GoVersion` must be at least the `go` directive of the module being built:
+official golang images set `GOTOOLCHAIN=local`, so an older builder cannot run
+`go mod download`. `BuildPath` must be relative and stay inside the build
+context; a missing `./` prefix is added automatically. Set it to `"./cmd/agent"`
+to reproduce the layout earlier versions of this package used. `User` accepts
+`user`, `uid`, `user:group` or `uid:gid`, so the container never runs as root by
+default.
 
 All fields are validated before the Dockerfile is rendered. GoVersion and
 BaseImage are checked against allowlists to prevent Dockerfile instruction
@@ -68,7 +79,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags='-s -w' -o /agent ./cmd/agent
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags='-s -w' -o /agent .
 
 FROM gcr.io/distroless/static-debian12
 WORKDIR /app

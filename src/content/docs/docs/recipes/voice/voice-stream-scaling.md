@@ -152,7 +152,7 @@ func main() {
 **Key insight:** Capacity management is your application's job. Bound concurrency explicitly at session admission, and fail fast with a clear error rather than silently degrading every session.
 
 :::note
-The `livekit`, `daily`, and `pipecat` transports under `voice/transport/providers` are placeholders today: they do not connect to the service and `Send` discards frames. Use `voice/transport.NewWebSocketTransport` or your own `voice.Transport` implementation for real traffic.
+The `livekit`, `daily`, and `pipecat` transports under `voice/transport/providers` are not implemented: they do not connect to the service, and `transport.New` returns an error wrapping `transport.ErrNotImplemented` for each of them. Use `voice/transport.NewWebSocketTransport` or your own `voice.Transport` implementation for real traffic.
 :::
 
 ## Variations

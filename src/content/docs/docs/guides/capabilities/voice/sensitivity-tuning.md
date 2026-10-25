@@ -33,9 +33,9 @@ Beluga registers three detectors under the `voice.ActivityDetector` interface. A
 |----------|----------------------------------------|---------------------------------------------|-------------------------------------------------------|
 | `energy` | `voice` (built in)                     | `threshold` (RMS, default 1000)             | RMS energy above a threshold                          |
 | `webrtc` | `voice/vad/providers/webrtc`           | `threshold` (RMS, default 1000), `zcr_threshold` (default 0.1) | RMS energy plus zero-crossing rate        |
-| `silero` | `voice/vad/providers/silero`           | `threshold` (0-1, default 0.5), `sample_rate` (default 16000), `model_path` | Normalized energy, calibrated to Silero's scale |
+| `silero` | `voice/vad/providers/silero`           | `threshold` (0-1, default 0.5), `sample_rate` (default 16000); `model_path` is rejected | Normalized energy, calibrated to Silero's scale |
 
-The `silero` provider accepts `model_path`, but the current implementation does not load an ONNX model. It always uses an energy-based approximation calibrated to Silero's 0-1 probability scale. Its thresholds are tunable, but you should not expect neural-network accuracy from it yet.
+The `silero` provider does not load an ONNX model: setting `model_path` returns an error. It always uses an energy-based approximation calibrated to Silero's 0-1 probability scale. Its thresholds are tunable, but you should not expect neural-network accuracy from it yet.
 
 Create a detector from the registry by name, or with the provider's typed constructor:
 

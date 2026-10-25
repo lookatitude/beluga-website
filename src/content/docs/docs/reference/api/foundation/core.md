@@ -134,7 +134,7 @@ func main() {
 | `MaxConcurrency` | `int` | Max concurrent executions. 0 = unlimited. |
 | `BatchSize` | `int` | Reserved: currently ignored; `BatchInvoke` calls fn once per item. |
 | `Timeout` | `time.Duration` | Per-item timeout. 0 = no per-item timeout. |
-| `RetryPolicy` | `*RetryPolicy` | Reserved: currently ignored by `BatchInvoke`. Wrap `fn` with `resilience.Retry` for per-item retries. |
+| `RetryPolicy` | `*RetryPolicy` | Optional per-item retries (`MaxAttempts`, `InitialBackoff`, `MaxBackoff`, `BackoffFactor`, `Jitter`). Only errors for which `core.IsRetryable` reports true are retried, and retries stop when the item's context is done. `nil` = no retries. |
 
 `BatchResult[O]` carries `Value O` and `Err error` for each input.
 
@@ -224,6 +224,8 @@ Error codes and their retryability:
 | `guard_blocked` | `ErrGuardBlocked` | no |
 | `budget_exhausted` | `ErrBudgetExhausted` | no |
 | `not_found` | `ErrNotFound` | no |
+| `canceled` | `ErrCanceled` | no |
+| `internal_error` | `ErrInternal` | no |
 
 Use `IsRetryable` to decide whether to retry:
 

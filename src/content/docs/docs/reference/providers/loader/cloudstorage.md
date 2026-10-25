@@ -8,7 +8,7 @@ head:
       content: "cloud storage, document loader, AWS S3, Google Cloud Storage, Azure Blob, RAG pipeline, Go, Beluga AI"
 ---
 
-The Cloud Storage loader implements the `loader.DocumentLoader` interface for loading files from cloud object storage services. It detects the cloud provider automatically by URL prefix (`s3://`, `gs://`, `az://`) and fetches content via direct HTTP calls.
+The Cloud Storage loader implements the `loader.DocumentLoader` interface for loading files from cloud object storage services. It detects the cloud provider automatically by URL prefix (`s3://`, `gs://`, `az://`) and fetches the object with a direct HTTPS GET. S3 requests are SigV4-signed; GCS and Azure requests carry a bearer token.
 
 Choose Cloud Storage when your documents are stored in AWS S3, Google Cloud Storage, or Azure Blob Storage. The loader auto-detects the cloud provider from the URL prefix, so a single loader instance handles all three. For loading from SaaS knowledge bases, consider [Confluence](/docs/reference/providers/loader/confluence), [Notion](/docs/reference/providers/loader/notion), or [Google Drive](/docs/reference/providers/loader/gdrive).
 
@@ -58,10 +58,20 @@ func main() {
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `APIKey` | `string` | `""` | Access key or bearer token for authentication |
+| `APIKey` | `string` | `""` | S3 access key ID, or an OAuth 2.0 (GCS) / Microsoft Entra ID (Azure) bearer token. Without it, requests are anonymous (public objects). |
 | `Timeout` | `time.Duration` | `60s` | HTTP request timeout |
-| `Options["secret_key"]` | `string` | `""` | Secret key (used with S3) |
-| `Options["region"]` | `string` | `us-east-1` | AWS region for S3 bucket URLs |
+| `Options["secret_key"]` | `string` | `""` | S3 secret access key (required with `APIKey` for S3) |
+| `Options["session_token"]` | `string` | `""` | S3 session token for temporary credentials (optional) |
+| `Options["region"]` | `string` | `us-east-1` | AWS region for S3 bucket URLs and SigV4 signing |
+| `Options["max_bytes"]` | number | 32 MiB | Maximum object size in bytes |
+
+## Authentication
+
+- **S3** — requests are signed with AWS SigV4: `APIKey` is the access key ID, `Options["secret_key"]` the secret access key, and `Options["session_token"]` an optional session token.
+- **GCS** — `APIKey` is sent as an OAuth 2.0 bearer token.
+- **Azure** — `APIKey` is sent as a Microsoft Entra ID bearer token (with `x-ms-version`).
+
+Bucket and account names are validated against each provider's naming rules before they become part of the request host, the object key is path-escaped, and requests are only sent to (and redirected within) the providers' own hosts, so a crafted source cannot redirect the request or its credentials elsewhere.
 
 ## Supported Providers
 
@@ -71,7 +81,7 @@ The loader determines the cloud provider from the URL prefix:
 |---|---|---|
 | `s3://` | AWS S3 | `s3://bucket/key` |
 | `gs://` | Google Cloud Storage | `gs://bucket/object` |
-| `az://` | Azure Blob Storage | `az://container/blob` |
+| `az://` | Azure Blob Storage | `az://account/container/blob` |
 
 ## Provider-Specific Examples
 
@@ -96,7 +106,7 @@ docs, err := l.Load(ctx, "gs://my-bucket/reports/summary.txt")
 l, err := loader.New("cloudstorage", config.ProviderConfig{
     APIKey: os.Getenv("AZURE_STORAGE_TOKEN"),
 })
-docs, err := l.Load(ctx, "az://my-container/files/data.csv")
+docs, err := l.Load(ctx, "az://myaccount/my-container/files/data.csv")
 ```
 
 ## Document Metadata

@@ -256,7 +256,7 @@ Most of Beluga AI is pure Go and requires no system-level dependencies beyond th
 | Package | Requires | Notes |
 |---------|----------|-------|
 | `rag/vectorstore/providers/sqlitevec` | CGO + sqlite-vec extension | For embedded vector search |
-| `voice/vad/silero` | CGO + ONNX Runtime | For Silero VAD voice activity detection |
+| `voice/vad/providers/silero` | CGO | Energy-based VAD on Silero's 0-1 scale (no ONNX Runtime needed; the ONNX model is not loaded) |
 
 Enable CGO:
 

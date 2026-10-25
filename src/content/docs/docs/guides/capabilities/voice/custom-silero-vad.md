@@ -10,7 +10,7 @@ head:
 
 Voice activity detection (VAD) classifies each audio frame as speech or non-speech. Beluga's `silero` provider reports a speech probability on Silero's 0.0-1.0 scale, so thresholds you tune for it carry over to Silero-style models. This tutorial shows how to configure the provider, run it over a stream of audio frames, plug it into a voice pipeline, and preprocess audio before detection.
 
-**Current implementation:** the `silero` provider accepts a `ModelPath` (or `model_path`) setting, but it does not load an ONNX model yet. It always computes the probability from normalized signal energy, calibrated to approximate Silero's output. It is therefore not yet more robust to loud non-speech noise (keyboards, doors) than an energy detector. Plan for that when you choose thresholds, and see [Noise-Resistant VAD](/docs/guides/capabilities/voice/noise-resistant-vad) for mitigation.
+**Current implementation:** the `silero` provider does not load an ONNX model: setting `ModelPath` (or `model_path`) makes construction fail with `core.ErrInvalidInput`. It always computes the probability from normalized signal energy, calibrated to approximate Silero's output. It is therefore not yet more robust to loud non-speech noise (keyboards, doors) than an energy detector. Plan for that when you choose thresholds, and see [Noise-Resistant VAD](/docs/guides/capabilities/voice/noise-resistant-vad) for mitigation.
 
 ## What You Will Build
 
@@ -78,7 +78,7 @@ func main() {
 |-----------------------|---------------|---------|----------------------------------------------------|
 | `Threshold`           | `threshold`   | 0.5     | Speech probability threshold, (0.0, 1.0]. Out-of-range values fall back to the default. |
 | `SampleRate`          | `sample_rate` | 16000   | Audio sample rate in Hz (8000 or 16000)            |
-| `ModelPath`           | `model_path`  | (none)  | Path to a Silero ONNX model. Accepted but not loaded yet. |
+| `ModelPath`           | `model_path`  | (none)  | Not supported: construction returns an error when set. |
 
 The detector has no frame-size, minimum-speech, or maximum-silence settings. It classifies whatever buffer you pass, so frame size is up to you. 20-32 ms frames (320-512 samples at 16 kHz) are a common choice. To require sustained speech or silence before a state change, wrap the detector as shown in [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning#step-2-add-minimum-speech-and-silence-durations).
 

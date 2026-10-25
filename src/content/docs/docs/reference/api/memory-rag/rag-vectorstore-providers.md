@@ -15,7 +15,7 @@ import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma"
 ```
 
 Package chroma provides a VectorStore backed by ChromaDB. It communicates
-with ChromaDB via its HTTP REST API.
+with ChromaDB via its v2 HTTP REST API (/api/v2, required by Chroma 1.x).
 
 ## Registration
 
@@ -164,9 +164,14 @@ import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/mongodb"
 ```
 
 Package mongodb provides a VectorStore backed by MongoDB Atlas Vector Search.
-It communicates with MongoDB via its HTTP Data API to avoid requiring the
-full MongoDB Go driver as a dependency, and supports cosine, dot-product,
-and Euclidean distance strategies.
+It uses the official MongoDB Go driver (go.mongodb.org/mongo-driver/v2) and
+the $vectorSearch aggregation stage. The similarity function (cosine,
+dot product or Euclidean) is set by the Atlas vector index definition.
+
+Earlier releases spoke the Atlas Data API, which MongoDB retired on
+30 September 2025. A Data API URL is now rejected with a
+core.ErrInvalidInput error; pass a MongoDB connection string instead.
+WithAPIKey and WithHTTPClient are deprecated no-ops.
 
 ## Registration
 
@@ -176,8 +181,7 @@ The provider registers as "mongodb" in the vectorstore registry:
 import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/mongodb"
 
 store, err := vectorstore.New("mongodb", config.ProviderConfig{
-    BaseURL: "https://data.mongodb-api.com/app/<app-id>/endpoint/data/v1",
-    APIKey:  "your-api-key",
+    BaseURL: "mongodb+srv://user:pass@cluster0.example.mongodb.net",
     Options: map[string]any{
         "database":   "my_db",
         "collection": "documents",
@@ -186,14 +190,25 @@ store, err := vectorstore.New("mongodb", config.ProviderConfig{
 })
 ```
 
+To reuse an existing client, wrap a collection handle:
+
+```go
+store := mongodb.NewWithCollection(client.Database("my_db").Collection("documents"))
+```
+
 ## Configuration
 
 ProviderConfig fields:
-- BaseURL — MongoDB Data API endpoint (required)
-- APIKey — API key for authentication (required)
+- BaseURL — MongoDB connection string, mongodb:// or mongodb+srv:// (required)
 - Options["database"] — database name (default: "beluga")
 - Options["collection"] — collection name (default: "documents")
-- Options["index"] — vector search index name (default: "vector_index")
+- Options["index"] — Atlas vector search index name (default: "vector_index")
+
+Documents are stored as {_id, content, embedding, metadata}. The vector
+index must index "embedding" and declare every "metadata.<key>" used in
+search filters as a filter field. Filter keys must be plain identifiers and
+values scalars. Stores created by New or NewFromConfig own their client;
+call Close to disconnect it.
 
 ---
 

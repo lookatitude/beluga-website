@@ -176,7 +176,7 @@ fmt.Println("Dimensions:", embedder.Dimensions())
 | Provider | Import Path | Models |
 |----------|-------------|--------|
 | OpenAI | `rag/embedding/providers/openai` | `text-embedding-3-small`, `text-embedding-3-large` |
-| Google | `rag/embedding/providers/google` | `text-embedding-004` |
+| Google | `rag/embedding/providers/google` | `gemini-embedding-001`, `text-embedding-004` (deprecated) |
 | Cohere | `rag/embedding/providers/cohere` | `embed-english-v3.0` |
 | Voyage | `rag/embedding/providers/voyage` | `voyage-3` |
 | Mistral | `rag/embedding/providers/mistral` | `mistral-embed` |

@@ -29,7 +29,7 @@ graph TD
 
 ## `ErrorCode` — the classification
 
-Source: [`core/errors.go:12-39`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L12-L39)
+Source: [`core/errors.go:12-52`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L12-L52)
 
 ```go
 type ErrorCode string
@@ -44,6 +44,8 @@ const (
     ErrGuardBlocked    ErrorCode = "guard_blocked"
     ErrBudgetExhausted ErrorCode = "budget_exhausted"
     ErrNotFound        ErrorCode = "not_found"
+    ErrCanceled        ErrorCode = "canceled"       // caller canceled; not retryable
+    ErrInternal        ErrorCode = "internal_error" // no more specific classification; not retryable
 )
 ```
 
@@ -54,7 +56,7 @@ becomes `ErrRateLimit`.
 
 ## `core.Error` — the structure
 
-Source: [`core/errors.go:50-62`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L50-L62)
+Source: [`core/errors.go:63-75`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L63-L75)
 
 ```go
 type Error struct {
@@ -70,7 +72,7 @@ type Error struct {
 observability backends as the failing operation.
 
 `Err` implements `Unwrap()` so `errors.Is` and `errors.As` traverse the
-full chain (`core/errors.go:103-105`).
+full chain (`core/errors.go:190-192`).
 
 ## Creating errors
 
@@ -78,7 +80,7 @@ Two constructors:
 
 **`core.NewError`** — explicit fields:
 
-Source: [`core/errors.go:66-73`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L66-L73)
+Source: [`core/errors.go:79-86`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L79-L86)
 
 ```go
 return core.NewError("tool.execute", core.ErrToolFailed, "fetch returned 404", err)
@@ -86,7 +88,7 @@ return core.NewError("tool.execute", core.ErrToolFailed, "fetch returned 404", e
 
 **`core.Errorf`** — formatted message, `%w` wrapping:
 
-Source: [`core/errors.go:82-90`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L82-L90)
+Source: [`core/errors.go:104-112`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L104-L112)
 
 ```go
 return core.Errorf(core.ErrTimeout, "llm.generate: deadline exceeded after %d tokens: %w", n, err)
@@ -94,11 +96,14 @@ return core.Errorf(core.ErrTimeout, "llm.generate: deadline exceeded after %d to
 
 `core.Errorf` delegates to `fmt.Errorf` so `%w` works as expected. The wrapped
 error is preserved in `Error.Err` and participates in `errors.Is` /
-`errors.As` traversal.
+`errors.As` traversal. `Errorf` always uses the code you pass; to keep the
+classification of a wrapped `*core.Error` (or map `context.Canceled` to
+`ErrCanceled` and `context.DeadlineExceeded` to `ErrTimeout`), use
+`core.Wrapf(fallback, format, args...)` instead.
 
 ## `IsRetryable` — the retry decision
 
-Source: [`core/errors.go:120-126`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L120-L126)
+Source: [`core/errors.go:207-213`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L207-L213)
 
 ```go
 func IsRetryable(err error) bool {
@@ -110,7 +115,7 @@ func IsRetryable(err error) bool {
 }
 ```
 
-Three codes are retryable (`core/errors.go:42-46`): `ErrRateLimit`,
+Three codes are retryable (`core/errors.go:55-59`): `ErrRateLimit`,
 `ErrTimeout`, `ErrProviderDown`. All others are not. `IsRetryable` uses
 `errors.As` so it traverses wrapped errors correctly — a `*core.Error`
 nested inside a `fmt.Errorf("%w", ...)` still matches.
@@ -168,13 +173,17 @@ func wrapProviderError(op string, sdkErr error) error {
 
 ## Error string format
 
-`Error.Error()` returns: `"<op> [<code>]: <message>: <cause>"` when a cause
-is present, or `"<op> [<code>]: <message>"` without one.
+`Error.Error()` returns `"<op> [<code>]: <message>: <cause>"`. The `<op> `
+segment is omitted when `Op` is empty (as it is for errors built by
+`core.Errorf` and `core.Wrapf`), and `: <cause>` is omitted when the message
+already contains the cause's text (as it always does for `Errorf` and `Wrapf`),
+so a cause is never printed twice.
 
-Source: [`core/errors.go:94-99`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L94-L99)
+Source: [`core/errors.go:169-186`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go#L169-L186)
 
 ```
 llm.generate [rate_limit]: provider returned 429: http: status 429
+[timeout]: llm.generate: deadline exceeded after 512 tokens: context deadline exceeded
 ```
 
 This format is readable in logs and `slog` structured output. The `op` field
@@ -183,7 +192,7 @@ scopes the error to its origin without requiring a stack trace.
 ## Error matching with `errors.Is`
 
 `core.Error.Is` compares by `Code` only — two errors with the same code
-match, regardless of message or cause (`core/errors.go:109-115`). This lets
+match, regardless of message or cause (`core/errors.go:196-202`). This lets
 you write:
 
 ```go

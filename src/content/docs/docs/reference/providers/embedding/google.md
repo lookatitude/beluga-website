@@ -57,17 +57,18 @@ func main() {
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `APIKey` | `string` | (required) | Google AI API key |
-| `Model` | `string` | `text-embedding-004` | Embedding model name |
+| `APIKey` | `string` | (required) | Google AI API key, sent in the `x-goog-api-key` header |
+| `Model` | `string` | `gemini-embedding-001` | Embedding model name |
 | `BaseURL` | `string` | `https://generativelanguage.googleapis.com/v1beta` | API base URL |
 | `Timeout` | `time.Duration` | 0 (no timeout) | Request timeout |
-| `Options["dimensions"]` | `float64` | Model-dependent | Override vector dimensions |
+| `Options["dimensions"]` | `float64` | Model-dependent | Override vector dimensions; sent to the API as `outputDimensionality` |
 
 ## Supported Models
 
 | Model | Default Dimensions |
 |---|---|
-| `text-embedding-004` | 768 |
+| `gemini-embedding-001` (default) | 3072 |
+| `text-embedding-004` (deprecated) | 768 |
 | `embedding-001` | 768 |
 | `text-multilingual-embedding-002` | 768 |
 
@@ -80,7 +81,7 @@ import (
 
 emb, err := googleemb.New(config.ProviderConfig{
     APIKey: os.Getenv("GOOGLE_API_KEY"),
-    Model:  "text-embedding-004",
+    Model:  "gemini-embedding-001",
 })
 if err != nil {
     log.Fatal(err)
@@ -116,6 +117,6 @@ To use Vertex AI instead of the public Gemini API, configure a custom base URL:
 emb, err := embedding.New("google", config.ProviderConfig{
     APIKey:  os.Getenv("GOOGLE_API_KEY"),
     BaseURL: "https://us-central1-aiplatform.googleapis.com/v1",
-    Model:   "text-embedding-004",
+    Model:   "gemini-embedding-001",
 })
 ```

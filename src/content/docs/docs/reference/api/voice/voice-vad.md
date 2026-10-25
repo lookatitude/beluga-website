@@ -14,10 +14,14 @@ head:
 import "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 ```
 
-Package silero provides the Silero VAD (Voice Activity Detection) provider
-for the Beluga AI voice pipeline. It uses the Silero VAD ONNX model via
-an energy-based approximation for high-accuracy speech detection on 16-bit
-PCM audio.
+Package silero registers the "silero" VAD (Voice Activity Detection) name
+for the Beluga AI voice pipeline.
+
+Despite the name, this provider does NOT run the Silero neural model. It is
+an RMS-energy detector on 16-bit little-endian PCM audio whose default
+threshold is calibrated to approximate Silero VAD sensitivity. Loading the
+Silero ONNX model is not implemented: setting model_path (Config.ModelPath)
+makes construction fail instead of being silently ignored.
 
 This package requires CGO and is only compiled when the cgo build tag is set.
 
@@ -33,10 +37,10 @@ import _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 ## Usage
 
 ```go
-vad, err := voice.NewVAD("silero", map[string]any{
-    "threshold":  0.5,
-    "model_path": "/path/to/silero_vad.onnx",
-})
+vad, err := voice.NewVAD("silero", map[string]any{"threshold": 0.5})
+if err != nil {
+    return err
+}
 result, err := vad.DetectActivity(ctx, audioPCM)
 ```
 
@@ -46,14 +50,11 @@ Configuration is passed as map[string]any:
 
 - threshold — Speech probability threshold, 0.0 to 1.0 (default: 0.5)
 - sample_rate — Audio sample rate, 8000 or 16000 (default: 16000)
-- model_path — Path to Silero VAD ONNX model file (optional, falls back to energy-based detection)
-
-When the ONNX model is not available, the provider uses an energy-based
-fallback calibrated to approximate Silero's behavior.
+- model_path — not supported; returns an error when set
 
 ## Exported Types
 
-- [VAD] — implements voice.VAD using Silero
+- [VAD] — energy-based voice.ActivityDetector
 - [Config] — configuration struct
 - [New] — constructor accepting Config
 

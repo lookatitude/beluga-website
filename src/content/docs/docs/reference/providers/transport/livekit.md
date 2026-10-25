@@ -9,7 +9,7 @@ head:
 ---
 
 :::caution[Not yet functional]
-The LiveKit adapter is registered and validates its configuration, but it does not connect yet: it never dials LiveKit, `Send` discards frames, `AudioOut` discards audio, and `Recv` never yields a frame. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
+The `livekit` provider is registered but not implemented: it never dials LiveKit. `transport.New("livekit", ...)` and `livekit.New` always return an error wrapping `transport.ErrNotImplemented` (which also wraps `errors.ErrUnsupported`), and every method on a `livekit.Transport` value returns the same error instead of silently discarding audio. The configuration and examples below describe the planned integration. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
 :::
 
 The LiveKit provider implements bidirectional audio transport through LiveKit rooms. LiveKit is treated as a transport layer — it provides WebRTC connectivity while Beluga handles all STT, LLM, and TTS processing through the frame-based pipeline.
@@ -134,17 +134,18 @@ t, err := livekit.New(transport.Config{
 
 ## Error Handling
 
+`transport.New("livekit", ...)` currently always fails with an error wrapping `transport.ErrNotImplemented`, so check for it and fall back to a working transport:
+
 ```go
-t, err := transport.New("livekit", transport.Config{
-    URL: "wss://myapp.livekit.cloud",
-    // Missing Token
-})
+t, err := transport.New("livekit", cfg)
+if errors.Is(err, transport.ErrNotImplemented) {
+    // livekit is not implemented yet; use the built-in WebSocket transport
+    t, err = transport.NewWebSocketTransport(ctx, wsURL)
+}
 if err != nil {
-    // "livekit: Token is required"
     log.Fatal(err)
 }
+defer t.Close()
 ```
-
-Both `URL` and `Token` are required. The transport returns an error from `Send` (and yields one from the `Recv` iterator) if `Close` has already been called.
 
 Refer to the [LiveKit documentation](https://docs.livekit.io/) for server setup, room management, and token generation.

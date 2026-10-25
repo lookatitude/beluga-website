@@ -214,7 +214,7 @@ ttsProcessor := tts.AsFrameProcessor(engine, 24000, tts.WithVoice("rachel"))
 |----------|-------------|----------|
 | ElevenLabs | `voice/tts/providers/elevenlabs` | Voice cloning, low latency |
 | Cartesia | `voice/tts/providers/cartesia` | Sonic model, fast |
-| PlayHT | `voice/tts/providers/playht` | Voice cloning |
+| PlayHT | `voice/tts/providers/playht` | Deprecated: PlayHT discontinued its service in 2025 |
 | LMNT | `voice/tts/providers/lmnt` | Real-time streaming |
 | Fish | `voice/tts/providers/fish` | Open-source |
 | Smallest | `voice/tts/providers/smallest` | Lightweight |
@@ -245,7 +245,7 @@ import (
 )
 
 engine, err := s2s.New("openai", s2s.Config{
-	Model:        "gpt-4o-realtime-preview",
+	Model:        "gpt-realtime-2.1",
 	Voice:        "alloy",
 	SampleRate:   24000,
 	Instructions: "You are a helpful voice assistant.",
@@ -342,7 +342,7 @@ Minimum speech and silence durations are not built into the detectors; see [Sens
 |------|---------|--------|
 | `energy` | `voice` (built in) | RMS energy threshold |
 | `webrtc` | `voice/vad/providers/webrtc` | RMS energy plus zero-crossing rate |
-| `silero` | `voice/vad/providers/silero` | Energy-based approximation of Silero's 0-1 speech probability. The `model_path` option is accepted, but the ONNX model is not loaded yet. |
+| `silero` | `voice/vad/providers/silero` | Energy-based approximation of Silero's 0-1 speech probability. The ONNX model is not loaded; setting `model_path` returns an error. |
 
 ## Transports
 
@@ -359,7 +359,7 @@ graph TD
 
 ## Transport Layer
 
-The transport layer handles the connection between the voice pipeline and the end user. Transports are pluggable, so the same pipeline logic works over any of them. Today the WebSocket transport is the working option. It dials a `ws://` or `wss://` URL, for example a media server or gateway that relays the browser's audio, and sends audio as binary messages and other frames as JSON. The LiveKit, Daily, and Pipecat providers are placeholders: they register and construct, but they do not connect yet. Their `Send` discards frames and their `Recv` yields nothing.
+The transport layer handles the connection between the voice pipeline and the end user. Transports are pluggable, so the same pipeline logic works over any of them. Today the WebSocket transport is the working option. It dials a `ws://` or `wss://` URL, for example a media server or gateway that relays the browser's audio, and sends audio as binary messages and other frames as JSON. The LiveKit, Daily, and Pipecat providers are placeholders: they register their names, but `transport.New` returns an error wrapping `transport.ErrNotImplemented` for each of them.
 
 ```go
 import (

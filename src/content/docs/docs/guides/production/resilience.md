@@ -117,7 +117,7 @@ graph TD
   Conc -->|full| Wait
 ```
 
-Three buckets per provider: **RPM** (requests per minute), **TPM** (tokens per minute), **MaxConcurrent** (simultaneous in-flight calls). Different providers gate on different things — the limiter takes the tightest constraint. `resilience.NewRateLimiter(resilience.ProviderLimits{...})` implements all three: `Allow` reserves a request and a concurrency slot, `Release` frees the slot, and `ConsumeTokens` charges tokens against the TPM budget. The `llm.WithProviderLimits` middleware enforces only RPM and `MaxConcurrent` today; its `TPM` field is not applied, so use `resilience.RateLimiter` when you need a token budget.
+Three buckets per provider: **RPM** (requests per minute), **TPM** (tokens per minute), **MaxConcurrent** (simultaneous in-flight calls). Different providers gate on different things — the limiter takes the tightest constraint. `resilience.NewRateLimiter(resilience.ProviderLimits{...})` implements all three: `Allow` reserves a request and a concurrency slot, `Release` frees the slot, and `ConsumeTokens` charges tokens against the TPM budget. The `llm.WithProviderLimits` middleware enforces all three as well: it records each response's `Usage.TotalTokens` and stops admitting requests once the trailing-minute `TPM` budget is spent.
 
 ## Circuit breakers
 

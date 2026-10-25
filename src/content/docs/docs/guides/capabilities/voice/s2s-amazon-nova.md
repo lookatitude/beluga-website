@@ -10,7 +10,7 @@ head:
 
 Speech-to-Speech (S2S) models process audio input and produce audio output directly, bypassing the traditional STT-LLM-TTS pipeline. This architectural shift eliminates the latency overhead of intermediate text conversion and preserves tonal and emotional cues that are lost when speech is transcribed to text and back. This tutorial shows how to use Beluga's S2S interface with the Amazon Nova provider: create an engine, open a bidirectional session, stream audio both ways, and handle interruptions.
 
-**Provider status:** the `nova` provider (registered as `"nova"`) is experimental. It opens a WebSocket to the Bedrock endpoint for the configured region and model, but it does not sign requests with AWS credentials (SigV4) yet, so direct connections to Bedrock are rejected. Until signing is added, point `Extra["base_url"]` at a gateway you operate that authenticates to Bedrock, or use the `openai` or `gemini` S2S providers, which take an API key. The session code below is the same for every S2S provider.
+**Provider status:** the `nova` provider (registered as `"nova"`) calls Bedrock's `InvokeModelWithBidirectionalStream` API through `aws-sdk-go-v2`, so requests are SigV4-signed with your AWS credentials (static keys in `Extra`, or the default AWS credential chain). The session code below is the same for every S2S provider.
 
 ## What You Will Build
 
@@ -18,7 +18,7 @@ A real-time voice conversation loop over a Beluga S2S session that sends microph
 
 ## Prerequisites
 
-- AWS account with Bedrock access to Nova Sonic, and an authenticating gateway (see above); or an OpenAI or Gemini API key to run the same code with another provider
+- AWS account with Bedrock access to Nova Sonic and AWS credentials available to the default credential chain; or an OpenAI or Gemini API key to run the same code with another provider
 - Go 1.26 or later
 - Basic understanding of bidirectional audio streams
 
@@ -66,8 +66,7 @@ func main() {
 		Model:      "amazon.nova-sonic-v1:0",
 		SampleRate: 16000,
 		Extra: map[string]any{
-			"region":   "us-east-1",
-			"base_url": os.Getenv("NOVA_GATEWAY_URL"), // authenticating gateway, see above
+			"region": "us-east-1", // credentials come from the default AWS chain
 		},
 	})
 	if err != nil {
@@ -93,11 +92,11 @@ func converse(ctx context.Context, engine s2s.S2S, mic iter.Seq2[[]byte, error],
 | `s2s.Config` field | Nova default             | Description                                  |
 |--------------------|--------------------------|----------------------------------------------|
 | `Model`            | `amazon.nova-sonic-v1:0` | Bedrock model ID                             |
-| `Voice`            | (provider default)       | Voice identifier                             |
+| `Voice`            | `matthew`                | Voice identifier                             |
 | `Instructions`     | (none)                   | System instructions for the conversation     |
-| `SampleRate`       | (provider default)       | Audio sample rate in Hz                      |
-| `Extra["region"]`  | `us-east-1`              | AWS region used to build the endpoint URL    |
-| `Extra["base_url"]`| Bedrock endpoint         | Override the WebSocket URL                   |
+| `SampleRate`       | `16000`                  | Input audio sample rate in Hz                |
+| `Extra["region"]`  | `us-east-1`              | AWS region for the Bedrock Runtime client    |
+| `Extra["base_url"]`| SDK-resolved endpoint    | Override the Bedrock Runtime endpoint (`http(s)` only) |
 
 ## Step 2: Start a Session
 
@@ -171,7 +170,7 @@ Each `s2s.SessionEvent` has a `Type` and, depending on the type, `Audio`, `Text`
 
 ## Step 4: Interruption Handling
 
-S2S models listen to the input stream continuously, so they can react when the user starts speaking over them. To stop the current response explicitly, for example when your own VAD or a push-to-talk button detects barge-in, call `Interrupt`:
+S2S models listen to the input stream continuously, so they can react when the user starts speaking over them. Nova detects barge-in itself and ends the turn with `EventTurnEnd`, so its `Interrupt` is a no-op; other providers stop the current response when you call it. Calling `Interrupt` when your own VAD or a push-to-talk button detects barge-in keeps the code provider-neutral:
 
 ```go
 	if err := session.Interrupt(ctx); err != nil {
@@ -199,10 +198,10 @@ User Microphone                              User Speaker
 
 ## Verification
 
-1. Set `NOVA_GATEWAY_URL` (or switch the provider to `openai` with an API key).
+1. Configure AWS credentials for the default credential chain (or switch the provider to `openai` with an API key).
 2. Run the application and say "Hello, who are you?"
 3. Verify the model responds with voice and that `EventTurnEnd` arrives after each response.
-4. Call `Interrupt` while the model is speaking and confirm the response stops.
+4. Speak over the model while it is responding and confirm the response stops with `EventTurnEnd`.
 
 ## Next Steps
 

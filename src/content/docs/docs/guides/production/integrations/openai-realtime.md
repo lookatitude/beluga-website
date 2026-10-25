@@ -53,7 +53,7 @@ func main() {
     ctx := context.Background()
 
     engine, err := s2s.New("openai_realtime", s2s.Config{
-        Model:        "gpt-4o-realtime-preview",
+        Model:        "gpt-realtime-2.1",
         Voice:        "alloy",
         Instructions: "You are a helpful assistant.",
         Extra:        map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
@@ -125,7 +125,7 @@ import (
 tracer := otel.Tracer("beluga.voice.s2s.openai_realtime")
 ctx, span := tracer.Start(ctx, "openai_realtime.start",
     trace.WithAttributes(
-        attribute.String("model", "gpt-4o-realtime-preview"),
+        attribute.String("model", "gpt-realtime-2.1"),
         attribute.String("voice", "alloy"),
     ),
 )
@@ -138,7 +138,7 @@ defer span.End()
 |---------------------|---------------------------|--------------------------------------|----------|
 | `Extra["api_key"]`  | OpenAI API key            | -                                    | Yes      |
 | `Extra["base_url"]` | Custom WebSocket endpoint | `wss://api.openai.com/v1/realtime`   | No       |
-| `Model`             | Realtime model            | `gpt-4o-realtime-preview`            | No       |
+| `Model`             | Realtime model            | `gpt-realtime-2.1`            | No       |
 | `Voice`             | Voice selection           | `alloy`                              | No       |
 | `Instructions`      | System instructions       | -                                    | No       |
 | `Tools`             | `[]schema.ToolDefinition` | -                                    | No       |

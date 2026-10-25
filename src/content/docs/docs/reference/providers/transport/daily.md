@@ -9,7 +9,7 @@ head:
 ---
 
 :::caution[Not yet functional]
-The Daily adapter is registered and validates its configuration, but it does not connect yet: it never dials Daily, `Send` discards frames, `AudioOut` discards audio, and `Recv` never yields a frame. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
+The `daily` provider is registered but not implemented: it never dials Daily. `transport.New("daily", ...)` and `daily.New` always return an error wrapping `transport.ErrNotImplemented` (which also wraps `errors.ErrUnsupported`), and every method on a `daily.Transport` value returns the same error instead of silently discarding audio. The configuration and examples below describe the planned integration. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
 :::
 
 The Daily provider implements bidirectional audio transport through Daily.co rooms. It enables voice pipelines to send and receive audio via Daily's WebRTC infrastructure.
@@ -104,22 +104,18 @@ t, err := daily.New(transport.Config{
 
 ## Error Handling
 
+`transport.New("daily", ...)` currently always fails with an error wrapping `transport.ErrNotImplemented`, so check for it and fall back to a working transport:
+
 ```go
-t, err := transport.New("daily", transport.Config{})
+t, err := transport.New("daily", cfg)
+if errors.Is(err, transport.ErrNotImplemented) {
+    // daily is not implemented yet; use the built-in WebSocket transport
+    t, err = transport.NewWebSocketTransport(ctx, wsURL)
+}
 if err != nil {
-    // "daily: URL is required"
     log.Fatal(err)
 }
-
-for frame, err := range t.Recv(ctx) {
-    if err != nil {
-        // Transport may be closed
-        log.Fatal(err)
-    }
-    handle(frame)
-}
+defer t.Close()
 ```
-
-The transport returns an error from `Send` (and yields one from the `Recv` iterator) if `Close` has already been called.
 
 Refer to the [Daily.co documentation](https://docs.daily.co/) for room setup and token generation.

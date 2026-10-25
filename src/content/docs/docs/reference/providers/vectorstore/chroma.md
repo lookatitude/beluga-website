@@ -8,7 +8,7 @@ head:
       content: "ChromaDB, vector store, embedding database, open-source, metadata filtering, Go, RAG, Beluga AI"
 ---
 
-The ChromaDB provider implements the `vectorstore.VectorStore` interface using ChromaDB's REST API. ChromaDB is an open-source embedding database with a simple API, supporting multi-tenant deployments.
+The ChromaDB provider implements the `vectorstore.VectorStore` interface using ChromaDB's v2 REST API (`/api/v2`, required by Chroma 1.x). ChromaDB is an open-source embedding database with a simple API, supporting multi-tenant deployments.
 
 Choose ChromaDB for its simplicity and ease of setup. ChromaDB is straightforward to run locally with Docker and requires minimal configuration, making it a good choice for prototyping and small-to-medium workloads. Its multi-tenant support (tenants and databases) allows data isolation without separate deployments.
 

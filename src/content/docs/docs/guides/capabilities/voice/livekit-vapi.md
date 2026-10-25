@@ -13,7 +13,7 @@ Production voice applications need infrastructure for WebRTC networking, STUN/TU
 ## Current Status
 
 - Beluga does not have a voice "backend" package that manages rooms or sessions on these platforms.
-- The `voice/transport/providers/livekit` package (registered as `"livekit"`) is a placeholder. It validates its configuration (`URL` and `Token` are required, and the room name goes in `Extra["room"]`), but it does not connect to LiveKit yet: `Send` discards frames and `Recv` yields nothing. The `daily` and `pipecat` providers are placeholders in the same way.
+- The `voice/transport/providers/livekit` package (registered as `"livekit"`) is a placeholder that does not connect to LiveKit: `transport.New("livekit", ...)` always returns an error wrapping `transport.ErrNotImplemented`. The `daily` and `pipecat` providers behave the same way.
 - There is no Vapi provider.
 - The working transport today is `transport.NewWebSocketTransport`, a WebSocket client that sends audio as binary messages and other frames as JSON.
 
