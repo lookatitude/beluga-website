@@ -1,28 +1,30 @@
 ---
 title: Custom VAD with Silero Models
-description: "Configure Silero VAD with custom ONNX models in Go for precise voice activity detection — real-time streaming, threshold tuning, and spectral speech classification."
+description: "Configure Beluga AI's Silero VAD provider in Go — thresholds, sample rates, streaming detection over audio frames, and audio preprocessing before detection."
 head:
   - tag: meta
     attrs:
       name: keywords
-      content: "Beluga AI, Go, tutorial, Silero VAD, ONNX, voice activity detection, streaming, speech detection"
+      content: "Beluga AI, Go, tutorial, Silero VAD, voice activity detection, streaming, speech detection, ActivityDetector"
 ---
 
-Silero VAD is a neural network-based voice activity detector that runs locally using ONNX Runtime. Unlike energy-based VAD methods that rely on volume thresholds -- and therefore trigger on any loud noise like keyboard typing or door closing -- neural VAD analyzes spectral features of the audio to distinguish human speech from non-speech sounds. This makes it significantly more accurate in real-world environments. This tutorial demonstrates how to configure Silero VAD with custom model paths, tune thresholds, and integrate with streaming audio pipelines.
+Voice activity detection (VAD) classifies each audio frame as speech or non-speech. Beluga's `silero` provider reports a speech probability on Silero's 0.0-1.0 scale, so thresholds you tune for it carry over to Silero-style models. This tutorial shows how to configure the provider, run it over a stream of audio frames, plug it into a voice pipeline, and preprocess audio before detection.
+
+**Current implementation:** the `silero` provider accepts a `ModelPath` (or `model_path`) setting, but it does not load an ONNX model yet. It always computes the probability from normalized signal energy, calibrated to approximate Silero's output. It is therefore not yet more robust to loud non-speech noise (keyboards, doors) than an energy detector. Plan for that when you choose thresholds, and see [Noise-Resistant VAD](/docs/guides/capabilities/voice/noise-resistant-vad) for mitigation.
 
 ## What You Will Build
 
-A voice activity detection system using Silero's ONNX model that classifies audio frames as speech or non-speech, with real-time streaming support and configurable sensitivity parameters.
+A VAD setup that classifies 16-bit PCM frames as speech or non-speech, runs over a continuous audio stream, and plugs into Beluga's cascading voice pipeline.
 
 ## Prerequisites
 
 - Go 1.26 or later
-- Silero VAD ONNX model file (downloadable from the Silero VAD repository)
-- Completion of [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) is recommended
+- 16-bit little-endian mono PCM audio at 8 or 16 kHz
+- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) is recommended background
 
-## Step 1: Create a Silero VAD Provider
+## Step 1: Create a Silero VAD
 
-The VAD provider follows Beluga's standard registry pattern. The `FrameSize` option controls how many audio samples are processed per inference call. A frame size of 512 samples at 16kHz represents 32ms of audio, which is the standard frame duration for real-time speech processing. Smaller frames provide faster detection at the cost of slightly lower accuracy per frame.
+Use the typed constructor, or create the detector through the VAD registry by name. Both return a type that implements `voice.ActivityDetector`.
 
 ```go
 package main
@@ -31,169 +33,204 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 
-	"github.com/lookatitude/beluga-ai/v2/voice/vad"
-	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
+	"github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {
 	ctx := context.Background()
 
-	modelPath := os.Getenv("SILERO_VAD_MODEL_PATH")
-	if modelPath == "" {
-		modelPath = filepath.Join(os.TempDir(), "silero_vad.onnx")
-	}
-
-	provider, err := vad.NewProvider(ctx, "silero", vad.DefaultConfig(),
-		vad.WithModelPath(modelPath),
-		vad.WithThreshold(0.5),
-		vad.WithSampleRate(16000),
-		vad.WithFrameSize(512),
-	)
+	// Typed constructor.
+	detector, err := silero.New(silero.Config{
+		Threshold:  0.5,
+		SampleRate: 16000,
+	})
 	if err != nil {
-		log.Fatalf("create VAD provider: %v", err)
+		log.Fatalf("create VAD: %v", err)
 	}
 
-	// Process a single audio frame
-	audio := make([]byte, 1024)
-	hasSpeech, err := provider.Process(ctx, audio)
+	// Equivalent, through the registry (the import above registers "silero").
+	fromRegistry, err := voice.NewVAD("silero", map[string]any{
+		"threshold":   0.5,
+		"sample_rate": 16000,
+	})
 	if err != nil {
-		log.Fatalf("process: %v", err)
+		log.Fatalf("create VAD from registry: %v", err)
 	}
+	fmt.Println("registered VADs:", voice.ListVAD())
 
-	fmt.Printf("Speech detected: %v\n", hasSpeech)
+	// 32 ms of silence at 16 kHz: 512 samples, 2 bytes each.
+	frame := make([]byte, 1024)
+	for _, d := range []voice.ActivityDetector{detector, fromRegistry} {
+		res, err := d.DetectActivity(ctx, frame)
+		if err != nil {
+			log.Fatalf("detect: %v", err)
+		}
+		fmt.Printf("speech=%v event=%s confidence=%.2f\n", res.IsSpeech, res.EventType, res.Confidence)
+	}
 }
 ```
 
 ## Configuration Options
 
-| Option                | Default | Description                                         |
-|----------------------|---------|------------------------------------------------------|
-| `ModelPath`          | (built-in) | Path to the Silero VAD ONNX model file            |
-| `Threshold`          | 0.5     | Speech confidence threshold (0.0-1.0)               |
-| `SampleRate`         | 16000   | Audio sample rate in Hz                             |
-| `FrameSize`          | 512     | Number of samples per audio frame                    |
-| `MinSpeechDuration`  | 250ms   | Minimum consecutive speech frames to confirm speech  |
-| `MaxSilenceDuration` | 500ms   | Maximum silence within speech before marking end     |
-| `EnablePreprocessing`| false   | Apply preprocessing (normalization) before inference |
+| `silero.Config` field | Registry key  | Default | Description                                        |
+|-----------------------|---------------|---------|----------------------------------------------------|
+| `Threshold`           | `threshold`   | 0.5     | Speech probability threshold, (0.0, 1.0]. Out-of-range values fall back to the default. |
+| `SampleRate`          | `sample_rate` | 16000   | Audio sample rate in Hz (8000 or 16000)            |
+| `ModelPath`           | `model_path`  | (none)  | Path to a Silero ONNX model. Accepted but not loaded yet. |
 
-The `MinSpeechDuration` parameter prevents single-frame false positives from triggering speech detection. By requiring multiple consecutive frames of detected speech, the provider filters out transient noise spikes that happen to exceed the confidence threshold.
+The detector has no frame-size, minimum-speech, or maximum-silence settings. It classifies whatever buffer you pass, so frame size is up to you. 20-32 ms frames (320-512 samples at 16 kHz) are a common choice. To require sustained speech or silence before a state change, wrap the detector as shown in [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning#step-2-add-minimum-speech-and-silence-durations).
 
-## Step 2: Real-Time Streaming Detection
+`DetectActivity` returns a `voice.ActivityResult`:
 
-For continuous audio processing, use `ProcessStream` to feed audio frames through a channel and receive VAD results in real time. The channel-based API is used here instead of `iter.Seq2` because VAD processing is inherently bidirectional: your application sends audio frames concurrently with receiving results, and both directions operate at their own pace.
+| Field        | Type                 | Description                                                  |
+|--------------|----------------------|--------------------------------------------------------------|
+| `IsSpeech`   | `bool`               | Whether the frame's probability is at or above the threshold |
+| `EventType`  | `voice.VADEventType` | `VADSpeechStart` while speech is detected, `VADSpeechEnd` on the first non-speech frame after speech, otherwise `VADSilence` |
+| `Confidence` | `float64`            | Speech probability (0.0-1.0)                                 |
+
+The detector keeps the previous frame's state to emit `VADSpeechEnd`, so use one detector instance per audio stream.
+
+## Step 2: Streaming Detection
+
+For continuous audio, call `DetectActivity` on each frame as it arrives. Here the source is an `iter.Seq2` of PCM chunks, the same shape Beluga's transports and STT engines use:
 
 ```go
-	audioCh := make(chan []byte, 8)
-	resultCh, err := provider.ProcessStream(ctx, audioCh)
-	if err != nil {
-		log.Fatalf("start process stream: %v", err)
-	}
+import (
+	"context"
+	"fmt"
+	"iter"
 
-	// Consume results in a separate goroutine
-	go func() {
-		for result := range resultCh {
-			if result.Error != nil {
-				log.Printf("VAD error: %v", result.Error)
-				continue
-			}
-			if result.HasVoice {
-				fmt.Printf("Speech detected (confidence: %.2f)\n", result.Confidence)
-			}
+	"github.com/lookatitude/beluga-ai/v2/voice"
+)
+
+// detectStream reports speech start and end events for an audio stream.
+func detectStream(ctx context.Context, vad voice.ActivityDetector, audio iter.Seq2[[]byte, error]) error {
+	speaking := false
+	for frame, err := range audio {
+		if err != nil {
+			return err
 		}
-	}()
-
-	// Feed audio frames from your source
-	for frame := range audioSource {
-		audioCh <- frame
+		res, err := vad.DetectActivity(ctx, frame)
+		if err != nil {
+			return fmt.Errorf("detect: %w", err)
+		}
+		switch {
+		case res.IsSpeech && !speaking:
+			speaking = true
+			fmt.Printf("speech started (confidence %.2f)\n", res.Confidence)
+		case res.EventType == voice.VADSpeechEnd:
+			speaking = false
+			fmt.Println("speech ended")
+		}
 	}
-	close(audioCh) // Signal end of audio
+	return nil
+}
 ```
 
-The `VADResult` struct provides both the binary detection result and the underlying confidence score, allowing your application to implement custom thresholding logic if needed:
+In a cascading pipeline you don't need this loop. Pass the detector to `voice.WithVAD`, and the pipeline runs it on every incoming audio frame. It emits a `voice.SignalStart` control frame on speech start and `voice.SignalEndOfUtterance` on speech end, and forwards only speech frames to STT:
 
-| Field        | Type      | Description                              |
-|-------------|-----------|------------------------------------------|
-| `HasVoice`  | `bool`    | Whether speech was detected              |
-| `Confidence`| `float64` | Model confidence score (0.0-1.0)         |
-| `Error`     | `error`   | Non-nil if processing failed             |
+```go
+pipe := voice.NewPipeline(
+	voice.WithTransport(transport),
+	voice.WithVAD(detector),
+	voice.WithSTT(sttProcessor),
+	voice.WithLLM(llmProcessor),
+	voice.WithTTS(ttsProcessor),
+)
+```
 
 ## Step 3: Threshold Tuning by Environment
 
-The threshold determines how confidently the model must classify a frame as speech before reporting it. The right threshold depends on your deployment environment because background noise characteristics vary significantly. A quiet office has occasional low-frequency HVAC noise, while a call center has continuous speech from adjacent operators.
+The threshold sets how high the speech probability must be before a frame counts as speech. The right value depends on the background noise in your deployment. Because the current implementation measures energy, the threshold effectively sets a loudness level: lower values catch softer speech, higher values reject more background sound.
 
 ```go
-	// Quiet environment: lower threshold captures softer speech
-	quietVAD, err := vad.NewProvider(ctx, "silero", vad.DefaultConfig(),
-		vad.WithModelPath(modelPath),
-		vad.WithThreshold(0.4),
-		vad.WithMinSpeechDuration(200*time.Millisecond),
-	)
+	// Quiet environment: a lower threshold captures softer speech.
+	quietVAD, err := silero.New(silero.Config{Threshold: 0.3, SampleRate: 16000})
+	if err != nil {
+		log.Fatalf("create quiet VAD: %v", err)
+	}
 
-	// Noisy environment: higher threshold reduces false positives
-	noisyVAD, err := vad.NewProvider(ctx, "silero", vad.DefaultConfig(),
-		vad.WithModelPath(modelPath),
-		vad.WithThreshold(0.7),
-		vad.WithMinSpeechDuration(350*time.Millisecond),
-		vad.WithMaxSilenceDuration(600*time.Millisecond),
-	)
+	// Noisy environment: a higher threshold reduces false positives.
+	noisyVAD, err := silero.New(silero.Config{Threshold: 0.7, SampleRate: 16000})
+	if err != nil {
+		log.Fatalf("create noisy VAD: %v", err)
+	}
 ```
 
 ### Tuning Guidelines
 
-| Environment       | Threshold | MinSpeechDuration | MaxSilenceDuration |
-|------------------|-----------|-------------------|--------------------|
-| Quiet office     | 0.3-0.4   | 200ms             | 400ms              |
-| Standard room    | 0.5       | 250ms             | 500ms              |
-| Open office      | 0.6       | 300ms             | 500ms              |
-| Call center      | 0.7-0.8   | 350ms             | 600ms              |
+| Environment   | Starting threshold |
+|---------------|--------------------|
+| Quiet office  | 0.3-0.4            |
+| Standard room | 0.5                |
+| Open office   | 0.6                |
+| Call center   | 0.7-0.8            |
 
-## Step 4: Combine with Noise Cancellation
+These are starting points. Record audio from the real environment, log `Confidence` for speech and for background noise, and choose a threshold between the two distributions.
 
-For the best results in noisy environments, apply noise cancellation before VAD processing. This two-stage approach -- clean the audio, then detect speech -- is more effective than raising the VAD threshold alone, because noise cancellation removes the noise signal entirely rather than requiring the model to classify through it.
+## Step 4: Preprocess Audio Before Detection
+
+Beluga does not include a noise-cancellation stage. For noisy environments, either enable noise suppression in the client (browser WebRTC audio constraints and most telephony platforms offer it), or wrap the detector with your own preprocessing. Any type that implements `voice.ActivityDetector` can be passed to `voice.WithVAD`. This wrapper applies a one-pole high-pass filter that removes low-frequency rumble (HVAC, traffic) before detection:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/v2/voice/noise"
-	_ "github.com/lookatitude/beluga-ai/v2/voice/noise/providers/rnnoise"
+	"context"
+	"encoding/binary"
+	"math"
+	"sync"
+
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
-func processWithNoiseCancellation(ctx context.Context, audio []byte) (bool, error) {
-	// First, reduce noise
-	noiseCanceller, err := noise.NewProvider(ctx, "rnnoise", noise.DefaultConfig())
-	if err != nil {
-		return false, fmt.Errorf("create noise canceller: %w", err)
-	}
+// highPassVAD filters out low-frequency noise before running the inner detector.
+type highPassVAD struct {
+	inner voice.ActivityDetector
+	alpha float64
 
-	cleanAudio, err := noiseCanceller.Process(ctx, audio)
-	if err != nil {
-		return false, fmt.Errorf("noise cancellation: %w", err)
-	}
+	mu         sync.Mutex
+	prevIn     float64
+	prevOut    float64
+}
 
-	// Then, detect voice activity on clean audio
-	vadProvider, err := vad.NewProvider(ctx, "silero", vad.DefaultConfig(),
-		vad.WithThreshold(0.5),
-	)
-	if err != nil {
-		return false, fmt.Errorf("create VAD: %w", err)
-	}
+var _ voice.ActivityDetector = (*highPassVAD)(nil)
 
-	return vadProvider.Process(ctx, cleanAudio)
+// newHighPassVAD returns a detector with a high-pass filter at cutoffHz.
+func newHighPassVAD(inner voice.ActivityDetector, sampleRate int, cutoffHz float64) *highPassVAD {
+	rc := 1 / (2 * math.Pi * cutoffHz)
+	dt := 1 / float64(sampleRate)
+	return &highPassVAD{inner: inner, alpha: rc / (rc + dt)}
+}
+
+func (h *highPassVAD) DetectActivity(ctx context.Context, audio []byte) (voice.ActivityResult, error) {
+	filtered := make([]byte, len(audio)&^1)
+
+	h.mu.Lock()
+	for i := 0; i+1 < len(audio); i += 2 {
+		x := float64(int16(binary.LittleEndian.Uint16(audio[i:])))
+		y := h.alpha * (h.prevOut + x - h.prevIn)
+		h.prevIn, h.prevOut = x, y
+		y = math.Max(math.MinInt16, math.Min(math.MaxInt16, y))
+		binary.LittleEndian.PutUint16(filtered[i:], uint16(int16(y)))
+	}
+	h.mu.Unlock()
+
+	return h.inner.DetectActivity(ctx, filtered)
 }
 ```
 
+Use it as `voice.WithVAD(newHighPassVAD(detector, 16000, 150))`. A 100-200 Hz cutoff leaves the speech band intact. The filtered audio is used only for detection; the pipeline still forwards the original frame to STT.
+
 ## Verification
 
-1. Set `SILERO_VAD_MODEL_PATH` to your ONNX model path (or omit for the built-in model).
-2. Run the application and verify `Process` returns `false` for silence.
-3. Feed speech audio and confirm `Process` returns `true`.
-4. Test `ProcessStream` with continuous audio and verify real-time results.
-5. Compare detection accuracy at different threshold levels.
+1. Run Step 1 and confirm a silent frame reports `speech=false`.
+2. Feed recorded speech through `detectStream` and confirm start and end events line up with the utterances.
+3. Log `Confidence` for speech and background noise in your environment and pick a threshold between them.
+4. Compare false triggers with and without the high-pass wrapper in a room with low-frequency noise.
 
 ## Next Steps
 
-- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) -- Tune VAD alongside turn detection
-- [ML-Based Turn Prediction](/docs/guides/capabilities/voice/ml-turn-prediction) -- Neural turn-end detection
+- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) -- Add duration rules and environment profiles
+- [ML-Based Turn Prediction](/docs/guides/capabilities/voice/ml-turn-prediction) -- Decide when the user has finished speaking
 - [Voice Session Interruptions](/docs/guides/capabilities/voice/session-interruptions) -- Use VAD for barge-in detection

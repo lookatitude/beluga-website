@@ -93,7 +93,9 @@ for chunk, err := range engine.SynthesizeStream(ctx, textStream) {
         log.Printf("error: %v", err)
         break
     }
-    transport.Send(chunk)
+    if _, err := audioOut.Write(chunk); err != nil { // e.g. an AudioTransport's AudioOut()
+        break
+    }
 }
 ```
 

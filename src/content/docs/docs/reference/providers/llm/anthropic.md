@@ -135,10 +135,10 @@ Anthropic supports the following tool choice modes:
 
 ```go
 msgs := []schema.Message{
-    schema.NewHumanMessageWithParts(
+    &schema.HumanMessage{Parts: []schema.ContentPart{
         schema.TextPart{Text: "What's in this image?"},
         schema.ImagePart{URL: "https://example.com/image.png"},
-    ),
+    }},
 }
 
 resp, err := model.Generate(ctx, msgs)

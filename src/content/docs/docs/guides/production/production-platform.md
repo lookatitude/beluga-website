@@ -124,20 +124,22 @@ span.SetAttributes(
 
 ## Authentication and Authorization
 
-Beluga AI's auth package supports RBAC (Role-Based Access Control) and ABAC (Attribute-Based Access Control) for fine-grained permission management.
+Beluga AI's auth package supports RBAC (Role-Based Access Control), ABAC (Attribute-Based Access Control) and OPA policies for fine-grained permission management.
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/auth"
-    _ "github.com/lookatitude/beluga-ai/v2/auth/providers/rbac"
-)
+import "github.com/lookatitude/beluga-ai/v2/auth"
 
-func setupAuth(ctx context.Context) (auth.Policy, error) {
-    policy, err := auth.New("rbac", auth.Config{})
-    if err != nil {
-        return nil, fmt.Errorf("create auth policy: %w", err)
+func setupAuth() (auth.Policy, error) {
+    policy := auth.NewRBACPolicy("platform")
+    if err := policy.AddRole(auth.Role{
+        Name:        "operator",
+        Permissions: []auth.Permission{auth.PermAgentDelegate, auth.PermToolExec},
+    }); err != nil {
+        return nil, fmt.Errorf("add role: %w", err)
     }
-
+    if err := policy.AssignRole("user-123", "operator"); err != nil {
+        return nil, fmt.Errorf("assign role: %w", err)
+    }
     return policy, nil
 }
 
@@ -165,12 +167,18 @@ Restrict agent capabilities per tenant or user:
 ```go
 // Check if the agent can access external APIs
 allowed, err := policy.Authorize(ctx, agentID, auth.PermExternalAPI, "https://api.billing.example.com")
+if err != nil {
+    return err
+}
 if !allowed {
     return fmt.Errorf("agent not authorized for external API access")
 }
 
 // Check if the agent can write to memory
 allowed, err = policy.Authorize(ctx, agentID, auth.PermMemoryWrite, "archival")
+if err != nil {
+    return err
+}
 if !allowed {
     return fmt.Errorf("agent not authorized for archival memory writes")
 }
@@ -181,41 +189,32 @@ if !allowed {
 LLM-powered systems face safety risks at multiple points: malicious prompts on input, sensitive data in outputs, and dangerous operations through tools. A single-stage filter misses threats that manifest at different stages. Beluga AI's guard pipeline screens content at three stages — input (before the LLM sees it), output (before the user sees it), and tool (before tools execute) — so each risk is caught at the appropriate point in the request lifecycle.
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/guard"
-    _ "github.com/lookatitude/beluga-ai/v2/guard/providers/pii"
-    _ "github.com/lookatitude/beluga-ai/v2/guard/providers/toxicity"
-)
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
-func setupGuards(ctx context.Context) error {
-    // Input guards: prevent prompt injection and toxic input
-    injectionGuard, err := guard.New("prompt_injection", nil)
+func setupGuards() (*guard.Pipeline, error) {
+    // Input guards: detect prompt injection (built-in, registered by name)
+    injectionGuard, err := guard.New("prompt_injection_detector", nil)
     if err != nil {
-        return err
+        return nil, err
     }
 
-    // Output guards: prevent PII leakage
-    piiGuard, err := guard.New("pii", nil)
-    if err != nil {
-        return err
-    }
+    // Output guards: redact PII before it reaches the user
+    piiGuard := guard.NewPIIRedactor(guard.DefaultPIIPatterns...)
 
-    // Tool guards: validate tool inputs
-    toolGuard, err := guard.New("tool_auth", nil)
-    if err != nil {
-        return err
-    }
+    // Tool guards: block tool inputs containing dangerous keywords
+    toolGuard := guard.NewContentFilter(guard.WithKeywords("rm -rf", "DROP TABLE"))
 
-    pipeline := guard.NewPipeline(
-        guard.WithInputGuards(injectionGuard),
-        guard.WithOutputGuards(piiGuard),
-        guard.WithToolGuards(toolGuard),
-    )
-
-    // Use pipeline in agent execution
-    _ = pipeline
-    return nil
+    return guard.NewPipeline(
+        guard.Input(injectionGuard),
+        guard.Output(piiGuard),
+        guard.Tool(toolGuard),
+    ), nil
 }
+
+// Before calling the model:
+//   res, err := pipeline.ValidateInput(ctx, userInput)
+//   if err != nil { return err }
+//   if !res.Allowed { return fmt.Errorf("blocked: %s", res.Reason) }
 ```
 
 ## Resilience
@@ -232,11 +231,11 @@ retryPolicy := resilience.RetryPolicy{
     MaxBackoff:      10 * time.Second,
     BackoffFactor:   2.0,
     Jitter:          true,
-    RetryableErrors: []core.ErrorCode{core.ErrRateLimit, core.ErrTimeout, core.ErrProvider},
+    RetryableErrors: []core.ErrorCode{core.ErrRateLimit, core.ErrTimeout, core.ErrProviderDown},
 }
 
 answer, err := resilience.Retry(ctx, retryPolicy, func(ctx context.Context) (string, error) {
-    return agent.Invoke(ctx, question)
+    return supportAgent.Invoke(ctx, question) // supportAgent is an agent.Agent
 })
 if err != nil {
     log.Printf("Agent execution failed after retries: %v", err)
@@ -248,15 +247,16 @@ if err != nil {
 Prevent cascading failures when a provider is down:
 
 ```go
-breaker := resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
-    MaxFailures:     5,
-    ResetTimeout:    30 * time.Second,
-    HalfOpenMax:     2,
-})
+// Open after 5 failures; allow a single probe after 30s.
+breaker := resilience.NewCircuitBreaker(5, 30*time.Second)
 
 result, err := breaker.Execute(ctx, func(ctx context.Context) (any, error) {
     return model.Generate(ctx, msgs)
 })
+if err != nil {
+    return err // resilience.ErrCircuitOpen while the breaker is open
+}
+resp := result.(*schema.AIMessage)
 ```
 
 ## Multi-Tenancy
@@ -266,21 +266,13 @@ Isolate data and configuration per tenant using Beluga AI's tenant-aware context
 ```go
 import "github.com/lookatitude/beluga-ai/v2/core"
 
-// Set tenant context
-ctx = core.WithTenant(ctx, core.Tenant{
-    ID:   "acme-corp",
-    Name: "Acme Corporation",
-    Tier: "enterprise",
-})
+// Set tenant context (the tenant is a string ID)
+ctx = core.WithTenant(ctx, core.TenantID("acme-corp"))
 
-// Tenant ID propagates through all operations:
-// - OpenTelemetry spans include tenant.id attribute
-// - Memory operations are scoped to the tenant
-// - Rate limits are applied per tenant
-// - Auth policies are evaluated in tenant context
-
-tenant := core.TenantFromContext(ctx)
-log.Printf("Processing request for tenant: %s (tier: %s)", tenant.ID, tenant.Tier)
+// Read it back anywhere downstream to scope memory keys, rate limiters,
+// auth checks, and span attributes to the tenant.
+tenantID := core.GetTenant(ctx)
+log.Printf("Processing request for tenant: %s", tenantID)
 ```
 
 ## Health Checks
@@ -323,7 +315,9 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
     if !healthy {
         w.WriteHeader(http.StatusServiceUnavailable)
     }
-    json.NewEncoder(w).Encode(checks)
+    if err := json.NewEncoder(w).Encode(checks); err != nil {
+        log.Printf("encode health response: %v", err)
+    }
 }
 ```
 
@@ -334,33 +328,30 @@ For long-running, multi-step operations that must survive process restarts, use 
 ```go
 import (
     "github.com/lookatitude/beluga-ai/v2/workflow"
-    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/default"
+    "github.com/lookatitude/beluga-ai/v2/workflow/providers/inmemory"
 )
 
-executor, err := workflow.New("default", workflow.Config{})
+// "default" is the built-in executor; swap the store (or use "temporal")
+// for state that survives process restarts.
+executor, err := workflow.New("default", workflow.Config{Store: inmemory.New()})
 if err != nil {
     log.Fatal(err)
 }
 
 handle, err := executor.Execute(ctx,
-    func(ctx workflow.WorkflowContext, input any) (any, error) {
+    func(wctx workflow.WorkflowContext, input any) (any, error) {
         // Step 1: Classify the request
-        classification, err := ctx.Activity("classify", classifyActivity,
+        classification, err := wctx.ExecuteActivity(classifyActivity, input,
             workflow.WithActivityTimeout(30*time.Second),
-        ).Result(ctx)
+        )
         if err != nil {
             return nil, err
         }
 
         // Step 2: Route to specialist
-        result, err := ctx.Activity("process", processActivity,
-            workflow.WithActivityRetry(resilience.DefaultRetryPolicy()),
-        ).Result(ctx)
-        if err != nil {
-            return nil, err
-        }
-
-        return result, nil
+        return wctx.ExecuteActivity(processActivity, classification,
+            workflow.WithActivityRetry(workflow.DefaultRetryPolicy()),
+        )
     },
     workflow.WorkflowOptions{
         ID:      "support-" + requestID,
@@ -368,7 +359,17 @@ handle, err := executor.Execute(ctx,
         Timeout: 30 * time.Minute,
     },
 )
+if err != nil {
+    log.Fatal(err)
+}
+
+result, err := handle.Result(ctx)
+if err != nil {
+    log.Printf("workflow failed: %v", err)
+}
 ```
+
+`classifyActivity` and `processActivity` are `workflow.ActivityFunc` values: `func(ctx context.Context, input any) (any, error)`.
 
 ## API Server Setup
 
@@ -376,46 +377,29 @@ Expose agents through REST, gRPC, or MCP endpoints:
 
 ```go
 import (
+    "github.com/lookatitude/beluga-ai/v2/agent"
     "github.com/lookatitude/beluga-ai/v2/server"
-    _ "github.com/lookatitude/beluga-ai/v2/server/providers/chi"
+    _ "github.com/lookatitude/beluga-ai/v2/server/adapters/chi"
 )
 
 func setupServer(ctx context.Context, agents map[string]agent.Agent) error {
     srv, err := server.New("chi", server.Config{
-        Host: "0.0.0.0",
-        Port: 8080,
+        ReadTimeout:  10 * time.Second,
+        WriteTimeout: 60 * time.Second,
     })
     if err != nil {
         return err
     }
 
-    // Agent execution endpoint
-    srv.Handle("POST", "/api/v1/agents/{id}/invoke", func(w http.ResponseWriter, r *http.Request) {
-        agentID := chi.URLParam(r, "id")
-        a, ok := agents[agentID]
-        if !ok {
-            http.Error(w, "agent not found", http.StatusNotFound)
-            return
+    // Each agent gets POST /api/v1/agents/{id}/invoke and /stream (SSE).
+    for id, a := range agents {
+        if err := srv.RegisterAgent("/api/v1/agents/"+id, a); err != nil {
+            return err
         }
+    }
 
-        var req struct {
-            Input string `json:"input"`
-        }
-        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-            http.Error(w, "invalid request", http.StatusBadRequest)
-            return
-        }
-
-        result, err := a.Invoke(r.Context(), req.Input)
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
-            return
-        }
-
-        json.NewEncoder(w).Encode(map[string]string{"result": result})
-    })
-
-    return srv.Start(ctx)
+    // Blocks until ctx is canceled.
+    return srv.Serve(ctx, "0.0.0.0:8080")
 }
 ```
 

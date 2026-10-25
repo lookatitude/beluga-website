@@ -12,7 +12,7 @@ OpenAI Realtime is the lowest-latency option for speech-to-speech conversations 
 
 ## Overview
 
-The OpenAI Realtime integration uses the `voice/s2s` package to enable bidirectional audio streaming over WebSocket. It supports configurable voices, temperature control, and real-time audio processing.
+The OpenAI Realtime integration uses the `voice/s2s` package to enable bidirectional audio streaming over WebSocket. The provider lives in `voice/s2s/providers/openai` and registers itself as `"openai_realtime"`. It supports configurable voices and models, instructions, tool calls, and server-side VAD for turn detection.
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ export OPENAI_API_KEY="sk-..."
 
 ## Configuration
 
-Create an OpenAI Realtime S2S provider:
+Create an OpenAI Realtime engine through the `s2s` registry and start a session:
 
 ```go
 package main
@@ -46,32 +46,29 @@ import (
     "os"
 
     "github.com/lookatitude/beluga-ai/v2/voice/s2s"
-    "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai_realtime"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 func main() {
     ctx := context.Background()
 
-    config := openai_realtime.Config{
-        APIKey: os.Getenv("OPENAI_API_KEY"),
-        Model:  "gpt-4o-realtime-preview-2024-10-01",
-        Voice:  "alloy",
-    }
-
-    provider, err := openai_realtime.NewOpenAIRealtimeS2S(ctx, config)
+    engine, err := s2s.New("openai_realtime", s2s.Config{
+        Model:        "gpt-4o-realtime-preview",
+        Voice:        "alloy",
+        Instructions: "You are a helpful assistant.",
+        Extra:        map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
+    })
     if err != nil {
         log.Fatalf("Failed to create provider: %v", err)
     }
 
-    stream, err := provider.StartStreaming(ctx, &s2s.ConversationContext{
-        SystemPrompt: "You are a helpful assistant.",
-    })
+    session, err := engine.Start(ctx)
     if err != nil {
-        log.Fatalf("Failed to start streaming: %v", err)
+        log.Fatalf("Failed to start session: %v", err)
     }
-    defer stream.Close()
+    defer session.Close()
 
-    fmt.Println("Realtime streaming started")
+    fmt.Println("Realtime session started")
 }
 ```
 
@@ -79,30 +76,40 @@ func main() {
 
 ### Bidirectional Audio Streaming
 
-Handle concurrent audio input and output:
+Send PCM16 audio with `SendAudio` and consume `s2s.SessionEvent` values from `Recv`. Tool calls arrive as `EventToolCall`; answer them with `SendToolResult`:
 
 ```go
-func handleStream(ctx context.Context, stream s2s.Stream) error {
-    audioIn := make(chan []byte)
+func handleSession(ctx context.Context, session s2s.Session, audioIn <-chan []byte, play func([]byte)) error {
     go func() {
         for audio := range audioIn {
-            if err := stream.SendAudio(ctx, audio); err != nil {
+            if err := session.SendAudio(ctx, audio); err != nil {
                 log.Printf("Send error: %v", err)
                 return
             }
         }
     }()
 
-    for chunk := range stream.ReceiveAudio() {
-        if chunk.Error != nil {
-            return chunk.Error
+    for event, err := range session.Recv(ctx) {
+        if err != nil {
+            return err
         }
-        processAudio(chunk.Audio)
+        switch event.Type {
+        case s2s.EventAudioOutput:
+            play(event.Audio)
+        case s2s.EventToolCall:
+            result := schema.ToolResult{CallID: event.ToolCall.ID, Content: []schema.ContentPart{schema.TextPart{Text: "42"}}}
+            if err := session.SendToolResult(ctx, result); err != nil {
+                return err
+            }
+        case s2s.EventError:
+            return event.Error
+        }
     }
-
     return nil
 }
 ```
+
+To use the engine as a stage in a voice pipeline, wrap it with `s2s.AsFrameProcessor(engine)`.
 
 ### Observability
 
@@ -118,8 +125,8 @@ import (
 tracer := otel.Tracer("beluga.voice.s2s.openai_realtime")
 ctx, span := tracer.Start(ctx, "openai_realtime.start",
     trace.WithAttributes(
-        attribute.String("model", config.Model),
-        attribute.String("voice", config.Voice),
+        attribute.String("model", "gpt-4o-realtime-preview"),
+        attribute.String("voice", "alloy"),
     ),
 )
 defer span.End()
@@ -127,12 +134,14 @@ defer span.End()
 
 ## Configuration Reference
 
-| Option        | Description            | Default                                  | Required |
-|---------------|------------------------|------------------------------------------|----------|
-| `APIKey`      | OpenAI API key         | -                                        | Yes      |
-| `Model`       | Realtime model         | `gpt-4o-realtime-preview-2024-10-01`     | No       |
-| `Voice`       | Voice selection        | `alloy`                                  | No       |
-| `Temperature` | Response temperature   | `0.8`                                    | No       |
+| Field               | Description               | Default                              | Required |
+|---------------------|---------------------------|--------------------------------------|----------|
+| `Extra["api_key"]`  | OpenAI API key            | -                                    | Yes      |
+| `Extra["base_url"]` | Custom WebSocket endpoint | `wss://api.openai.com/v1/realtime`   | No       |
+| `Model`             | Realtime model            | `gpt-4o-realtime-preview`            | No       |
+| `Voice`             | Voice selection           | `alloy`                              | No       |
+| `Instructions`      | System instructions       | -                                    | No       |
+| `Tools`             | `[]schema.ToolDefinition` | -                                    | No       |
 
 ## Troubleshooting
 

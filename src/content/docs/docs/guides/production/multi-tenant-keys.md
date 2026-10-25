@@ -46,33 +46,34 @@ Beluga AI's `config/` package provides encrypted configuration management with h
 
 ## API Key Manager
 
-The key manager provides secure key storage and validation with tenant isolation.
+The key manager provides secure key storage and validation with tenant isolation. It reads a JSON key file with `config.Load`; to pick up edits without a restart, call `loadKeys` from a `config.NewFileWatcher` callback.
 
 ```go
-package main
+package apikeys
 
 import (
     "context"
-    "crypto/aes"
-    "crypto/cipher"
-    "crypto/rand"
-    "encoding/base64"
     "fmt"
-    "io"
     "sync"
+    "time"
 
     "github.com/lookatitude/beluga-ai/v2/config"
 )
 
 // TenantAPIKey represents a tenant's API key configuration.
 type TenantAPIKey struct {
-    TenantID     string            `yaml:"tenant_id" validate:"required"`
-    KeyHash      string            `yaml:"key_hash" validate:"required"`
-    EncryptedKey string            `yaml:"encrypted_key" validate:"required"`
-    RateLimit    int               `yaml:"rate_limit" validate:"min=1"`
-    Features     []string          `yaml:"features,omitempty"`
-    ExpiresAt    time.Time         `yaml:"expires_at,omitempty"`
-    Metadata     map[string]string `yaml:"metadata,omitempty"`
+    TenantID     string            `json:"tenant_id"`
+    KeyHash      string            `json:"key_hash"`
+    EncryptedKey string            `json:"encrypted_key"`
+    RateLimit    int               `json:"rate_limit"`
+    Features     []string          `json:"features,omitempty"`
+    ExpiresAt    time.Time         `json:"expires_at,omitempty"`
+    Metadata     map[string]string `json:"metadata,omitempty"`
+}
+
+// KeyStore is the on-disk shape of the key file.
+type KeyStore struct {
+    Keys []TenantAPIKey `json:"keys" required:"true"`
 }
 
 // APIKeyManager manages multi-tenant API keys securely.
@@ -80,25 +81,17 @@ type APIKeyManager struct {
     keys          map[string]*TenantAPIKey // key_hash -> TenantAPIKey
     tenantKeys    map[string]string        // tenant_id -> key_hash
     encryptionKey []byte
-    loader        *config.Loader
+    path          string
     mu            sync.RWMutex
 }
 
 // NewAPIKeyManager creates a new secure API key manager.
-func NewAPIKeyManager(ctx context.Context, encryptionKey []byte) (*APIKeyManager, error) {
-    loader, err := config.New(
-        config.WithPath("./config/api_keys"),
-        config.WithHotReload(true),
-    )
-    if err != nil {
-        return nil, fmt.Errorf("create config loader: %w", err)
-    }
-
+func NewAPIKeyManager(ctx context.Context, path string, encryptionKey []byte) (*APIKeyManager, error) {
     manager := &APIKeyManager{
         keys:          make(map[string]*TenantAPIKey),
         tenantKeys:    make(map[string]string),
         encryptionKey: encryptionKey,
-        loader:        loader,
+        path:          path, // e.g. "./config/api_keys.json"
     }
 
     if err := manager.loadKeys(ctx); err != nil {
@@ -109,10 +102,14 @@ func NewAPIKeyManager(ctx context.Context, encryptionKey []byte) (*APIKeyManager
 }
 
 func (m *APIKeyManager) loadKeys(ctx context.Context) error {
-    var keys []TenantAPIKey
-    if err := m.loader.Load(ctx, &keys); err != nil {
+    if err := ctx.Err(); err != nil {
         return err
     }
+    store, err := config.Load[KeyStore](m.path)
+    if err != nil {
+        return err
+    }
+    keys := store.Keys
 
     m.mu.Lock()
     defer m.mu.Unlock()
@@ -243,7 +240,10 @@ Periodic key rotation limits the blast radius of a compromised key — even if a
 // RotateKey generates a new API key for a tenant.
 func (m *APIKeyManager) RotateKey(ctx context.Context, tenantID string) (string, error) {
     // Generate new key
-    newKey := generateSecureKey()
+    newKey, err := generateSecureKey()
+    if err != nil {
+        return "", err
+    }
     keyHash := hashAPIKey(newKey)
 
     m.mu.Lock()
@@ -279,10 +279,12 @@ func (m *APIKeyManager) RotateKey(ctx context.Context, tenantID string) (string,
     return newKey, nil
 }
 
-func generateSecureKey() string {
+func generateSecureKey() (string, error) {
     b := make([]byte, 32)
-    rand.Read(b)
-    return base64.URLEncoding.EncodeToString(b)
+    if _, err := rand.Read(b); err != nil {
+        return "", err
+    }
+    return base64.URLEncoding.EncodeToString(b), nil
 }
 ```
 
@@ -308,8 +310,8 @@ Track all key operations for compliance:
 import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 func (m *APIKeyManager) auditKeyOperation(ctx context.Context, operation string, tenantID string) {
-    logger := o11y.LoggerFromContext(ctx)
-    logger.Info("api key operation",
+    logger := o11y.FromContext(ctx)
+    logger.Info(ctx, "api key operation",
         "operation", operation,
         "tenant_id", tenantID,
         "timestamp", time.Now(),

@@ -443,9 +443,9 @@ func main() {
 
 **Problem:** You want to try a primary LLM provider and fall back to alternatives if it fails.
 
-**Solution:** Use `llm.Router` with a `FallbackStrategy`.
+**Solution:** Use `llm.NewFailoverRouter`.
 
-Provider outages are inevitable. A fallback chain ensures your application stays available even when a single provider goes down. The `llm.Router` with `FallbackStrategy` tries providers in order, moving to the next only when the current one returns an error. This is different from a load balancer -- it has a clear preference order (primary, secondary, tertiary) and only uses fallbacks when necessary. This matters for cost optimization: you might prefer a cheaper provider as primary and use a more expensive one only as a backup.
+Provider outages are inevitable. A fallback chain ensures your application stays available even when a single provider goes down. `llm.FailoverRouter` tries models in order, moving to the next only when the current one returns a retryable error (rate limit, timeout, provider down); a non-retryable error such as an auth failure is returned immediately. (`llm.Router` with `&llm.FailoverChain{}` only selects the first model and does not retry, so use `FailoverRouter` for real failover.) This is different from a load balancer -- it has a clear preference order (primary, secondary, tertiary) and only uses fallbacks when necessary. This matters for cost optimization: you might prefer a cheaper provider as primary and use a more expensive one only as a backup.
 
 ```go
 package main
@@ -485,11 +485,8 @@ func main() {
 		return
 	}
 
-	// Router with fallback strategy tries models in order.
-	router := llm.NewRouter(
-		llm.WithModels(primary, fallback),
-		llm.WithStrategy(&llm.Fallback{}),
-	)
+	// FailoverRouter tries models in order on retryable errors.
+	router := llm.NewFailoverRouter(primary, fallback)
 
 	msgs := []schema.Message{
 		schema.NewHumanMessage("Hello!"),
@@ -648,9 +645,9 @@ func main() {
 
 **Problem:** You need the LLM to return data in a specific Go struct format, not free-form text.
 
-**Solution:** Use `llm.StructuredOutput` to constrain the model's response to a JSON schema derived from a Go type.
+**Solution:** Use `llm.NewStructured` to constrain the model's response to a JSON schema derived from a Go type.
 
-Free-form text is difficult to parse reliably. Structured output solves this by constraining the model to produce JSON that matches a schema derived from your Go struct. The `llm.StructuredOutput[T]` generic function handles schema generation, model instruction, response parsing, and type validation in a single call. This is more reliable than parsing text with regex because the model is instructed at the API level to produce valid JSON matching the schema, and the response is deserialized into your typed struct with proper error handling.
+Free-form text is difficult to parse reliably. Structured output solves this by constraining the model to produce JSON that matches a schema derived from your Go struct. `llm.NewStructured[T]` returns an `*llm.StructuredOutput[T]` whose `Generate` method handles schema generation, model instruction, response parsing, and type validation in a single call. This is more reliable than parsing text with regex because the model is instructed at the API level to produce valid JSON matching the schema, and the response is deserialized into your typed struct with proper error handling.
 
 ```go
 package main
@@ -688,7 +685,8 @@ func main() {
 	}
 
 	// Parse the response into a typed struct.
-	review, err := llm.StructuredOutput[MovieReview](ctx, model, []schema.Message{
+	structured := llm.NewStructured[MovieReview](model)
+	review, err := structured.Generate(ctx, []schema.Message{
 		schema.NewHumanMessage("Review the movie 'Interstellar' (2014)"),
 	})
 	if err != nil {

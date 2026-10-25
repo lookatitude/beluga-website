@@ -63,15 +63,16 @@ package main
 import (
     "context"
     "fmt"
+    "os"
 
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
     _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
     _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
@@ -80,6 +81,8 @@ type ConversationAssistant struct {
     core     *memory.Core
     recall   *memory.Recall
     archival *memory.Archival
+    embedder embedding.Embedder
+    store    vectorstore.VectorStore
     model    llm.ChatModel
 }
 
@@ -90,23 +93,27 @@ func NewConversationAssistant(ctx context.Context) (*ConversationAssistant, erro
         HumanLimit:   2000, // Max chars for human info block
         SelfEditable: true, // Agent can update its understanding
     })
-    core.SetPersona("You are a helpful personal assistant. You remember " +
-        "past conversations and user preferences to provide personalized help.")
+    if err := core.SetPersona("You are a helpful personal assistant. You remember " +
+        "past conversations and user preferences to provide personalized help."); err != nil {
+        return nil, fmt.Errorf("set persona: %w", err)
+    }
 
     // Recall memory: searchable conversation history
-    messageStore, err := memory.NewMessageStore("inmemory", nil)
-    if err != nil {
-        return nil, fmt.Errorf("create message store: %w", err)
-    }
-    recall := memory.NewRecall(messageStore)
+    recall := memory.NewRecall(inmemory.NewMessageStore())
 
     // Archival memory: long-term vector storage
-    embedder, err := embedding.New("openai", nil)
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", nil)
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("DATABASE_URL"), // PostgreSQL connection string
+        Options: map[string]any{"table": "archival_memory", "dimension": float64(1536)},
+    })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
     }
@@ -119,7 +126,10 @@ func NewConversationAssistant(ctx context.Context) (*ConversationAssistant, erro
         return nil, fmt.Errorf("create archival memory: %w", err)
     }
 
-    model, err := llm.New("openai", config.ProviderConfig{Model: "gpt-4o"})
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -128,6 +138,8 @@ func NewConversationAssistant(ctx context.Context) (*ConversationAssistant, erro
         core:     core,
         recall:   recall,
         archival: archival,
+        embedder: embedder,
+        store:    store,
         model:    model,
     }, nil
 }
@@ -220,18 +232,22 @@ func (ca *ConversationAssistant) archiveIfRelevant(ctx context.Context, userMsg,
             Content:  fact,
             Metadata: map[string]any{"source": "conversation", "timestamp": time.Now().Unix()},
         }
-        embedding, err := ca.archival.cfg.Embedder.EmbedSingle(ctx, fact)
+        vec, err := ca.embedder.EmbedSingle(ctx, fact)
         if err != nil {
             continue
         }
-        ca.archival.cfg.VectorStore.Add(ctx, []schema.Document{doc}, [][]float32{embedding})
+        if err := ca.store.Add(ctx, []schema.Document{doc}, [][]float32{vec}); err != nil {
+            continue
+        }
     }
 
     // Update core memory if we learned something fundamental about the user
     for _, fact := range facts.Items {
         if isCoreFact(fact) {
             current := ca.core.GetHuman()
-            ca.core.SetHuman(current + "\n- " + fact)
+            if err := ca.core.SetHuman(current + "\n- " + fact); err != nil {
+                break // human block is full; summarize it (see below)
+            }
         }
     }
 }
@@ -256,21 +272,30 @@ For production deployments, use durable stores so conversations survive restarts
 
 ```go
 import (
-    _ "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
-    _ "github.com/lookatitude/beluga-ai/v2/memory/stores/postgres"
+    goredis "github.com/redis/go-redis/v9"
+
+    "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
-// Redis for recall memory (fast read/write)
-messageStore, err := memory.NewMessageStore("redis", config.ProviderConfig{
-    "addr": "localhost:6379",
-    "prefix": "user:" + userID,
+// Redis for recall memory (fast read/write), one key per user
+messageStore, err := redis.New(redis.Config{
+    Client: goredis.NewClient(&goredis.Options{Addr: "localhost:6379"}),
+    Key:    "user:" + userID + ":messages",
 })
+if err != nil {
+    return nil, err
+}
+recall := memory.NewRecall(messageStore)
 
 // PostgreSQL + pgvector for archival memory (persistent, searchable)
 store, err := vectorstore.New("pgvector", config.ProviderConfig{
-    "connection_string": os.Getenv("DATABASE_URL"),
-    "table_name": "archival_memory",
+    BaseURL: os.Getenv("DATABASE_URL"),
+    Options: map[string]any{"table": "archival_memory"},
 })
+if err != nil {
+    return nil, err
+}
 ```
 
 ## Production Considerations
@@ -288,7 +313,9 @@ if len(persona)+len(human) > 3000 {
     // Summarize the human profile to fit within limits
     summarized, err := summarizeProfile(ctx, ca.model, human)
     if err == nil {
-        ca.core.SetHuman(summarized)
+        if err := ca.core.SetHuman(summarized); err != nil {
+            return err
+        }
     }
 }
 ```

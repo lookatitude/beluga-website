@@ -218,9 +218,11 @@ import "github.com/lookatitude/beluga-ai/v2/config"
 
 func createFromRegistry() {
     s, err := splitter.New("markdown", config.ProviderConfig{
+        // Numeric options are read as float64 (the type JSON and YAML
+        // decoding produce), so write 1000.0 rather than 1000.
         Options: map[string]any{
-            "chunk_size":       1000,
-            "chunk_overlap":    0,
+            "chunk_size":       1000.0,
+            "chunk_overlap":    0.0,
             "preserve_headers": true,
         },
     })

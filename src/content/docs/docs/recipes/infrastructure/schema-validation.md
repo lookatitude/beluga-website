@@ -35,7 +35,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
 	"github.com/lookatitude/beluga-ai/v2/schema"
 )
@@ -74,12 +74,12 @@ func (v *CustomValidator) ValidateMessage(ctx context.Context, msg schema.Messag
 	for name, rule := range v.rules {
 		if err := rule(ctx, msg); err != nil {
 			span.RecordError(err)
-			span.SetStatus(trace.StatusError, fmt.Sprintf("rule %s failed", name))
+			span.SetStatus(codes.Error, fmt.Sprintf("rule %s failed", name))
 			return fmt.Errorf("validation rule %q failed: %w", name, err)
 		}
 	}
 
-	span.SetStatus(trace.StatusOK, "validation passed")
+	span.SetStatus(codes.Ok, "validation passed")
 	return nil
 }
 

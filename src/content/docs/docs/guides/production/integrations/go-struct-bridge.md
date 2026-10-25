@@ -59,8 +59,6 @@ Create a Go struct that mirrors the Pydantic model and provides conversion to Be
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/lookatitude/beluga-ai/v2/schema"
@@ -211,7 +209,6 @@ A full round-trip example demonstrating both directions.
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -220,9 +217,6 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	_ = ctx // Available for instrumented operations
-
 	// Direction 1: Python (Pydantic) -> Go (Beluga AI)
 	pydanticJSON := []byte(`{
 		"role": "human",

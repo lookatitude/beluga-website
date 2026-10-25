@@ -221,12 +221,20 @@ Beluga provides factory functions for common activity patterns:
 ```go
 // LLM-powered activity
 llmAct := workflow.LLMActivity(func(ctx context.Context, prompt string) (string, error) {
-    return model.Generate(ctx, prompt)
+    resp, err := model.Generate(ctx, []schema.Message{schema.NewHumanMessage(prompt)})
+    if err != nil {
+        return "", err
+    }
+    return resp.Text(), nil
 })
 
 // Tool execution activity
 toolAct := workflow.ToolActivity(func(ctx context.Context, name string, args map[string]any) (any, error) {
-    return registry.Execute(ctx, name, args)
+    t, err := toolRegistry.Get(name) // a *tool.Registry
+    if err != nil {
+        return nil, err
+    }
+    return t.Execute(ctx, args)
 })
 
 // Human-in-the-loop activity

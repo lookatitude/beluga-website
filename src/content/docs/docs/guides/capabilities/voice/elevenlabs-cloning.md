@@ -1,6 +1,6 @@
 ---
 title: Cloning Voices with ElevenLabs
-description: "Configure ElevenLabs TTS in Go for high-fidelity voice synthesis — cloned voices, stability and similarity tuning, and streaming audio generation with Beluga AI."
+description: "Use ElevenLabs cloned voices for TTS in Go with Beluga AI — configure the provider with a Voice ID, generate audio, and stream synthesis sentence by sentence."
 head:
   - tag: meta
     attrs:
@@ -8,11 +8,11 @@ head:
       content: "Beluga AI, Go, tutorial, ElevenLabs, voice cloning, TTS, speech synthesis, streaming audio"
 ---
 
-ElevenLabs provides high-fidelity voice synthesis with support for cloned voices, fine-grained voice settings, and streaming audio generation. Voice cloning creates a synthetic voice that closely matches a real person's voice characteristics, which is valuable for brand consistency, personalization, and accessibility applications. This tutorial demonstrates how to configure the ElevenLabs TTS provider, adjust voice characteristics for cloned voice fidelity, and implement streaming synthesis for low-latency audio output.
+ElevenLabs provides high-fidelity voice synthesis, including cloned voices. A cloned voice is a synthetic voice that closely matches a real person's voice, which is valuable for brand consistency, personalization, and accessibility. You create the clone in ElevenLabs (the Voice Lab dashboard or their API); Beluga then uses it by Voice ID like any other voice. This tutorial shows how to configure the ElevenLabs TTS provider with a cloned voice, generate audio, and stream synthesis for lower latency.
 
 ## What You Will Build
 
-A text-to-speech pipeline using ElevenLabs that generates speech with a cloned or professional voice, supports stability and similarity tuning, and streams audio chunks for low-latency playback.
+A text-to-speech setup using ElevenLabs that speaks with a cloned or professional voice, saves complete audio files, and streams audio sentence by sentence for playback.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ A text-to-speech pipeline using ElevenLabs that generates speech with a cloned o
 
 ## Step 1: Configure the ElevenLabs Provider
 
-Create a TTS provider using the registry with your Voice ID and model selection. The blank import triggers the ElevenLabs provider's `init()` function, which registers its factory with the TTS registry. The `WithVoice` option takes the Voice ID from ElevenLabs -- this is not a voice name but a unique identifier that maps to a specific voice profile, including cloned voices you have created in the Voice Lab.
+Create a TTS engine through the registry with your Voice ID and model. The blank import runs the provider's `init()` function, which registers the `"elevenlabs"` factory. `Voice` takes the ElevenLabs Voice ID, not a display name; the ID maps to a specific voice profile, including cloned voices you created in the Voice Lab.
 
 ```go
 package main
@@ -38,125 +38,99 @@ import (
 func main() {
 	ctx := context.Background()
 
-	provider, err := tts.NewProvider(ctx, "elevenlabs", tts.DefaultConfig(),
-		tts.WithAPIKey(os.Getenv("ELEVENLABS_API_KEY")),
-		tts.WithVoice("pMsXg91Y39Z99L9Z9999"), // Your cloned Voice ID
-		tts.WithModel("eleven_multilingual_v2"),
-	)
+	engine, err := tts.New("elevenlabs", tts.Config{
+		Voice: "pMsXg91Y39Z99L9Z9999", // your cloned Voice ID
+		Model: "eleven_multilingual_v2",
+		Extra: map[string]any{"api_key": os.Getenv("ELEVENLABS_API_KEY")},
+	})
 	if err != nil {
-		log.Fatalf("create TTS provider: %v", err)
+		log.Fatalf("create TTS engine: %v", err)
 	}
 
-	_ = provider
+	audio, err := engine.Synthesize(ctx, "Welcome to the future of voice agents.")
+	if err != nil {
+		log.Fatalf("synthesize: %v", err)
+	}
+
+	if err := os.WriteFile("output.mp3", audio, 0o644); err != nil {
+		log.Fatalf("write file: %v", err)
+	}
+	log.Println("Audio saved to output.mp3")
 }
 ```
 
-The `eleven_multilingual_v2` model provides high-quality multilingual synthesis with support for 29 languages. For English-only applications, `eleven_monolingual_v1` offers slightly lower latency because it does not need to resolve language ambiguity in the input text.
+The `eleven_multilingual_v2` model provides multilingual synthesis. If you omit `Model`, the provider uses `eleven_monolingual_v1`; if you omit `Voice`, it uses the stock "Rachel" voice. The provider returns MP3 audio (`audio/mpeg`).
+
+Per-call options override the engine config, so one engine can speak with several voices: `engine.Synthesize(ctx, text, tts.WithVoice(otherVoiceID))`.
 
 ## Step 2: Voice Settings for Clone Fidelity
 
-ElevenLabs exposes stability and similarity controls that determine how closely the generated speech matches the original voice profile. These settings are critical for cloned voices because they control the balance between natural variation (which makes speech sound more human) and fidelity to the original recording (which makes it sound more like the target speaker). Pass these via provider-specific configuration.
+ElevenLabs exposes `stability` and `similarity_boost` controls that balance natural variation against fidelity to the original voice. Beluga's ElevenLabs provider currently sends fixed values, `stability: 0.5` and `similarity_boost: 0.75`, and does not read these settings from `tts.Config`. Those defaults are a reasonable middle ground for cloned voices.
+
+| Setting            | Effect                                                                     |
+|--------------------|----------------------------------------------------------------------------|
+| `stability`        | Lower values add natural variation; higher values give consistent delivery. Conversational agents tend to sound better at 0.3-0.6, narration at 0.7-0.9. |
+| `similarity_boost` | How closely the output matches the original voice sample. Higher values matter for cloned voices where speaker identity is important. |
+
+If you need different values, set them as the voice's default settings in ElevenLabs, or implement your own `tts.TTS` that calls the ElevenLabs API with the settings you want and register it with `tts.Register`.
+
+## Step 3: Streaming Synthesis
+
+For voice applications where time to first audio matters, use `SynthesizeStream`. It takes an iterator of text chunks, typically sentences from a streaming LLM response, and yields one audio chunk per text chunk as soon as it is synthesized. Playback of the first sentence can start while later sentences are still being generated.
 
 ```go
-	provider, err := tts.NewProvider(ctx, "elevenlabs", &tts.Config{
-		Provider: "elevenlabs",
-		APIKey:   os.Getenv("ELEVENLABS_API_KEY"),
-		Voice:    "pMsXg91Y39Z99L9Z9999",
-		Model:    "eleven_multilingual_v2",
-		ProviderSpecific: map[string]any{
-			"stability":        0.5,  // 0.0 = expressive variation, 1.0 = consistent delivery
-			"similarity_boost": 0.75, // 0.0 = general voice, 1.0 = close match to original
-			"style":            0.0,  // Exaggeration level for the voice style
-			"use_speaker_boost": true, // Enhance speaker clarity
-		},
-	})
-	if err != nil {
-		log.Fatalf("create TTS provider: %v", err)
-	}
-```
+import (
+	"context"
+	"io"
+	"iter"
 
-| Setting           | Range     | Effect                                      |
-|-------------------|-----------|----------------------------------------------|
-| `stability`       | 0.0 - 1.0 | Lower values add natural variation; higher values produce consistent output. For conversational agents, 0.3-0.6 sounds more natural. For narration, 0.7-0.9 sounds more professional. |
-| `similarity_boost`| 0.0 - 1.0 | How closely the output matches the original voice sample. Higher values are essential for cloned voices where speaker identity matters. |
-| `style`           | 0.0 - 1.0 | Exaggeration of the voice's style characteristics. Use sparingly -- values above 0.5 can sound unnatural. |
-| `use_speaker_boost` | bool    | Enhances clarity, recommended for cloned voices where the training data may have imperfect recording quality. |
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+)
 
-## Step 3: Generate Full Audio
-
-For non-streaming use cases (offline generation, batch processing, pre-recorded messages), generate the complete audio buffer at once. This approach is simpler but introduces latency equal to the full synthesis time, making it unsuitable for real-time voice agents.
-
-```go
-	audio, err := provider.GenerateSpeech(ctx, "Welcome to the future of voice agents.")
-	if err != nil {
-		log.Fatalf("generate speech: %v", err)
-	}
-
-	if err := os.WriteFile("output.mp3", audio, 0644); err != nil {
-		log.Fatalf("write file: %v", err)
-	}
-
-	log.Println("Audio saved to output.mp3")
-```
-
-## Step 4: Streaming Synthesis
-
-For voice applications where time-to-first-byte matters, use streaming synthesis. Audio chunks arrive as they are generated, allowing playback to begin before the full response is ready. This is the preferred approach for real-time voice agents because it reduces perceived latency from seconds to hundreds of milliseconds -- the user hears the beginning of the response while the rest is still being synthesized.
-
-```go
-	streamProvider, err := tts.NewProvider(ctx, "elevenlabs", tts.DefaultConfig(),
-		tts.WithAPIKey(os.Getenv("ELEVENLABS_API_KEY")),
-		tts.WithVoice("pMsXg91Y39Z99L9Z9999"),
-		tts.WithModel("eleven_multilingual_v2"),
-		tts.WithEnableStreaming(true),
-	)
-	if err != nil {
-		log.Fatalf("create streaming TTS provider: %v", err)
-	}
-
-	reader, err := streamProvider.StreamGenerate(ctx, "This sentence is being streamed chunk by chunk.")
-	if err != nil {
-		log.Fatalf("stream generate: %v", err)
-	}
-
-	// Read audio chunks as they arrive
-	buf := make([]byte, 4096)
-	for {
-		n, err := reader.Read(buf)
-		if n > 0 {
-			// Play or forward the audio chunk
-			processAudioChunk(buf[:n])
+// sentences yields text chunks for synthesis, for example from an LLM stream.
+func sentences(parts ...string) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		for _, p := range parts {
+			if !yield(p, nil) {
+				return
+			}
 		}
+	}
+}
+
+// speak streams synthesized audio for each sentence to out as it arrives.
+func speak(ctx context.Context, engine tts.TTS, out io.Writer) error {
+	text := sentences("This sentence is synthesized first.", "This one follows right after.")
+	for chunk, err := range engine.SynthesizeStream(ctx, text) {
 		if err != nil {
-			break
+			return err
+		}
+		if _, err := out.Write(chunk); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 ```
 
-Streaming synthesis reduces perceived latency from seconds to hundreds of milliseconds, which is critical for interactive voice agents where users expect near-immediate responses.
+The ElevenLabs provider makes one synthesis request per text chunk, so chunk your text at sentence boundaries: very short chunks add per-request overhead, and very long ones delay the first audio.
+
+To use the engine in a cascading voice pipeline, wrap it with `tts.AsFrameProcessor(engine, sampleRate)` and pass it to `voice.WithTTS`. Because ElevenLabs returns MP3, the client or transport must decode MP3. If your pipeline needs raw PCM, use a provider that returns it, such as `cartesia`.
 
 ## Architecture
 
 ```
-Text Input ──▶ ElevenLabs API ──▶ Audio Chunks
-                    │                   │
-                    │  (streaming)       ▼
-                    │              StreamGenerate()
-                    │                   │
-                    ▼                   ▼
-              GenerateSpeech()   io.Reader (chunked)
-                    │
-                    ▼
-              []byte (complete)
+Text ──────────────▶ Synthesize() ──────────▶ []byte (complete MP3)
+
+iter.Seq2[string] ─▶ SynthesizeStream() ────▶ iter.Seq2[[]byte] (one chunk per sentence)
 ```
 
 ## Verification
 
-1. Set the `ELEVENLABS_API_KEY` environment variable.
-2. Run the script to generate `output.mp3` and verify playback.
-3. Adjust `stability` between 0.3 and 0.8 to hear the variation in delivery.
-4. Compare `similarity_boost` at 0.5 vs 0.9 to evaluate voice fidelity.
-5. Test streaming synthesis and verify that audio begins playing before the full text is synthesized.
+1. Set the `ELEVENLABS_API_KEY` environment variable and your Voice ID.
+2. Run Step 1 and play `output.mp3`; check that it sounds like the cloned voice.
+3. Run `speak` with several sentences and confirm the first chunk arrives before the last sentence is synthesized.
+4. Compare the clone with different voice settings configured in the ElevenLabs dashboard.
 
 ## Next Steps
 

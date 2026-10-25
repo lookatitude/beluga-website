@@ -12,7 +12,7 @@ Traditional audiobooks are static, single-voice narrations with no interactivity
 
 The core technical challenge is managing multiple TTS voices with consistent character identity across a branching narrative graph. Each story branch requires real-time audio synthesis with the correct voice for each character, and transitions between branches must feel seamless — not like switching between disconnected audio clips.
 
-Using Beluga AI's TTS pipeline with dynamic narration, distinct character voices, and real-time story branching, audiobook platforms can deliver personalized, interactive experiences that improve engagement by 87%.
+With Beluga AI's TTS engines, distinct character voices, and a branching story graph, audiobook platforms can deliver personalized, interactive narration.
 
 ## Solution Architecture
 
@@ -36,25 +36,26 @@ The story graph approach is chosen over linear scripting because it separates na
 
 ### Character Voice Mapping
 
-Each character in the story is mapped to a specific TTS voice with pitch and speed parameters. This per-character voice configuration ensures consistency — the same character always sounds the same regardless of which story branch the listener is on. The TTS engine's functional options (`WithVoice`, `WithPitch`, `WithSpeed`) allow per-line customization without creating separate engine instances for each character.
+Each character in the story is mapped to a specific TTS voice and speaking speed. This per-character voice configuration ensures consistency — the same character always sounds the same regardless of which story branch the listener is on. The TTS engine's functional options (`WithVoice`, `WithSpeed`) allow per-line customization without creating separate engine instances for each character. Option support varies by provider: `playht`, `lmnt`, `smallest`, and `groq` apply `WithSpeed`, while no current provider applies `WithPitch`, so give each character its own voice rather than relying on pitch shifts.
 
 ```go
-package main
+package audiobook
 
 import (
     "context"
     "fmt"
+    "io"
 
     "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
-    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/playht"
 )
 
 // Character represents a story character with a distinct voice.
 type Character struct {
     Name  string
-    Voice string
-    Pitch float64
+    Voice string  // provider voice ID
+    Speed float64 // 1.0 = normal
 }
 
 // Scene represents a section of the story with dialogue.
@@ -68,20 +69,23 @@ type Line struct {
     Text    string
 }
 
-func narrateScene(ctx context.Context, engine tts.TTS, scene Scene) error {
+// narrateScene synthesizes each line with its character's voice and writes
+// the audio to out (a file, an HTTP response, or your audio transport).
+func narrateScene(ctx context.Context, engine tts.TTS, scene Scene, out io.Writer) error {
     for _, line := range scene.Lines {
         char := scene.Characters[line.Speaker]
 
         audio, err := engine.Synthesize(ctx, line.Text,
             tts.WithVoice(char.Voice),
-            tts.WithPitch(char.Pitch),
-            tts.WithSpeed(0.95), // Slightly slower for narration
+            tts.WithSpeed(char.Speed),
         )
         if err != nil {
             return fmt.Errorf("synthesize line for %s: %w", char.Name, err)
         }
 
-        sendAudio(audio)
+        if _, err := out.Write(audio); err != nil {
+            return fmt.Errorf("write audio: %w", err)
+        }
     }
     return nil
 }
@@ -116,6 +120,7 @@ type InteractiveAudiobook struct {
     ttsEngine  tts.TTS
     graph      map[string]StoryNode
     state      StoryState
+    out        io.Writer
 }
 
 func (a *InteractiveAudiobook) NarrateNext(ctx context.Context, userChoice string) ([]Branch, error) {
@@ -140,7 +145,7 @@ func (a *InteractiveAudiobook) NarrateNext(ctx context.Context, userChoice strin
     }
 
     // Narrate the scene
-    if err := narrateScene(ctx, a.ttsEngine, nextNode.Scene); err != nil {
+    if err := narrateScene(ctx, a.ttsEngine, nextNode.Scene, a.out); err != nil {
         return nil, fmt.Errorf("narrate scene: %w", err)
     }
 
@@ -155,19 +160,10 @@ func (a *InteractiveAudiobook) NarrateNext(ctx context.Context, userChoice strin
 - **Voice library**: Maintain a consistent voice mapping per character across the entire story
 - **Story state persistence**: Save story state for session resumption
 - **Pre-generation**: For popular branches, pre-generate audio to reduce latency
-- **Voice variety**: Use different voices from ElevenLabs or similar providers for distinct character identities
+- **Voice variety**: Use different voices from your TTS provider's library for distinct character identities
 - **Caching**: Cache generated audio for frequently visited story nodes
 
-## Results
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| User engagement | 5.5/10 | 9.2/10 | 67% improvement |
-| Completion rate | 40-50% | 78% | 56-95% improvement |
-| Interactive feature usage | 0% | 75% | New capability |
-| Character voice quality | N/A | 9.0/10 | High quality |
-
-### Lessons Learned
+## Lessons Learned
 
 - **Character voices drive engagement**: Distinct voices for each character significantly improved immersion
 - **Streaming TTS for interactivity**: Pre-buffered generation caused noticeable delays at choice points

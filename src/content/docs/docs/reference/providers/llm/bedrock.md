@@ -148,13 +148,13 @@ For models that support vision (e.g. Claude on Bedrock):
 
 ```go
 msgs := []schema.Message{
-    schema.NewHumanMessageWithParts(
+    &schema.HumanMessage{Parts: []schema.ContentPart{
         schema.TextPart{Text: "Describe this image."},
         schema.ImagePart{
             Data:     imageBytes,
             MimeType: "image/png",
         },
-    ),
+    }},
 }
 
 resp, err := model.Generate(ctx, msgs)

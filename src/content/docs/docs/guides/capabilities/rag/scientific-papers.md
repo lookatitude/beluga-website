@@ -14,7 +14,7 @@ Academic-aware splitting respects paper structure, preserves equations and citat
 
 ## Solution Architecture
 
-Beluga AI's splitter package supports custom separators and boundary detection. The academic splitter uses section-aware separators, protects equations and citations with placeholder replacement, and enriches chunks with metadata including DOI, authors, and section names for precise source attribution.
+Beluga AI's recursive splitter supports custom separators (`splitter.WithSeparators`); the academic-specific logic below is application code layered on top of it. The academic splitter uses section-aware separators, protects equations and citations with placeholder replacement, and enriches chunks with metadata including DOI, authors, and section names for precise source attribution.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -44,11 +44,7 @@ Beluga AI's splitter package supports custom separators and boundary detection. 
 Create a splitter that respects scientific paper structure:
 
 ```go
-package main
-
 import (
-    "context"
-    "fmt"
     "regexp"
 
     "github.com/lookatitude/beluga-ai/v2/rag/splitter"
@@ -61,7 +57,7 @@ type AcademicSplitter struct {
     citationRegex *regexp.Regexp
 }
 
-func NewAcademicSplitter(chunkSize, chunkOverlap int) (*AcademicSplitter, error) {
+func NewAcademicSplitter(chunkSize, chunkOverlap int) *AcademicSplitter {
     // Academic-specific separators that prioritize section boundaries
     separators := []string{
         "\n\n## ",          // Section headings (Markdown)
@@ -78,14 +74,11 @@ func NewAcademicSplitter(chunkSize, chunkOverlap int) (*AcademicSplitter, error)
         " ",                // Words
     }
 
-    textSplitter, err := splitter.New("recursive", &splitter.Config{
-        ChunkSize:    chunkSize,
-        ChunkOverlap: chunkOverlap,
-        Separators:   separators,
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create splitter: %w", err)
-    }
+    textSplitter := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(chunkSize),
+        splitter.WithChunkOverlap(chunkOverlap),
+        splitter.WithSeparators(separators),
+    )
 
     // Regex for LaTeX and inline equations
     equationRegex := regexp.MustCompile(`\$\$.*?\$\$|\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\)`)
@@ -97,7 +90,7 @@ func NewAcademicSplitter(chunkSize, chunkOverlap int) (*AcademicSplitter, error)
         splitter:      textSplitter,
         equationRegex: equationRegex,
         citationRegex: citationRegex,
-    }, nil
+    }
 }
 ```
 
@@ -106,10 +99,12 @@ func NewAcademicSplitter(chunkSize, chunkOverlap int) (*AcademicSplitter, error)
 Prevent splitting of mathematical expressions and citations:
 
 ```go
-package main
-
 import (
+    "context"
     "fmt"
+    "strings"
+
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type ProtectedContent struct {
@@ -135,7 +130,7 @@ func (a *AcademicSplitter) SplitPaper(ctx context.Context, paper Paper, content 
     // Split within each section
     chunks := []schema.Document{}
     for _, section := range sections {
-        sectionChunks, err := a.splitter.SplitText(ctx, section.Content)
+        sectionChunks, err := a.splitter.Split(ctx, section.Content)
         if err != nil {
             return nil, fmt.Errorf("split section %s: %w", section.Name, err)
         }
@@ -146,7 +141,7 @@ func (a *AcademicSplitter) SplitPaper(ctx context.Context, paper Paper, content 
 
             doc := schema.Document{
                 Content: restoredContent,
-                Metadata: map[string]interface{}{
+                Metadata: map[string]any{
                     "title":       paper.Title,
                     "authors":     paper.Authors,
                     "doi":         paper.DOI,
@@ -200,8 +195,6 @@ func (a *AcademicSplitter) restoreProtectedContent(text string, protected *Prote
 Identify academic sections using pattern matching:
 
 ```go
-package main
-
 import (
     "regexp"
     "strings"
@@ -282,14 +275,18 @@ func (a *AcademicSplitter) detectSections(text string) []Section {
 Support PDF, LaTeX, and Markdown papers:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
+    "os"
     "path/filepath"
+    "strings"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling"
 )
 
 type FormatParser interface {
@@ -302,7 +299,11 @@ func ParsePaper(ctx context.Context, filePath string) (Paper, string, error) {
     var parser FormatParser
     switch ext {
     case ".pdf":
-        parser = NewPDFParser()
+        pdfParser, err := NewPDFParser()
+        if err != nil {
+            return Paper{}, "", err
+        }
+        parser = pdfParser
     case ".tex", ".latex":
         parser = NewLaTeXParser()
     case ".md", ".markdown":
@@ -325,9 +326,17 @@ type PDFParser struct {
     loader loader.DocumentLoader
 }
 
-func NewPDFParser() *PDFParser {
-    pdfLoader, _ := loader.New("pdf", nil)
-    return &PDFParser{loader: pdfLoader}
+// NewPDFParser converts PDFs to text through a Docling server.
+// Beluga AI has no built-in PDF parser; "docling" and "unstructured"
+// are the document-conversion loaders that handle PDFs.
+func NewPDFParser() (*PDFParser, error) {
+    pdfLoader, err := loader.New("docling", config.ProviderConfig{
+        BaseURL: os.Getenv("DOCLING_URL"),
+    })
+    if err != nil {
+        return nil, fmt.Errorf("create pdf loader: %w", err)
+    }
+    return &PDFParser{loader: pdfLoader}, nil
 }
 
 func (p *PDFParser) Parse(ctx context.Context, filePath string) (Paper, string, error) {
@@ -392,8 +401,15 @@ Track processing metrics and section detection accuracy:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "time"
+
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
+)
+
+var (
+    tracer = otel.Tracer("paper-indexer")
+    meter  = otel.Meter("paper-indexer")
 )
 
 func ProcessPaperWithObservability(ctx context.Context, filePath string) ([]schema.Document, error) {
@@ -413,8 +429,7 @@ func ProcessPaperWithObservability(ctx context.Context, filePath string) ([]sche
         return nil, err
     }
 
-    splitter, _ := NewAcademicSplitter(1500, 200)
-    chunks, err := splitter.SplitPaper(ctx, paper, content)
+    chunks, err := NewAcademicSplitter(1500, 200).SplitPaper(ctx, paper, content)
     if err != nil {
         span.RecordError(err)
         return nil, err
@@ -429,8 +444,12 @@ func ProcessPaperWithObservability(ctx context.Context, filePath string) ([]sche
         attribute.Float64("duration.ms", float64(duration.Milliseconds())),
     )
 
-    meter.RecordHistogram(ctx, "paper.process.duration", duration.Milliseconds())
-    meter.IncrementCounter(ctx, "papers.processed")
+    // Create instruments once at startup in real code
+    hist, err := meter.Int64Histogram("paper.process.duration")
+    if err != nil {
+        return nil, err
+    }
+    hist.Record(ctx, duration.Milliseconds())
 
     return chunks, nil
 }
@@ -454,11 +473,13 @@ func ProcessPaperBatch(ctx context.Context, filePaths []string) error {
                 defer wg.Done()
                 chunks, err := ProcessPaperWithObservability(ctx, path)
                 if err != nil {
-                    // Log error but continue
+                    log.Printf("process %s: %v", path, err) // continue with the batch
                     return
                 }
-                // Store chunks in vector database
-                storeChunks(ctx, chunks)
+                // Store chunks in vector database (embed + VectorStore.Add)
+                if err := storeChunks(ctx, chunks); err != nil {
+                    log.Printf("store %s: %v", path, err)
+                }
             }(filePath)
         }
         wg.Wait()

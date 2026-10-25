@@ -45,14 +45,15 @@ package main
 import (
     "context"
     "fmt"
+    "log"
+    "os"
 
     "github.com/lookatitude/beluga-ai/v2/config"
-	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/loader"
     "github.com/lookatitude/beluga-ai/v2/rag/splitter"
     "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/v2/schema"
 
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
     _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
@@ -66,7 +67,7 @@ type KnowledgeQASystem struct {
 }
 
 func NewKnowledgeQASystem(ctx context.Context) (*KnowledgeQASystem, error) {
-    embedder, err := embedding.New("openai", &embedding.Config{
+    embedder, err := embedding.New("openai", config.ProviderConfig{
         Model:  "text-embedding-3-large",
         APIKey: os.Getenv("OPENAI_API_KEY"),
     })
@@ -74,11 +75,13 @@ func NewKnowledgeQASystem(ctx context.Context) (*KnowledgeQASystem, error) {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    // Use distributed vector store for scale
-    store, err := vectorstore.New("pgvector", &vectorstore.Config{
-        ConnectionString: os.Getenv("DATABASE_URL"),
-        CollectionName:   "knowledge_base",
-        Dimensions:       3072, // text-embedding-3-large
+    // Use a persistent vector store for scale
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("DATABASE_URL"),
+        Options: map[string]any{
+            "table":     "knowledge_base",
+            "dimension": float64(3072), // text-embedding-3-large
+        },
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
@@ -102,16 +105,15 @@ func NewKnowledgeQASystem(ctx context.Context) (*KnowledgeQASystem, error) {
 func (k *KnowledgeQASystem) IndexDocuments(ctx context.Context, docPaths []string) error {
     for _, path := range docPaths {
         if err := k.indexDocument(ctx, path); err != nil {
-            // Log error but continue with other documents
-            continue
+            log.Printf("index %s: %v", path, err) // continue with other documents
         }
     }
     return nil
 }
 
 func (k *KnowledgeQASystem) indexDocument(ctx context.Context, docPath string) error {
-    // Load document
-    docLoader, err := loader.New("directory", nil)
+    // Load a plain-text or Markdown file ("text" and "markdown" loaders are built in)
+    docLoader, err := loader.New("text", config.ProviderConfig{})
     if err != nil {
         return fmt.Errorf("create loader: %w", err)
     }
@@ -122,40 +124,44 @@ func (k *KnowledgeQASystem) indexDocument(ctx context.Context, docPath string) e
     }
 
     // Split into chunks
-    textSplitter, err := splitter.New("recursive", &splitter.Config{
-        ChunkSize:    1000,
-        ChunkOverlap: 200,
-    })
-    if err != nil {
-        return fmt.Errorf("create splitter: %w", err)
-    }
+    textSplitter := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(1000),
+        splitter.WithChunkOverlap(200),
+    )
 
     chunks, err := textSplitter.SplitDocuments(ctx, docs)
     if err != nil {
         return fmt.Errorf("split documents: %w", err)
     }
 
-    // Generate embeddings
+    // Generate embeddings in one batch
     texts := make([]string, len(chunks))
     for i, chunk := range chunks {
         texts[i] = chunk.Content
     }
 
-    embeddings, err := k.embedder.EmbedBatch(ctx, texts)
+    embeddings, err := k.embedder.Embed(ctx, texts)
     if err != nil {
         return fmt.Errorf("embed documents: %w", err)
     }
 
-    // Store in vector database
-    for i := range chunks {
-        chunks[i].Embedding = embeddings[i]
-    }
-
-    if err := k.vectorStore.Add(ctx, chunks); err != nil {
+    // Store chunks with their embeddings
+    if err := k.vectorStore.Add(ctx, chunks, embeddings); err != nil {
         return fmt.Errorf("store documents: %w", err)
     }
 
     return nil
+}
+
+func main() {
+    ctx := context.Background()
+    qa, err := NewKnowledgeQASystem(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    if err := qa.IndexDocuments(ctx, []string{"docs/handbook.md"}); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
@@ -164,12 +170,13 @@ func (k *KnowledgeQASystem) indexDocument(ctx context.Context, docPath string) e
 Retrieve relevant context and generate grounded answers:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
     "strings"
+
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type Answer struct {
@@ -186,14 +193,13 @@ type Source struct {
 
 func (k *KnowledgeQASystem) AnswerQuestion(ctx context.Context, question string) (*Answer, error) {
     // Generate query embedding
-    queryEmbedding, err := k.embedder.Embed(ctx, []string{question})
+    queryEmbedding, err := k.embedder.EmbedSingle(ctx, question)
     if err != nil {
         return nil, fmt.Errorf("embed question: %w", err)
     }
 
-    // Retrieve relevant documents
-    results, err := k.vectorStore.SimilaritySearch(ctx, queryEmbedding[0],
-        vectorstore.WithTopK(5),
+    // Retrieve the 5 most relevant chunks above a similarity threshold
+    results, err := k.vectorStore.Search(ctx, queryEmbedding, 5,
         vectorstore.WithThreshold(0.7),
     )
     if err != nil {
@@ -208,46 +214,37 @@ func (k *KnowledgeQASystem) AnswerQuestion(ctx context.Context, question string)
     }
 
     // Build context from retrieved documents
-    var context strings.Builder
+    var contextText strings.Builder
     sources := make([]Source, len(results))
 
     for i, result := range results {
-        context.WriteString(result.Content)
-        context.WriteString("\n\n")
+        contextText.WriteString(result.Content)
+        contextText.WriteString("\n\n")
 
-        sources[i] = Source{
-            Title:   result.Metadata["title"].(string),
-            Content: result.Content,
-            URL:     result.Metadata["url"].(string),
-        }
+        title, _ := result.Metadata["title"].(string)
+        url, _ := result.Metadata["url"].(string)
+        sources[i] = Source{Title: title, Content: result.Content, URL: url}
     }
 
     // Generate answer using LLM
-    systemMsg := &schema.SystemMessage{
-        Parts: []schema.ContentPart{
-            schema.TextPart{Text: "You are a helpful assistant that answers questions based on provided context. " +
-                "If the context doesn't contain enough information, say so clearly."},
-        },
+    msgs := []schema.Message{
+        schema.NewSystemMessage("You are a helpful assistant that answers questions based on provided context. " +
+            "If the context doesn't contain enough information, say so clearly."),
+        schema.NewHumanMessage(fmt.Sprintf(
+            "Context:\n%s\n\nQuestion: %s\n\nProvide a clear, accurate answer based only on the context above.",
+            contextText.String(),
+            question,
+        )),
     }
 
-    humanMsg := &schema.HumanMessage{
-        Parts: []schema.ContentPart{
-            schema.TextPart{Text: fmt.Sprintf(
-                "Context:\n%s\n\nQuestion: %s\n\nProvide a clear, accurate answer based only on the context above.",
-                context.String(),
-                question,
-            )},
-        },
-    }
-
-    resp, err := k.model.Generate(ctx, []schema.Message{systemMsg, humanMsg})
+    resp, err := k.model.Generate(ctx, msgs)
     if err != nil {
         return nil, fmt.Errorf("generate answer: %w", err)
     }
 
     return &Answer{
         Question: question,
-        Answer:   resp.Parts[0].(schema.TextPart).Text,
+        Answer:   resp.Text(),
         Sources:  sources,
     }, nil
 }
@@ -258,52 +255,44 @@ func (k *KnowledgeQASystem) AnswerQuestion(ctx context.Context, question string)
 Stream answers as they are generated for better UX:
 
 ```go
-package main
-
 import (
     "context"
+    "fmt"
     "iter"
+    "strings"
+
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func (k *KnowledgeQASystem) StreamAnswer(ctx context.Context, question string) iter.Seq2[schema.StreamChunk, error] {
     return func(yield func(schema.StreamChunk, error) bool) {
         // Retrieve context (same as non-streaming)
-        queryEmbedding, err := k.embedder.Embed(ctx, []string{question})
+        queryEmbedding, err := k.embedder.EmbedSingle(ctx, question)
         if err != nil {
             yield(schema.StreamChunk{}, err)
             return
         }
 
-        results, err := k.vectorStore.SimilaritySearch(ctx, queryEmbedding[0],
-            vectorstore.WithTopK(5),
-        )
+        results, err := k.vectorStore.Search(ctx, queryEmbedding, 5)
         if err != nil {
             yield(schema.StreamChunk{}, err)
             return
         }
 
         // Build context
-        var context strings.Builder
+        var contextText strings.Builder
         for _, result := range results {
-            context.WriteString(result.Content)
-            context.WriteString("\n\n")
+            contextText.WriteString(result.Content)
+            contextText.WriteString("\n\n")
         }
 
-        // Generate streaming answer
-        systemMsg := &schema.SystemMessage{
-            Parts: []schema.ContentPart{
-                schema.TextPart{Text: "Answer based on the provided context."},
-            },
+        msgs := []schema.Message{
+            schema.NewSystemMessage("Answer based on the provided context."),
+            schema.NewHumanMessage(fmt.Sprintf("Context:\n%s\n\nQuestion: %s", contextText.String(), question)),
         }
 
-        humanMsg := &schema.HumanMessage{
-            Parts: []schema.ContentPart{
-                schema.TextPart{Text: fmt.Sprintf("Context:\n%s\n\nQuestion: %s", context.String(), question)},
-            },
-        }
-
-        // Stream from LLM
-        for chunk, err := range k.model.Stream(ctx, []schema.Message{systemMsg, humanMsg}) {
+        // Stream from LLM; each chunk carries a text Delta
+        for chunk, err := range k.model.Stream(ctx, msgs) {
             if !yield(chunk, err) {
                 return
             }
@@ -317,13 +306,13 @@ func (k *KnowledgeQASystem) StreamAnswer(ctx context.Context, question string) i
 Combine vector similarity with keyword matching for better results:
 
 ```go
-package main
-
 import (
     "context"
-    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "fmt"
+    "strings"
 
-    _ "github.com/lookatitude/beluga-ai/v2/rag/retriever/providers/hybrid"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type HybridKnowledgeQA struct {
@@ -331,22 +320,17 @@ type HybridKnowledgeQA struct {
     retriever retriever.Retriever
 }
 
-func NewHybridKnowledgeQA(ctx context.Context) (*HybridKnowledgeQA, error) {
+// bm25 is your keyword index (Elasticsearch, OpenSearch, Typesense, ...)
+// adapted to the one-method retriever.BM25Searcher interface. Beluga AI
+// does not bundle a BM25 engine.
+func NewHybridKnowledgeQA(ctx context.Context, bm25 retriever.BM25Searcher) (*HybridKnowledgeQA, error) {
     base, err := NewKnowledgeQASystem(ctx)
     if err != nil {
         return nil, err
     }
 
-    // Use hybrid retriever (vector + BM25 + RRF fusion)
-    ret, err := retriever.New("hybrid", &retriever.Config{
-        VectorStore: base.vectorStore,
-        Embedder:    base.embedder,
-        TopK:        10,
-        Threshold:   0.6,
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
+    // Hybrid retriever: vector + BM25, fused with Reciprocal Rank Fusion
+    ret := retriever.NewHybridRetriever(base.vectorStore, base.embedder, bm25)
 
     return &HybridKnowledgeQA{
         KnowledgeQASystem: *base,
@@ -358,47 +342,37 @@ func (h *HybridKnowledgeQA) AnswerQuestion(ctx context.Context, question string)
     // Retrieve using hybrid search
     docs, err := h.retriever.Retrieve(ctx, question,
         retriever.WithTopK(5),
-        retriever.WithThreshold(0.7),
     )
     if err != nil {
         return nil, fmt.Errorf("retrieve: %w", err)
     }
 
     // Build context and generate answer (same as before)
-    var context strings.Builder
+    var contextText strings.Builder
     sources := make([]Source, len(docs))
 
     for i, doc := range docs {
-        context.WriteString(doc.Content)
-        context.WriteString("\n\n")
+        contextText.WriteString(doc.Content)
+        contextText.WriteString("\n\n")
 
-        sources[i] = Source{
-            Title:   doc.Metadata["title"].(string),
-            Content: doc.Content,
-            URL:     doc.Metadata["url"].(string),
-        }
+        title, _ := doc.Metadata["title"].(string)
+        url, _ := doc.Metadata["url"].(string)
+        sources[i] = Source{Title: title, Content: doc.Content, URL: url}
     }
 
-    systemMsg := &schema.SystemMessage{
-        Parts: []schema.ContentPart{
-            schema.TextPart{Text: "Answer based on the provided context."},
-        },
+    msgs := []schema.Message{
+        schema.NewSystemMessage("Answer based on the provided context."),
+        schema.NewHumanMessage(fmt.Sprintf("Context:\n%s\n\nQuestion: %s", contextText.String(), question)),
     }
 
-    humanMsg := &schema.HumanMessage{
-        Parts: []schema.ContentPart{
-            schema.TextPart{Text: fmt.Sprintf("Context:\n%s\n\nQuestion: %s", context.String(), question)},
-        },
-    }
-
-    resp, err := h.model.Generate(ctx, []schema.Message{systemMsg, humanMsg})
+    resp, err := h.model.Generate(ctx, msgs)
     if err != nil {
         return nil, fmt.Errorf("generate: %w", err)
     }
 
     return &Answer{
         Question: question,
-        Answer:   resp.Parts[0].(schema.TextPart).Text,
+        Answer:   resp.Text(),
         Sources:  sources,
     }, nil
 }
@@ -412,7 +386,8 @@ Track query latency and retrieval quality:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "time"
+
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
@@ -463,7 +438,7 @@ func (k *KnowledgeQASystem) IndexBatch(ctx context.Context, docPaths []string) e
             go func(p string) {
                 defer wg.Done()
                 if err := k.indexDocument(ctx, p); err != nil {
-                    // Log error but continue
+                    log.Printf("index %s: %v", p, err) // continue with the rest
                 }
             }(path)
         }
@@ -510,8 +485,14 @@ func (c *CachedKnowledgeQA) AnswerQuestion(ctx context.Context, question string)
     cacheKey := fmt.Sprintf("qa:%s", question)
 
     // Check cache first
-    if cached, ok := c.cache.Get(ctx, cacheKey); ok {
-        return cached.(*Answer), nil
+    cached, ok, err := c.cache.Get(ctx, cacheKey)
+    if err != nil {
+        return nil, fmt.Errorf("cache get: %w", err)
+    }
+    if ok {
+        if answer, isAnswer := cached.(*Answer); isAnswer {
+            return answer, nil
+        }
     }
 
     // Generate answer
@@ -521,7 +502,9 @@ func (c *CachedKnowledgeQA) AnswerQuestion(ctx context.Context, question string)
     }
 
     // Cache for 10 minutes
-    c.cache.Set(ctx, cacheKey, answer, 10*time.Minute)
+    if err := c.cache.Set(ctx, cacheKey, answer, 10*time.Minute); err != nil {
+        return nil, fmt.Errorf("cache set: %w", err)
+    }
 
     return answer, nil
 }
@@ -533,21 +516,19 @@ Filter results based on user permissions:
 
 ```go
 func (k *KnowledgeQASystem) AnswerWithAccessControl(ctx context.Context, userID, question string) (*Answer, error) {
-    // Retrieve more results than needed
-    queryEmbedding, err := k.embedder.Embed(ctx, []string{question})
+    queryEmbedding, err := k.embedder.EmbedSingle(ctx, question)
     if err != nil {
         return nil, err
     }
 
-    results, err := k.vectorStore.SimilaritySearch(ctx, queryEmbedding[0],
-        vectorstore.WithTopK(20), // Get more to filter
-    )
+    // Retrieve more results than needed, then filter
+    results, err := k.vectorStore.Search(ctx, queryEmbedding, 20)
     if err != nil {
         return nil, err
     }
 
-    // Filter based on user permissions
-    filtered := make([]schema.Document, 0)
+    // Filter based on user permissions (canAccess is your ACL check)
+    filtered := make([]schema.Document, 0, 5)
     for _, result := range results {
         if canAccess(userID, result.Metadata["acl"]) {
             filtered = append(filtered, result)
@@ -557,9 +538,8 @@ func (k *KnowledgeQASystem) AnswerWithAccessControl(ctx context.Context, userID,
         }
     }
 
-    // Generate answer from filtered results
-    // ... (same as before)
-    return nil, nil
+    // Generate the answer from filtered (same as AnswerQuestion)
+    return k.answerFromDocs(ctx, question, filtered)
 }
 ```
 

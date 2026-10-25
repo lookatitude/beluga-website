@@ -1,6 +1,6 @@
 ---
 title: Multi-Speaker VAD Segmentation
-description: "Segment meeting audio by speaker using VAD for boundaries and diarization for attribution. Achieve 87% speaker accuracy in real time."
+description: "Segment meeting audio by speaker in Go: VAD for speech boundaries, Beluga AI's diarization interfaces for speaker labels, and a per-speaker timeline."
 head:
   - tag: meta
     attrs:
@@ -10,7 +10,9 @@ head:
 
 Meeting assistant products need to identify who spoke when for accurate attribution and summaries. Without speaker attribution, a transcript is a flat stream of text with no indication of who said what — useless for generating actionable minutes ("John agreed to handle the API migration by Friday"). Single-speaker VAD detects speech vs. silence but cannot distinguish between speakers; it only answers "is someone talking?" not "who is talking?"
 
-By combining Beluga AI's VAD for robust segment boundary detection with a diarization layer for speaker labeling, meeting systems achieve 87% speaker attribution accuracy with real-time processing capability. The two-stage approach (VAD then diarization) is deliberate: VAD is computationally cheap and runs on every audio frame, while diarization (speaker embedding + clustering) is more expensive and runs only on detected speech segments. This separation avoids wasting diarization compute on silence.
+Combining Beluga AI's VAD for segment boundaries with a diarization layer for speaker labels gives meeting systems a per-speaker timeline. The two-stage approach (VAD, then diarization) is deliberate: VAD is computationally cheap and runs on every audio frame, while diarization (speaker embeddings plus clustering) is more expensive and should run only on detected speech segments. This separation avoids spending diarization compute on silence.
+
+Beluga's `voice/diarization` package defines the interfaces (`Diarizer`, `SpeakerTracker`), a registry, and two built-in implementations: `EnergyDiarizer` (registered as `"energy"`) and `InMemorySpeakerTracker`. The energy diarizer is a baseline for testing. It assigns speaker labels by loudness band, not by voice identity, so it cannot tell two people speaking at similar volume apart. Real speaker attribution needs a `Diarizer` backed by a speaker-embedding model or a diarization service, which you implement and register yourself.
 
 ## Solution Architecture
 
@@ -31,151 +33,192 @@ The pipeline flows in one direction: raw audio to segments to speaker labels to 
 
 ### VAD Segment Extraction
 
-The segment extractor wraps Beluga AI's Silero VAD and converts its frame-level speech/silence decisions into contiguous `Segment` structs with start/end timestamps. The VAD's `MinSpeechDuration` is set to 150ms (lower than the typical 250ms) to capture brief interjections like "yes," "mm-hmm," and "agreed" that are common in meetings and important for attribution accuracy.
+The segment extractor runs a Beluga VAD over a stream of 16-bit PCM frames and turns its frame-level speech decisions into contiguous segments with start and end times. It keeps the audio of each segment so the diarizer can analyze it. A short pause inside speech does not end a segment; use the debounce wrapper from [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning#step-2-add-minimum-speech-and-silence-durations) to set how long a pause must be. Keep its minimum speech duration short (about 150 ms) to capture brief interjections like "yes" and "agreed", which matter for attribution.
 
 ```go
-package main
+package meeting
 
 import (
-    "context"
-    "time"
+	"context"
+	"iter"
+	"time"
 
-    "github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
-// Segment represents a contiguous speech region.
+const sampleRate = 16000
+
+// Segment is a contiguous speech region.
 type Segment struct {
-    Start   time.Duration
-    End     time.Duration
-    Speaker string // Assigned by diarization
-    Audio   []byte
+	Start time.Duration
+	End   time.Duration
+	Audio []byte // 16-bit PCM for the segment
 }
 
-func extractSegments(ctx context.Context, audioStream <-chan []byte) ([]Segment, error) {
-    vad := voice.NewSileroVAD(voice.VADConfig{
-        Threshold:         0.5,
-        MinSpeechDuration: 150 * time.Millisecond, // Capture brief interjections
-        MaxSilenceDuration: 400 * time.Millisecond,
-    })
+func frameDuration(frame []byte) time.Duration {
+	return time.Duration(len(frame)/2) * time.Second / sampleRate
+}
 
-    var segments []Segment
-    var currentSegment *Segment
-    frameOffset := time.Duration(0)
-    frameDuration := 30 * time.Millisecond // Typical frame size
+// extractSegments splits an audio stream into speech segments using vad.
+func extractSegments(ctx context.Context, vad voice.ActivityDetector, audio iter.Seq2[[]byte, error]) ([]Segment, error) {
+	var (
+		segments []Segment
+		current  *Segment
+		offset   time.Duration
+	)
 
-    in := make(chan voice.Frame)
-    out := make(chan voice.Frame)
+	for frame, err := range audio {
+		if err != nil {
+			return nil, err
+		}
+		res, err := vad.DetectActivity(ctx, frame)
+		if err != nil {
+			return nil, err
+		}
 
-    go func() {
-        defer close(in)
-        for audio := range audioStream {
-            in <- voice.NewAudioFrame(audio, 16000)
-        }
-    }()
+		switch {
+		case res.IsSpeech && current == nil:
+			current = &Segment{Start: offset}
+			current.Audio = append(current.Audio, frame...)
+		case res.IsSpeech:
+			current.Audio = append(current.Audio, frame...)
+		case current != nil:
+			current.End = offset
+			segments = append(segments, *current)
+			current = nil
+		}
+		offset += frameDuration(frame)
+	}
 
-    go func() {
-        defer close(out)
-        if err := vad.Process(ctx, in, out); err != nil {
-            return
-        }
-    }()
-
-    for frame := range out {
-        if isSpeechFrame(frame) {
-            if currentSegment == nil {
-                currentSegment = &Segment{Start: frameOffset}
-            }
-        } else {
-            if currentSegment != nil {
-                currentSegment.End = frameOffset
-                segments = append(segments, *currentSegment)
-                currentSegment = nil
-            }
-        }
-        frameOffset += frameDuration
-    }
-
-    return segments, nil
+	if current != nil {
+		current.End = offset
+		segments = append(segments, *current)
+	}
+	return segments, nil
 }
 ```
 
 ### Diarization
 
-Run speaker identification on each segment using embeddings and clustering. The diarizer extracts a speaker embedding (a fixed-length vector representing vocal characteristics) from each segment's audio, then clusters embeddings to group segments by speaker. This unsupervised approach means the system does not need to know who the speakers are in advance — it discovers them from the audio.
+Each segment is passed to a `diarization.Diarizer`, which returns `SpeakerSegment` values with a speaker ID and times relative to the audio it was given. A `SpeakerTracker` maps the diarizer's labels to stable IDs across calls, so the same person keeps the same ID for the whole meeting.
 
 ```go
-// Diarizer assigns speaker labels to speech segments.
-type Diarizer struct {
-    // Speaker embedding model and clustering configuration
+import (
+	"context"
+	"fmt"
+
+	"github.com/lookatitude/beluga-ai/v2/voice/diarization"
+)
+
+// assignSpeakers diarizes each VAD segment and returns speaker segments on
+// the meeting timeline.
+func assignSpeakers(ctx context.Context, d diarization.Diarizer, tracker diarization.SpeakerTracker, segments []Segment) ([]diarization.SpeakerSegment, error) {
+	var out []diarization.SpeakerSegment
+	for _, seg := range segments {
+		labeled, err := d.Diarize(ctx, seg.Audio,
+			diarization.WithSampleRate(sampleRate),
+			diarization.WithMaxSpeakers(6),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("diarize segment at %v: %w", seg.Start, err)
+		}
+		labeled, err = tracker.Track(ctx, labeled)
+		if err != nil {
+			return nil, fmt.Errorf("track speakers: %w", err)
+		}
+		for _, s := range labeled {
+			s.Start += seg.Start // shift to meeting time
+			s.End += seg.Start
+			out = append(out, s)
+		}
+	}
+	return out, nil
 }
 
-func (d *Diarizer) AssignSpeakers(ctx context.Context, segments []Segment) []Segment {
-    // Extract speaker embeddings from each segment's audio
-    // Cluster embeddings to identify distinct speakers
-    // Assign speaker IDs (Speaker_0, Speaker_1, etc.) to segments
+// newDiarizer returns the built-in energy baseline. Replace "energy" with the
+// name of your own registered Diarizer for real speaker attribution.
+func newDiarizer() (diarization.Diarizer, diarization.SpeakerTracker, error) {
+	d, err := diarization.New("energy", diarization.Config{MaxSpeakers: 6, SampleRate: sampleRate})
+	if err != nil {
+		return nil, nil, err
+	}
+	return d, diarization.NewSpeakerTracker(), nil
+}
+```
 
-    for i := range segments {
-        embedding := d.extractEmbedding(segments[i].Audio)
-        segments[i].Speaker = d.classify(embedding)
-    }
+To plug in a real model, implement the one-method interface and register it in `init()`:
 
-    return segments
+```go
+// embeddingDiarizer labels speakers with a speaker-embedding model or service.
+type embeddingDiarizer struct{ /* model client, clustering state */ }
+
+func (d *embeddingDiarizer) Diarize(ctx context.Context, audio []byte, opts ...diarization.DiarizeOption) ([]diarization.SpeakerSegment, error) {
+	// 1. Split audio into short windows and compute a speaker embedding per window.
+	// 2. Cluster embeddings (or compare with known speakers) to pick a label.
+	// 3. Merge adjacent windows with the same label into SpeakerSegments.
+	return nil, fmt.Errorf("not implemented")
+}
+
+func init() {
+	diarization.Register("embedding", func(cfg diarization.Config) (diarization.Diarizer, error) {
+		return &embeddingDiarizer{}, nil
+	})
 }
 ```
 
 ### Per-Speaker Timeline
 
 ```go
-// SpeakerTimeline represents when each speaker spoke.
+import (
+	"sort"
+	"time"
+
+	"github.com/lookatitude/beluga-ai/v2/voice/diarization"
+)
+
+// SpeakerTimeline lists when one speaker spoke.
 type SpeakerTimeline struct {
-    Speaker  string
-    Segments []TimeRange
+	Speaker  string
+	Segments []TimeRange
+	Total    time.Duration
 }
 
 type TimeRange struct {
-    Start time.Duration
-    End   time.Duration
+	Start time.Duration
+	End   time.Duration
 }
 
-func buildTimeline(segments []Segment) []SpeakerTimeline {
-    bySpecaker := make(map[string][]TimeRange)
-    for _, seg := range segments {
-        bySpecaker[seg.Speaker] = append(bySpecaker[seg.Speaker], TimeRange{
-            Start: seg.Start,
-            End:   seg.End,
-        })
-    }
+func buildTimeline(segments []diarization.SpeakerSegment) []SpeakerTimeline {
+	bySpeaker := make(map[string]*SpeakerTimeline)
+	for _, seg := range segments {
+		tl, ok := bySpeaker[seg.SpeakerID]
+		if !ok {
+			tl = &SpeakerTimeline{Speaker: seg.SpeakerID}
+			bySpeaker[seg.SpeakerID] = tl
+		}
+		tl.Segments = append(tl.Segments, TimeRange{Start: seg.Start, End: seg.End})
+		tl.Total += seg.Duration()
+	}
 
-    var timelines []SpeakerTimeline
-    for speaker, ranges := range bySpecaker {
-        timelines = append(timelines, SpeakerTimeline{
-            Speaker:  speaker,
-            Segments: ranges,
-        })
-    }
-    return timelines
+	timelines := make([]SpeakerTimeline, 0, len(bySpeaker))
+	for _, tl := range bySpeaker {
+		timelines = append(timelines, *tl)
+	}
+	sort.Slice(timelines, func(i, j int) bool { return timelines[i].Speaker < timelines[j].Speaker })
+	return timelines
 }
 ```
 
 ## Deployment Considerations
 
 - **Overlap handling**: Meetings frequently have overlapping speech; represent overlap as segments with multiple speakers or as separate overlapping segments
-- **Speaker count estimation**: When possible, estimate the number of speakers upfront to improve clustering accuracy
-- **Real-time vs. offline**: Use `ProcessStream` for real-time pipelines; buffer segments before diarization for better accuracy
-- **VAD tuning**: Shorter MinSpeechDuration captures brief interjections common in meetings
+- **Speaker count estimation**: When possible, pass the expected number of speakers with `diarization.WithMaxSpeakers` to improve clustering
+- **Real-time vs. offline**: Run the VAD on frames as they arrive; buffer segments before diarization for better accuracy
+- **VAD tuning**: A short minimum speech duration captures brief interjections common in meetings
 - **Observability**: Track segment count, diarization accuracy, and boundary precision
 
-## Results
+## Lessons Learned
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Speaker attribution accuracy | N/A | 87% | Met >85% target |
-| Segment boundary precision | N/A | 180ms | Met <200ms target |
-| Real-time capable | No | Yes | New capability |
-
-### Lessons Learned
-
-- **Silero for meetings**: Worked well for mixed speech and silence patterns in meeting audio
 - **Short MinSpeechDuration**: Capturing brief interjections improved attribution completeness
 - **Separate VAD from diarization**: Clear separation allowed independent tuning and best-of-breed component selection
 

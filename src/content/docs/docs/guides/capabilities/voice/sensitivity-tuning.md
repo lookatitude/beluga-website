@@ -1,36 +1,43 @@
 ---
 title: VAD and Turn Detection Sensitivity
-description: "Optimize VAD and turn detection thresholds in Go to balance responsiveness against false triggers — tune silence duration, speech detection, and turn boundaries."
+description: "Tune VAD thresholds, minimum speech and silence durations, and environment profiles in Go for natural turn-taking with Beluga AI's voice pipeline."
 head:
   - tag: meta
     attrs:
       name: keywords
-      content: "Beluga AI, Go, tutorial, VAD tuning, turn detection, sensitivity, voice AI, threshold optimization"
+      content: "Beluga AI, Go, tutorial, VAD tuning, voice sensitivity, silero, webrtc, energy VAD, noise environment, sensitivity profiles"
 ---
 
-Voice Activity Detection (VAD) determines whether an audio frame contains speech, and turn detection determines when the user has finished speaking. These two systems work together to create the turn-taking rhythm of a conversation. Tuning their thresholds is critical: too sensitive and the agent reacts to background noise or interrupts the user mid-sentence; too conservative and users experience uncomfortable pauses while they wait for the agent to respond. This tutorial demonstrates how to configure both systems for natural conversational flow.
+Voice Activity Detection (VAD) decides whether an audio frame contains speech. Together with your turn rules, it sets the turn-taking rhythm of a conversation. Tuning it matters. Too sensitive, and the agent reacts to breathing, a cough, or a closing door. Too conservative, and it misses the start of speech or leaves awkward pauses before responding.
+
+The right values depend on the environment and the use case. A threshold tuned for a quiet office triggers on machine noise in a factory. A threshold tuned for a factory ignores soft-spoken users in an office. Wake-word style detection wants high sensitivity, barge-in wants balanced sensitivity, and long-form dictation wants low sensitivity so continuous speech is not fragmented. This guide shows how to configure Beluga's VAD providers, add duration rules on top of them, and package validated settings as named profiles.
 
 ## What You Will Build
 
-A tuned VAD and turn detection configuration that correctly distinguishes speech from background noise, triggers responses at natural conversation boundaries, and handles interruptions gracefully.
+- A VAD created from Beluga's registry with an explicit threshold.
+- A debounce wrapper that adds minimum-speech and minimum-silence durations to any `voice.ActivityDetector`.
+- Named sensitivity profiles (`sensitive`, `balanced`, `robust`) selected at runtime.
+- Barge-in handling that uses the voice session state.
 
 ## Prerequisites
 
 - Go 1.26 or later
-- Basic understanding of audio frames and PCM encoding
-- Completion of [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming) is recommended
+- Basic understanding of 16-bit PCM audio
+- [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming) is recommended background
 
-## The Challenge: Natural Conversation Flow
+## Step 1: Configure a VAD Provider
 
-If VAD is too sensitive, the agent interrupts when the user breathes, clears their throat, or a door closes. If VAD is too conservative, the agent misses the start of speech and the user must repeat themselves. Similarly, if turn detection triggers too quickly, the agent responds mid-sentence because it mistook a natural pause for the end of an utterance; if too slowly, it creates awkward silences that make users wonder whether the agent is still listening.
+Beluga registers three detectors under the `voice.ActivityDetector` interface. All of them analyze 16-bit little-endian PCM:
 
-The goal is to find the threshold values that match your deployment environment and conversation style.
+| Name     | Package                                | Config keys (`map[string]any`)              | Detection method                                      |
+|----------|----------------------------------------|---------------------------------------------|-------------------------------------------------------|
+| `energy` | `voice` (built in)                     | `threshold` (RMS, default 1000)             | RMS energy above a threshold                          |
+| `webrtc` | `voice/vad/providers/webrtc`           | `threshold` (RMS, default 1000), `zcr_threshold` (default 0.1) | RMS energy plus zero-crossing rate        |
+| `silero` | `voice/vad/providers/silero`           | `threshold` (0-1, default 0.5), `sample_rate` (default 16000), `model_path` | Normalized energy, calibrated to Silero's scale |
 
-## Step 1: Configure VAD
+The `silero` provider accepts `model_path`, but the current implementation does not load an ONNX model. It always uses an energy-based approximation calibrated to Silero's 0-1 probability scale. Its thresholds are tunable, but you should not expect neural-network accuracy from it yet.
 
-VAD classifies each audio frame as speech or non-speech. The Silero VAD provider uses an ONNX neural network model for classification, which is more accurate than energy-based methods because it learns spectral features specific to human speech rather than relying on volume alone.
-
-The key parameters interact with each other: `Threshold` controls per-frame sensitivity, `MinSpeechDuration` requires sustained detection before triggering, and `MaxSilenceDuration` determines how long silence can persist within speech before marking the end. Adjusting any one parameter affects the behavior of the others.
+Create a detector from the registry by name, or with the provider's typed constructor:
 
 ```go
 package main
@@ -39,166 +46,223 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
-	"github.com/lookatitude/beluga-ai/v2/voice/vad"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {
 	ctx := context.Background()
 
-	detector, err := vad.NewProvider(ctx, "silero", vad.DefaultConfig(),
-		vad.WithThreshold(0.5),
-		vad.WithSampleRate(16000),
-		vad.WithFrameSize(512),
-		vad.WithMinSpeechDuration(250*time.Millisecond),
-		vad.WithMaxSilenceDuration(500*time.Millisecond),
-	)
+	detector, err := voice.NewVAD("silero", map[string]any{
+		"threshold":   0.5,
+		"sample_rate": 16000,
+	})
 	if err != nil {
-		log.Fatalf("create VAD provider: %v", err)
+		log.Fatalf("create VAD: %v", err)
 	}
 
-	// Test with a single audio frame
-	audio := make([]byte, 1024)
-	hasSpeech, err := detector.Process(ctx, audio)
+	// 20 ms of silence at 16 kHz: 320 samples, 2 bytes each.
+	audio := make([]byte, 640)
+	res, err := detector.DetectActivity(ctx, audio)
 	if err != nil {
-		log.Fatalf("process: %v", err)
+		log.Fatalf("detect: %v", err)
 	}
 
-	fmt.Printf("Speech detected: %v\n", hasSpeech)
+	fmt.Printf("speech=%v event=%s confidence=%.2f\n", res.IsSpeech, res.EventType, res.Confidence)
 }
 ```
 
-### Key Parameters
+`DetectActivity` returns a `voice.ActivityResult` with `IsSpeech`, an `EventType` (`voice.VADSpeechStart`, `voice.VADSpeechEnd`, or `voice.VADSilence`), and a `Confidence` score. In the cascading pipeline, `VADSpeechStart` emits a `voice.SignalStart` control frame, `VADSpeechEnd` emits `voice.SignalEndOfUtterance`, and audio frames with `IsSpeech` set are forwarded to STT.
 
-| Parameter             | Default | Description                                          |
-|----------------------|---------|------------------------------------------------------|
-| `Threshold`          | 0.5     | Confidence threshold (0.0-1.0). Higher = stricter.   |
-| `MinSpeechDuration`  | 250ms   | Minimum speech duration to trigger detection.        |
-| `MaxSilenceDuration` | 500ms   | Maximum silence within speech before marking as end. |
-| `FrameSize`          | 512     | Audio frame size in samples.                         |
-| `SampleRate`         | 16000   | Audio sample rate in Hz.                             |
+## Step 2: Add Minimum Speech and Silence Durations
 
-## Step 2: Configure Turn Detection
+The built-in detectors classify each frame on its own. A single loud frame (a click or a tap on the desk) can start an utterance, and a single quiet frame (a breath) can end one. Two duration rules fix this:
 
-Turn detection determines when the user has finished their utterance and the agent should respond. While VAD tells you whether someone is currently speaking, turn detection tells you whether they are done speaking. This distinction matters because natural speech includes pauses (thinking, breathing, mid-sentence hesitation) that VAD correctly detects as silence but that do not indicate the end of a turn.
+- **Minimum speech duration** filters transient noise. Speech must last this long before it counts.
+- **Minimum silence duration** filters natural pauses. Silence must last this long before speech ends.
 
-The heuristic provider combines silence duration with transcript analysis to make this determination.
+Wrap any detector to add them. Frame duration is derived from the frame size (two bytes per sample):
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/v2/voice/turndetection"
-	_ "github.com/lookatitude/beluga-ai/v2/voice/turndetection/providers/heuristic"
+	"context"
+	"sync"
+	"time"
+
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
-func setupTurnDetection(ctx context.Context) {
-	detector, err := turndetection.NewProvider(ctx, "heuristic", turndetection.DefaultConfig(),
-		turndetection.WithMinSilenceDuration(800*time.Millisecond),
-		turndetection.WithSentenceEndMarkers(".!?"),
-		turndetection.WithMinTurnLength(10),
-		turndetection.WithMaxTurnLength(5000),
-	)
-	if err != nil {
-		log.Fatalf("create turn detector: %v", err)
-	}
+// debouncedVAD adds minimum speech and silence durations to an ActivityDetector.
+type debouncedVAD struct {
+	inner      voice.ActivityDetector
+	sampleRate int
+	minSpeech  time.Duration
+	minSilence time.Duration
 
-	audio := make([]byte, 1024)
-	done, err := detector.DetectTurn(ctx, audio)
-	if err != nil {
-		log.Fatalf("detect turn: %v", err)
-	}
-
-	fmt.Printf("Turn complete: %v\n", done)
+	mu       sync.Mutex
+	speaking bool
+	run      time.Duration // length of the current speech or silence run
 }
-```
 
-For real-time pipelines, combine audio analysis with measured silence duration. The `DetectTurnWithSilence` method accepts an externally measured silence duration, which is typically provided by your VAD component. This allows the turn detector to make decisions based on actual measured silence rather than estimating it from the audio frames it receives.
+var _ voice.ActivityDetector = (*debouncedVAD)(nil)
 
-```go
-	silenceDuration := 500 * time.Millisecond
-	done, err := detector.DetectTurnWithSilence(ctx, audio, silenceDuration)
+func newDebouncedVAD(inner voice.ActivityDetector, sampleRate int, minSpeech, minSilence time.Duration) *debouncedVAD {
+	return &debouncedVAD{inner: inner, sampleRate: sampleRate, minSpeech: minSpeech, minSilence: minSilence}
+}
+
+func (d *debouncedVAD) DetectActivity(ctx context.Context, audio []byte) (voice.ActivityResult, error) {
+	res, err := d.inner.DetectActivity(ctx, audio)
 	if err != nil {
-		log.Fatalf("detect turn: %v", err)
+		return voice.ActivityResult{}, err
 	}
+	frame := time.Duration(len(audio)/2) * time.Second / time.Duration(d.sampleRate)
 
-	if done {
-		fmt.Println("User finished speaking; proceeding to response generation.")
-	}
-```
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-## Step 3: Interruption Handling
-
-When the agent is speaking and VAD detects user speech, the agent should stop immediately. This creates the natural "barge-in" experience users expect. The interruption detection should be more sensitive than normal speech detection because the cost of missing an interruption (user feels ignored) is higher than the cost of a false positive (agent briefly pauses).
-
-```go
-// handleInterruption stops agent playback when the user starts speaking.
-func handleInterruption(ctx context.Context, vadProvider vad.VADProvider, session voiceSession) {
-	audioCh := make(chan []byte, 8)
-	resultCh, err := vadProvider.ProcessStream(ctx, audioCh)
-	if err != nil {
-		log.Fatalf("start VAD stream: %v", err)
-	}
-
-	go func() {
-		for result := range resultCh {
-			if result.Error != nil {
-				continue
-			}
-			if result.HasVoice && session.GetState() == "speaking" {
-				// User started talking while agent is speaking: interrupt
-				session.StopSpeaking()
-			}
+	if !d.speaking {
+		if !res.IsSpeech {
+			d.run = 0
+			return voice.ActivityResult{EventType: voice.VADSilence, Confidence: res.Confidence}, nil
 		}
-	}()
+		d.run += frame
+		if d.run < d.minSpeech {
+			// Not sustained yet. Speech frames before the start event are
+			// dropped, so keep minSpeech short (100-300 ms).
+			return voice.ActivityResult{EventType: voice.VADSilence, Confidence: res.Confidence}, nil
+		}
+		d.speaking, d.run = true, 0
+		return voice.ActivityResult{IsSpeech: true, EventType: voice.VADSpeechStart, Confidence: res.Confidence}, nil
+	}
+
+	if res.IsSpeech {
+		d.run = 0
+		// Empty EventType: still speaking, no state transition to report.
+		return voice.ActivityResult{IsSpeech: true, Confidence: res.Confidence}, nil
+	}
+	d.run += frame
+	if d.run < d.minSilence {
+		// A short pause inside speech: keep forwarding audio.
+		return voice.ActivityResult{IsSpeech: true, Confidence: res.Confidence}, nil
+	}
+	d.speaking, d.run = false, 0
+	return voice.ActivityResult{EventType: voice.VADSpeechEnd, Confidence: res.Confidence}, nil
 }
 ```
 
-## Step 4: Environment-Specific Tuning
+The parameters interact. A higher threshold with a short minimum speech duration reacts quickly but only to loud speech. A lower threshold with a longer minimum speech duration catches quiet speech while still rejecting short noise bursts.
 
-Different environments require different sensitivity levels. A quiet office needs lower thresholds than a busy call center because the noise floor is different. Rather than tuning parameters individually each time, define environment profiles that encapsulate the complete tuning for a deployment scenario. This makes it straightforward to deploy the same application in different environments.
+## Step 3: Package Settings as Sensitivity Profiles
+
+Rather than scattering magic numbers through the code, bundle a provider, its config, and the duration rules into named profiles. Pick the profile at runtime from an environment variable, a tenant setting, or request metadata:
 
 ```go
-// EnvironmentProfile holds tuned VAD parameters for a specific environment.
-type EnvironmentProfile struct {
-	Name              string
-	Threshold         float64
-	MinSpeechDuration time.Duration
-	MaxSilenceDuration time.Duration
+import (
+	"fmt"
+	"time"
+
+	"github.com/lookatitude/beluga-ai/v2/voice"
+)
+
+// SensitivityProfile is a validated set of VAD settings for one environment.
+type SensitivityProfile struct {
+	Provider   string
+	Config     map[string]any
+	MinSpeech  time.Duration
+	MinSilence time.Duration
 }
 
-var profiles = map[string]EnvironmentProfile{
-	"quiet": {
-		Name:              "Quiet Office",
-		Threshold:         0.4,
-		MinSpeechDuration: 200 * time.Millisecond,
-		MaxSilenceDuration: 400 * time.Millisecond,
+var profiles = map[string]SensitivityProfile{
+	// Quiet rooms, wake-word style: catch every utterance.
+	"sensitive": {
+		Provider:   "silero",
+		Config:     map[string]any{"threshold": 0.4, "sample_rate": 16000},
+		MinSpeech:  100 * time.Millisecond,
+		MinSilence: 400 * time.Millisecond,
 	},
-	"normal": {
-		Name:              "Standard Environment",
-		Threshold:         0.5,
-		MinSpeechDuration: 250 * time.Millisecond,
-		MaxSilenceDuration: 500 * time.Millisecond,
+	// General purpose.
+	"balanced": {
+		Provider:   "silero",
+		Config:     map[string]any{"threshold": 0.5, "sample_rate": 16000},
+		MinSpeech:  150 * time.Millisecond,
+		MinSilence: 500 * time.Millisecond,
 	},
-	"noisy": {
-		Name:              "Noisy Environment",
-		Threshold:         0.7,
-		MinSpeechDuration: 350 * time.Millisecond,
-		MaxSilenceDuration: 600 * time.Millisecond,
+	// Noisy environments: prefer precision over recall.
+	"robust": {
+		Provider:   "webrtc",
+		Config:     map[string]any{"threshold": 1800.0, "zcr_threshold": 0.08},
+		MinSpeech:  250 * time.Millisecond,
+		MinSilence: 600 * time.Millisecond,
 	},
 }
+
+// NewVADForProfile builds a debounced detector from a named profile.
+func NewVADForProfile(name string, sampleRate int) (voice.ActivityDetector, error) {
+	p, ok := profiles[name]
+	if !ok {
+		return nil, fmt.Errorf("unknown VAD profile %q", name)
+	}
+	base, err := voice.NewVAD(p.Provider, p.Config)
+	if err != nil {
+		return nil, fmt.Errorf("create %s VAD: %w", p.Provider, err)
+	}
+	return newDebouncedVAD(base, sampleRate, p.MinSpeech, p.MinSilence), nil
+}
 ```
+
+Import the providers your profiles use (`_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"` and `.../webrtc`) so they register. Pass the result to `voice.WithVAD` when you build the pipeline.
+
+What each profile trades off:
+
+- **`sensitive`** uses a low threshold and short durations. It rarely misses an utterance, at the cost of more false triggers. Use it where missing speech is worse than reacting to noise.
+- **`balanced`** works adequately in most rooms.
+- **`robust`** uses the WebRTC-style detector, whose zero-crossing check helps reject hiss and broadband noise, plus a higher energy threshold and longer durations. It may miss quiet or fragmented speech.
+
+Treat these numbers as starting points. Measure false-positive and false-negative rates in each target environment, and record the expected environment next to each profile. The same pattern supports per-tenant profiles, profiles loaded from a config file, and A/B tests of sensitivity changes without code changes.
+
+## Step 4: Barge-In While the Agent Is Speaking
+
+When the agent is speaking and the user starts talking, playback should stop right away. Missing an interruption (the user feels ignored) costs more than a false positive (the agent pauses briefly), so you can use a more sensitive profile for this check. `voice.VoiceSession` tracks whether the agent is speaking:
+
+```go
+import (
+	"context"
+
+	"github.com/lookatitude/beluga-ai/v2/voice"
+)
+
+// checkBargeIn stops agent playback when the user speaks over it.
+// stopPlayback is your transport-specific function that halts audio output.
+func checkBargeIn(ctx context.Context, vad voice.ActivityDetector, sess *voice.VoiceSession, audio []byte, stopPlayback func()) error {
+	if sess.CurrentState() != voice.StateSpeaking {
+		return nil
+	}
+	res, err := vad.DetectActivity(ctx, audio)
+	if err != nil {
+		return err
+	}
+	if res.EventType == voice.VADSpeechStart {
+		stopPlayback()
+		return sess.Transition(voice.StateListening)
+	}
+	return nil
+}
+```
+
+The cascading `voice.VoicePipeline` does not stop TTS playback on its own. For speech-to-speech engines, sending a `voice.NewControlFrame(voice.SignalInterrupt)` frame into `s2s.AsFrameProcessor` calls the session's `Interrupt` method. See [Barge-In Detection](/docs/guides/capabilities/voice/barge-in-detection) for a fuller treatment.
 
 ## Verification
 
 1. Run the agent in your target environment.
-2. Hum, cough, or tap the desk. The agent should not react.
-3. Say "Hello." The agent should respond within approximately one second.
-4. Interrupt the agent mid-sentence. It should stop immediately.
-5. Speak a long sentence with a natural mid-sentence pause. The agent should wait for the full sentence before responding.
+2. Hum, cough, or tap the desk. With the debounced detector, the agent should not react.
+3. Say "Hello." The agent should respond within about one second.
+4. Speak a long sentence with a natural mid-sentence pause. The agent should wait for the whole sentence.
+5. Interrupt the agent mid-sentence. Playback should stop immediately.
+6. Repeat with each profile and record which one gives the fewest false triggers and missed utterances.
 
 ## Next Steps
 
-- [Custom Silero VAD](/docs/guides/capabilities/voice/custom-silero-vad) -- Use custom ONNX models for VAD
+- [Custom Silero VAD](/docs/guides/capabilities/voice/custom-silero-vad) -- Configure the Silero provider
+- [Sentence-Boundary Turn Detection](/docs/guides/capabilities/voice/sentence-boundary) -- Combine VAD with transcript rules
 - [Native S2S with Amazon Nova](/docs/guides/capabilities/voice/s2s-amazon-nova) -- Models with built-in VAD
-- [LiveKit and Vapi Integration](/docs/guides/capabilities/voice/livekit-vapi) -- Server-side VAD in production backends

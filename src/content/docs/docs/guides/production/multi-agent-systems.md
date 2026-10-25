@@ -126,7 +126,8 @@ import (
 
     "github.com/lookatitude/beluga-ai/v2/agent"
     "github.com/lookatitude/beluga-ai/v2/config"
-	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "github.com/lookatitude/beluga-ai/v2/tool"
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
@@ -466,46 +467,60 @@ func (s *SupervisorAgent) synthesizeResults(ctx context.Context, goal string, re
 
 ## Shared State and Memory
 
-When agents collaborate on a task, they need shared context to avoid duplicating work and to build on each other's findings. Beluga's memory system supports this by allowing multiple agents to read from and write to the same memory store. Changes made by one agent become immediately visible to all other agents sharing that store.
+When agents collaborate on a task, they need shared context to avoid duplicating work and to build on each other's findings. Beluga's `memory` package supports this: several agents' turns can be saved to, and loaded from, the same `memory.Memory` instance, so what one agent records is visible to the others on the next load.
 
 This is particularly important in supervisor workflows where a research agent's findings inform a coding agent's implementation, or in long-running conversations where context from early interactions needs to persist across agent handoffs.
 
+Today the application does the wiring: load shared context before invoking an agent and save the turn afterwards. (`agent.WithMemory` exists, but it takes a separate `agent.Memory` interface and `BaseAgent` does not yet read from it, so don't rely on it to share history.)
+
 ```go
 import (
+    goredis "github.com/redis/go-redis/v9"
+
     "github.com/lookatitude/beluga-ai/v2/memory"
-    "github.com/lookatitude/beluga-ai/v2/memory/stores"
+    redisstore "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-// Create shared memory store backed by Redis for persistence
-// across restarts and horizontal scaling.
-func CreateSharedMemory() (*memory.CoreMemory, error) {
-    store := stores.NewRedisStore(&stores.RedisConfig{
-        Addr: "localhost:6379",
+// CreateSharedMemory returns recall memory backed by Redis, so the shared
+// history survives restarts and is visible to every replica.
+func CreateSharedMemory() (memory.Memory, error) {
+    store, err := redisstore.New(redisstore.Config{
+        Client: goredis.NewClient(&goredis.Options{Addr: "localhost:6379"}),
+        Key:    "team:shared-history",
     })
-
-    return memory.NewCoreMemory(
-        memory.WithStore(store),
-        memory.WithMaxContextTokens(4000),
-    ), nil
+    if err != nil {
+        return nil, err
+    }
+    return memory.NewRecall(store), nil
 }
 
-// Both agents receive the same memory instance, so conversation
-// history and context are shared. The dev agent can see what the
-// QA agent discussed, and vice versa.
-func SetupAgentsWithSharedMemory(ctx context.Context, model llm.ChatModel) {
-    sharedMem, _ := CreateSharedMemory()
+// invokeWithSharedMemory gives an agent the shared history as context and
+// records its turn so the other agents see it.
+func invokeWithSharedMemory(ctx context.Context, a agent.Agent, mem memory.Memory, task string) (string, error) {
+    history, err := mem.Load(ctx, task)
+    if err != nil {
+        return "", err
+    }
+    var sb strings.Builder
+    for _, m := range history {
+        fmt.Fprintf(&sb, "[%s] ", m.GetRole())
+        for _, part := range m.GetContent() {
+            if t, ok := part.(schema.TextPart); ok {
+                sb.WriteString(t.Text)
+            }
+        }
+        sb.WriteString("\n")
+    }
 
-    devAgent := agent.New("dev",
-        agent.WithLLM(model),
-        agent.WithMemory(sharedMem),
-    )
-
-    qaAgent := agent.New("qa",
-        agent.WithLLM(model),
-        agent.WithMemory(sharedMem), // Same memory instance
-    )
-
-    // Both agents can see each other's conversation history
+    out, err := a.Invoke(ctx, "Shared context:\n"+sb.String()+"\nTask: "+task)
+    if err != nil {
+        return "", err
+    }
+    if err := mem.Save(ctx, schema.NewHumanMessage(task), schema.NewAIMessage(out)); err != nil {
+        return "", err
+    }
+    return out, nil
 }
 ```
 

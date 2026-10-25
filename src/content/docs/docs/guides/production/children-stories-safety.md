@@ -44,13 +44,14 @@ package main
 import (
     "context"
     "fmt"
+    "os"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/guard"
     "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/prompt"
     "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/v2/guard/providers/content"
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
@@ -58,24 +59,29 @@ import (
 type SafeStoryGenerator struct {
     model          llm.ChatModel
     safetyChecker  guard.Guard
-    promptTemplate *prompt.PromptTemplate
+    promptTemplate *prompt.Template
     ageValidator   *AgeValidator
 }
 
 func NewSafeStoryGenerator(ctx context.Context) (*SafeStoryGenerator, error) {
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
 
-    safetyChecker, err := guard.New("content", guard.Config{
-        Patterns: getChildSafetyPatterns(),
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create safety checker: %w", err)
-    }
+    // Keyword-based content filter: blocks the story on the first match.
+    safetyChecker := guard.NewContentFilter(
+        guard.WithKeywords(getChildSafetyPatterns()...),
+        guard.WithThreshold(1),
+    )
 
-    template, err := prompt.NewPromptTemplate(`
+    template := &prompt.Template{
+        Name:    "children-story",
+        Version: "1.0.0",
+        Content: `
 Generate a safe, age-appropriate story for a {{.age}}-year-old child.
 
 Theme: {{.theme}}
@@ -89,8 +95,9 @@ Requirements:
 - Engaging and fun
 
 Generate the story:
-`)
-    if err != nil {
+`,
+    }
+    if err := template.Validate(); err != nil {
         return nil, fmt.Errorf("create prompt template: %w", err)
     }
 
@@ -108,7 +115,7 @@ func (s *SafeStoryGenerator) GenerateStory(ctx context.Context, request StoryReq
 
     for attempt := 0; attempt < maxAttempts; attempt++ {
         // Build age-appropriate prompt
-        promptText, err := s.promptTemplate.Format(map[string]any{
+        promptText, err := s.promptTemplate.Render(map[string]any{
             "age":       request.Age,
             "theme":     request.Theme,
             "length":    request.Length,
@@ -120,12 +127,8 @@ func (s *SafeStoryGenerator) GenerateStory(ctx context.Context, request StoryReq
 
         // Generate story
         msgs := []schema.Message{
-            &schema.SystemMessage{Parts: []schema.ContentPart{
-                schema.TextPart{Text: "You are a children's story writer. Create safe, age-appropriate, engaging stories."},
-            }},
-            &schema.HumanMessage{Parts: []schema.ContentPart{
-                schema.TextPart{Text: promptText},
-            }},
+            schema.NewSystemMessage("You are a children's story writer. Create safe, age-appropriate, engaging stories."),
+            schema.NewHumanMessage(promptText),
         }
 
         resp, err := s.model.Generate(ctx, msgs)
@@ -133,11 +136,12 @@ func (s *SafeStoryGenerator) GenerateStory(ctx context.Context, request StoryReq
             continue // Retry
         }
 
-        story := resp.Parts[0].(schema.TextPart).Text
+        story := resp.Text()
 
         // Check safety
-        safetyResult, err := s.safetyChecker.Check(ctx, guard.Input{
+        safetyResult, err := s.safetyChecker.Validate(ctx, guard.GuardInput{
             Content: story,
+            Role:    "output",
             Metadata: map[string]any{
                 "age": request.Age,
             },
@@ -146,7 +150,7 @@ func (s *SafeStoryGenerator) GenerateStory(ctx context.Context, request StoryReq
             continue
         }
 
-        if !safetyResult.Safe {
+        if !safetyResult.Allowed {
             continue // Regenerate
         }
 
@@ -180,9 +184,9 @@ func (s *SafeStoryGenerator) getAgeGroup(age int) string {
     }
 }
 
-func (s *SafeStoryGenerator) calculateSafetyRating(result guard.Result) float64 {
+func (s *SafeStoryGenerator) calculateSafetyRating(result guard.GuardResult) float64 {
     // Convert safety check result to 0-1 rating
-    if result.Safe {
+    if result.Allowed {
         return 1.0
     }
     return 0.0
@@ -297,7 +301,7 @@ func loadConceptLists() map[string][]string {
 
 ### Content Filtering Pipeline
 
-The validation pipeline applies checks in order of computational cost — fast pattern matching first, then LLM-based safety analysis, then age-appropriateness rules. This ordering minimizes latency for the common case (content that passes all checks) while ensuring obviously unsafe content is caught without invoking expensive checks:
+The validation pipeline applies checks in order of computational cost — fast pattern matching first, then the guard check (a keyword filter, or a hosted classifier guard), then age-appropriateness rules. This ordering minimizes latency for the common case (content that passes all checks) while ensuring obviously unsafe content is caught without invoking expensive checks:
 
 ```go
 func (s *SafeStoryGenerator) validateStory(ctx context.Context, story string, age int) (bool, error) {
@@ -306,15 +310,17 @@ func (s *SafeStoryGenerator) validateStory(ctx context.Context, story string, ag
         return false, nil
     }
 
-    // Stage 2: LLM-based safety check
-    safetyResult, err := s.safetyChecker.Check(ctx, guard.Input{
+    // Stage 2: guard check (the keyword ContentFilter here; swap in a hosted
+    // classifier guard such as guard/providers/azuresafety for model-based checks)
+    safetyResult, err := s.safetyChecker.Validate(ctx, guard.GuardInput{
         Content: story,
+        Role:    "output",
     })
     if err != nil {
         return false, err
     }
 
-    if !safetyResult.Safe {
+    if !safetyResult.Allowed {
         return false, nil
     }
 

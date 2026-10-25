@@ -8,6 +8,10 @@ head:
       content: "Amazon Nova, speech-to-speech, S2S, AWS Bedrock, bidirectional audio, tool use, Go, Beluga AI"
 ---
 
+:::caution[Known issue]
+The current `nova` provider opens a WebSocket to a Bedrock `converse-stream` URL without SigV4 signing. Amazon Nova Sonic is only reachable through `InvokeModelWithBidirectionalStream` (HTTP/2, SigV4), so sessions fail to connect today. The framework tracks the fix; use `openai_realtime` or `gemini_live` for working speech-to-speech in the meantime.
+:::
+
 Amazon Nova provides native speech-to-speech via the AWS Bedrock Runtime API with Nova Sonic. The provider connects via WebSocket for bidirectional audio streaming, supporting tool calling, input transcription, and user interruption handling.
 
 Choose Amazon Nova S2S when your infrastructure is AWS-native and you want speech-to-speech without leaving the AWS ecosystem. Nova Sonic uses AWS IAM authentication and connects through Bedrock Runtime, fitting naturally into existing AWS deployments. For a provider-agnostic alternative, consider [OpenAI Realtime](/docs/reference/providers/voice/openai-realtime) or [Gemini Live](/docs/reference/providers/voice/gemini-live).
@@ -77,7 +81,11 @@ func main() {
     }
 
     // Receive events
-    for event := range session.Recv() {
+    for event, err := range session.Recv(ctx) {
+        if err != nil {
+            log.Printf("session: %v", err)
+            break
+        }
         switch event.Type {
         case s2s.EventAudioOutput:
             playAudio(event.Audio)
@@ -93,6 +101,13 @@ func main() {
             log.Printf("error: %v", event.Error)
         }
     }
+}
+// audioChunk is PCM16 audio captured from your microphone or transport.
+var audioChunk []byte
+
+// playAudio writes synthesized PCM16 audio to your output device or transport.
+func playAudio(pcm []byte) {
+    fmt.Printf("received %d bytes of audio\n", len(pcm))
 }
 ```
 
@@ -137,7 +152,11 @@ session, err := engine.Start(ctx,
     }),
 )
 
-for event := range session.Recv() {
+for event, err := range session.Recv(ctx) {
+    if err != nil {
+        log.Printf("session: %v", err)
+        break
+    }
     if event.Type == s2s.EventToolCall {
         result := lookupKnowledgeBase(event.ToolCall.Arguments)
         if err := session.SendToolResult(ctx, schema.ToolResult{

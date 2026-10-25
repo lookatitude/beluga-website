@@ -32,7 +32,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
@@ -75,13 +75,13 @@ func (pdr *ParentDocumentRetriever) IndexChunks(ctx context.Context, parentDoc s
     embeddings, err := pdr.embedder.Embed(ctx, texts)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return fmt.Errorf("pdr: embed chunks: %w", err)
     }
 
     if err := pdr.chunkStore.Add(ctx, chunks, embeddings); err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return fmt.Errorf("pdr: add chunks: %w", err)
     }
 
@@ -94,7 +94,7 @@ func (pdr *ParentDocumentRetriever) IndexChunks(ctx context.Context, parentDoc s
         attribute.Int("chunk_count", len(chunks)),
         attribute.String("parent_id", parentDoc.ID),
     )
-    span.SetStatus(trace.StatusOK, "chunks indexed")
+    span.SetStatus(codes.Ok, "chunks indexed")
 
     return nil
 }
@@ -115,14 +115,14 @@ func (pdr *ParentDocumentRetriever) Retrieve(ctx context.Context, query string) 
     queryVec, err := pdr.embedder.EmbedSingle(ctx, query)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, fmt.Errorf("pdr: embed query: %w", err)
     }
 
     chunks, err := pdr.chunkStore.Search(ctx, queryVec, pdr.chunkK)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, fmt.Errorf("pdr: search chunks: %w", err)
     }
 
@@ -169,7 +169,7 @@ func (pdr *ParentDocumentRetriever) Retrieve(ctx context.Context, query string) 
             attribute.Float64("top_score", parents[0].Score),
         )
     }
-    span.SetStatus(trace.StatusOK, "parent documents retrieved")
+    span.SetStatus(codes.Ok, "parent documents retrieved")
 
     return result, nil
 }

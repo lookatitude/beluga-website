@@ -35,7 +35,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.voice.s2s.interruption")
@@ -87,7 +87,7 @@ func (ih *InterruptionHandler) HandleInterruption(ctx context.Context, newAudio 
 	// Process new input immediately
 	go ih.processNewInput(newCtx, newAudio)
 
-	span.SetStatus(trace.StatusOK, "interruption handled")
+	span.SetStatus(codes.Ok, "interruption handled")
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (ih *InterruptionHandler) stopTTS(ctx context.Context) {
 	// ttsProvider.Stop()
 
 	ih.ttsPlaying = false
-	span.SetStatus(trace.StatusOK, "TTS stopped")
+	span.SetStatus(codes.Ok, "TTS stopped")
 }
 
 func (ih *InterruptionHandler) stopLLM(ctx context.Context) {
@@ -108,7 +108,7 @@ func (ih *InterruptionHandler) stopLLM(ctx context.Context) {
 
 	// Cancel LLM request via context cancellation
 	ih.llmProcessing = false
-	span.SetStatus(trace.StatusOK, "LLM stopped")
+	span.SetStatus(codes.Ok, "LLM stopped")
 }
 
 func (ih *InterruptionHandler) processNewInput(ctx context.Context, audio <-chan []byte) {
@@ -120,7 +120,7 @@ func (ih *InterruptionHandler) processNewInput(ctx context.Context, audio <-chan
 	ih.mu.Unlock()
 
 	// Trigger new STT -> LLM -> TTS pipeline
-	span.SetStatus(trace.StatusOK, "new input processed")
+	span.SetStatus(codes.Ok, "new input processed")
 }
 
 // InterruptibleS2S wraps S2S with interruption handling.

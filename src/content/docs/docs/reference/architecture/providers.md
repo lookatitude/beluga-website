@@ -131,18 +131,45 @@ Every provider follows the same pattern regardless of category. Whether you're a
 package myprovider
 
 import (
+    "context"
+    "iter"
+
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var _ llm.ChatModel = (*Model)(nil) // compile-time check
 
-type Model struct { /* ... */ }
+type Model struct {
+    model string
+    tools []schema.ToolDefinition
+}
 
 func New(cfg config.ProviderConfig) (*Model, error) {
     // Validate config, create client
-    return &Model{/* ... */}, nil
+    return &Model{model: cfg.Model}, nil
 }
+
+func (m *Model) Generate(ctx context.Context, msgs []schema.Message, opts ...llm.GenerateOption) (*schema.AIMessage, error) {
+    // Call the provider API and convert the response.
+    return schema.NewAIMessage("..."), nil
+}
+
+func (m *Model) Stream(ctx context.Context, msgs []schema.Message, opts ...llm.GenerateOption) iter.Seq2[schema.StreamChunk, error] {
+    return func(yield func(schema.StreamChunk, error) bool) {
+        // Read the provider's stream and yield each chunk.
+        yield(schema.StreamChunk{Delta: "..."}, nil)
+    }
+}
+
+func (m *Model) BindTools(tools []schema.ToolDefinition) llm.ChatModel {
+    clone := *m
+    clone.tools = tools
+    return &clone
+}
+
+func (m *Model) ModelID() string { return m.model }
 ```
 
 ### Step 3: Register via init()

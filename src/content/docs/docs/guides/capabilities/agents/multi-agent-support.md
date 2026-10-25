@@ -56,6 +56,7 @@ package main
 import (
     "context"
     "fmt"
+    "os"
 
     "github.com/lookatitude/beluga-ai/v2/agent"
     "github.com/lookatitude/beluga-ai/v2/config"
@@ -67,7 +68,10 @@ import (
 
 // createBillingAgent builds an agent specialized in billing inquiries.
 func createBillingAgent(ctx context.Context) (agent.Agent, error) {
-    model, err := llm.New("openai", config.ProviderConfig{Model: "gpt-4o"})
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -77,11 +81,11 @@ func createBillingAgent(ctx context.Context) (agent.Agent, error) {
         "Process a refund for a customer order",
         func(ctx context.Context, input RefundInput) (*tool.Result, error) {
             // Call billing system API
-            result, err := billingAPI.ProcessRefund(ctx, input.OrderID, input.Amount)
+            refundID, err := billingAPI.ProcessRefund(ctx, input.OrderID, input.Amount)
             if err != nil {
                 return tool.ErrorResult(err), nil
             }
-            return tool.TextResult(fmt.Sprintf("Refund of $%.2f processed for order %s", input.Amount, input.OrderID)), nil
+            return tool.TextResult(fmt.Sprintf("Refund %s of $%.2f processed for order %s", refundID, input.Amount, input.OrderID)), nil
         },
     )
 
@@ -111,22 +115,25 @@ func createBillingAgent(ctx context.Context) (agent.Agent, error) {
 }
 
 type RefundInput struct {
-    OrderID string  `json:"order_id" jsonschema:"description=The order ID to refund"`
-    Amount  float64 `json:"amount" jsonschema:"description=Refund amount in dollars"`
+    OrderID string  `json:"order_id" description:"The order ID to refund"`
+    Amount  float64 `json:"amount" description:"Refund amount in dollars"`
 }
 
 type InvoiceInput struct {
-    InvoiceID string `json:"invoice_id" jsonschema:"description=The invoice ID to look up"`
+    InvoiceID string `json:"invoice_id" description:"The invoice ID to look up"`
 }
 ```
 
 ## Handoffs as Tools
 
-Beluga AI implements agent transfers as tools. When you register child agents via `agent.WithChildren()`, Beluga automatically generates `transfer_to_{agent_id}` tools that the parent agent can call to hand off the conversation. This automatic tool generation means adding a new specialist agent is a one-line change — register it as a child and the handoff tool appears automatically.
+Beluga AI implements agent transfers as tools. When you register handoff targets via `agent.WithHandoffs()` (built with `agent.HandoffTo`), Beluga automatically generates a `transfer_to_{agent_id}` tool for each target that the parent agent can call to hand off the conversation. This automatic tool generation means adding a new specialist agent is a one-line change — add a handoff and the transfer tool appears automatically.
 
 ```go
 func createTriageAgent(ctx context.Context) (agent.Agent, error) {
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -146,7 +153,7 @@ func createTriageAgent(ctx context.Context) (agent.Agent, error) {
         return nil, err
     }
 
-    // Triage agent with child agents — handoff tools are auto-generated
+    // Triage agent with handoff targets — transfer_to_* tools are auto-generated
     triageAgent := agent.New("triage-agent",
         agent.WithPersona(agent.Persona{
             Role: "Customer Support Triage",
@@ -156,7 +163,11 @@ func createTriageAgent(ctx context.Context) (agent.Agent, error) {
                 "transfer to the appropriate specialist agent.",
         }),
         agent.WithLLM(model),
-        agent.WithChildren([]agent.Agent{billingAgent, techAgent, generalAgent}),
+        agent.WithHandoffs([]agent.Handoff{
+            agent.HandoffTo(billingAgent, "Billing: refunds, invoices, payment issues"),
+            agent.HandoffTo(techAgent, "Technical: product errors and troubleshooting"),
+            agent.HandoffTo(generalAgent, "General questions"),
+        }),
     )
 
     return triageAgent, nil
@@ -196,13 +207,11 @@ func handleInquiry(ctx context.Context, triageAgent agent.Agent, inquiry string)
 Not every issue can be resolved by AI. Beluga AI's HITL (Human-in-the-Loop) system provides confidence-based escalation using a policy-based approval mechanism. Policies match tool names against patterns (e.g., `process_refund` requires explicit approval, `lookup_*` is auto-approved) and evaluate risk levels. This declarative approach means escalation rules are auditable and configurable without code changes — operations teams can adjust thresholds and policies based on observed outcomes.
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/hitl"
-    _ "github.com/lookatitude/beluga-ai/v2/hitl/providers/default"
-)
+import "github.com/lookatitude/beluga-ai/v2/hitl"
 
 func setupEscalation(ctx context.Context) (hitl.Manager, error) {
-    manager, err := hitl.New("default", hitl.Config{})
+    // "default" is the built-in in-process manager registered by the hitl package.
+    manager, err := hitl.New("default", hitl.Config{DefaultTimeout: 5 * time.Minute})
     if err != nil {
         return nil, fmt.Errorf("create hitl manager: %w", err)
     }
@@ -265,17 +274,20 @@ For complex multi-step support cases, use workflow agents to coordinate a sequen
 ```go
 import "github.com/lookatitude/beluga-ai/v2/agent/workflow"
 
-// Sequential workflow: verify identity → diagnose → resolve → follow up
-supportWorkflow, err := workflow.NewSequential(
-    agent.WithID("support-workflow"),
-    agent.WithModel(model),
-    workflow.WithSteps(
-        identityVerifier,
-        diagnosisAgent,
-        resolutionAgent,
-        followUpAgent,
-    ),
-)
+// Sequential workflow: verify identity → diagnose → resolve → follow up.
+// Each child agent receives the previous agent's output as its input.
+supportWorkflow := workflow.NewSequentialAgent("support-workflow", []agent.Agent{
+    identityVerifier,
+    diagnosisAgent,
+    resolutionAgent,
+    followUpAgent,
+})
+
+result, err := supportWorkflow.Invoke(ctx, inquiry)
+if err != nil {
+    return fmt.Errorf("support workflow: %w", err)
+}
+fmt.Println(result)
 ```
 
 ## Production Considerations
@@ -307,9 +319,9 @@ import "github.com/lookatitude/beluga-ai/v2/guard"
 // Output guard: prevent PII leakage in responses
 // Tool guard: validate tool inputs before execution
 pipeline := guard.NewPipeline(
-    guard.WithInputGuards(injectionGuard, toxicityGuard),
-    guard.WithOutputGuards(piiGuard),
-    guard.WithToolGuards(authorizationGuard),
+    guard.Input(guard.NewPromptInjectionDetector(), toxicityGuard),
+    guard.Output(guard.NewPIIRedactor(guard.DefaultPIIPatterns...)),
+    guard.Tool(authorizationGuard),
 )
 ```
 
@@ -320,10 +332,22 @@ Restrict agent capabilities per customer tier using Beluga AI's auth system:
 ```go
 import "github.com/lookatitude/beluga-ai/v2/auth"
 
-policy, err := auth.New("rbac", auth.Config{})
+policy := auth.NewRBACPolicy("support")
+if err := policy.AddRole(auth.Role{
+    Name:        "enterprise",
+    Permissions: []auth.Permission{auth.PermToolExec},
+}); err != nil {
+    return err
+}
+if err := policy.AssignRole(customerID, "enterprise"); err != nil {
+    return err
+}
 
 // Check if agent can execute a tool for this customer
 allowed, err := policy.Authorize(ctx, customerID, auth.PermToolExec, "process_refund")
+if err != nil {
+    return fmt.Errorf("authorize: %w", err)
+}
 if !allowed {
     return fmt.Errorf("customer not authorized for refund processing")
 }

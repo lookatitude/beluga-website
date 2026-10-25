@@ -1,6 +1,6 @@
 ---
 title: Configuring S2S Reasoning Modes
-description: "Tune Speech-to-Speech models for different interaction styles in Go — configure reasoning depth, latency targets, and dynamic mode switching with Beluga AI."
+description: "Tune speech-to-speech (S2S) sessions for different interaction styles in Go — model choice, instructions, and switching modes between sessions with Beluga AI."
 head:
   - tag: meta
     attrs:
@@ -8,7 +8,7 @@ head:
       content: "Beluga AI, Go, tutorial, S2S, reasoning modes, latency, Speech-to-Speech, voice AI"
 ---
 
-Speech-to-Speech models can be configured to optimize for different interaction patterns. A fast concierge needs immediate responses, while a patient tutor benefits from deeper reasoning. The key insight is that reasoning depth and latency are directly correlated -- more internal reasoning produces more nuanced responses but delays the start of audio output. This tutorial demonstrates how to configure reasoning modes, optimize latency, and switch modes dynamically based on user intent.
+Speech-to-Speech models can be configured to optimize for different interaction patterns. A fast concierge needs immediate responses, while a patient tutor benefits from deeper reasoning. The key insight is that reasoning depth and latency are directly correlated -- more internal reasoning produces more nuanced responses but delays the start of audio output. Beluga's S2S interface does not have a reasoning-depth or latency-target setting. The levers you control are the model, the instructions, and the voice, set per session. This tutorial shows how to use them to build interaction modes, reduce latency, and switch modes based on user intent.
 
 ## What You Will Build
 
@@ -16,22 +16,24 @@ An S2S voice system that supports multiple interaction modes (fast concierge, ba
 
 ## Prerequisites
 
-- Completion of [Native S2S with Amazon Nova](/docs/guides/capabilities/voice/s2s-amazon-nova) or an OpenAI Realtime API key
+- An OpenAI API key with Realtime access (or another S2S provider; see [Native S2S with Amazon Nova](/docs/guides/capabilities/voice/s2s-amazon-nova))
 - Understanding of the S2S session lifecycle
 
 ## The Tradeoff: Speed vs. Thought
 
-S2S models have internal reasoning steps that affect response quality and latency. More reasoning produces more nuanced and accurate responses, but increases the time before audio output begins. Understanding this tradeoff is essential for designing conversational experiences: a customer asking "What time do you close?" expects a near-instant response, while a student asking "Why does gravity bend light?" benefits from a considered explanation.
+Response quality and latency pull in opposite directions. More capable models and longer, more considered answers produce better responses, but take longer to start and to play. Understanding this tradeoff is essential for designing conversational experiences: a customer asking "What time do you close?" expects a near-instant response, while a student asking "Why does gravity bend light?" benefits from a considered explanation.
 
-| Mode     | Latency    | Use Case                              |
-|----------|------------|---------------------------------------|
-| Low      | < 300ms    | Quick answers, confirmations, greetings |
-| Medium   | 300-800ms  | General conversation, Q&A             |
-| High     | 800ms+     | Complex reasoning, tutoring, analysis |
+| Mode      | Typical lever                         | Use case                                |
+|-----------|---------------------------------------|-----------------------------------------|
+| Concierge | Smaller, faster model; terse instructions | Quick answers, confirmations, greetings |
+| Assistant | Default model; moderate instructions | General conversation, Q&A               |
+| Tutor     | Most capable model; step-by-step instructions | Complex reasoning, tutoring, analysis |
 
-## Step 1: Configure Reasoning Mode
+Measure latency for your provider, model, and network; it varies too much to quote fixed numbers.
 
-Use the `WithReasoningMode` and `WithLatencyTarget` options when creating the provider. These functional options follow Beluga's standard `WithX()` configuration pattern, allowing you to compose provider settings cleanly without a monolithic config struct.
+## Step 1: Configure a Mode
+
+The engine config sets defaults, and `Start` options override them per session. `s2s.WithModel`, `s2s.WithInstructions`, `s2s.WithVoice`, `s2s.WithTools`, and `s2s.WithSampleRate` are available:
 
 ```go
 package main
@@ -42,157 +44,128 @@ import (
 	"os"
 
 	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
-	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai_realtime"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
+
+const conciergePrompt = "You are a fast hotel concierge. Give short, 1-sentence answers. Be direct."
 
 func main() {
 	ctx := context.Background()
 
-	// Fast concierge mode: minimal reasoning, lowest latency
-	provider, err := s2s.NewProvider(ctx, "openai_realtime", s2s.DefaultConfig(),
-		s2s.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-		s2s.WithLatencyTarget("low"),
-		s2s.WithReasoningMode("built-in"),
-	)
+	engine, err := s2s.New("openai", s2s.Config{
+		Model: "gpt-4o-realtime-preview",
+		Voice: "alloy",
+		Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
+	})
 	if err != nil {
-		log.Fatalf("create S2S provider: %v", err)
+		log.Fatalf("create S2S engine: %v", err)
 	}
 
-	_ = provider
+	// Fast concierge mode: terse instructions keep responses short.
+	session, err := engine.Start(ctx, s2s.WithInstructions(conciergePrompt))
+	if err != nil {
+		log.Fatalf("start session: %v", err)
+	}
+	defer session.Close()
 }
 ```
 
-The `ReasoningMode` controls how the model processes input. The built-in mode keeps reasoning inside the S2S model for the lowest latency. The external mode is useful when you need a more powerful text-based LLM (like Claude or GPT-4) to handle complex reasoning, with the S2S model handling only the audio conversion:
+If a task needs a more capable text model than the S2S model (for example, a long analysis), use a cascading pipeline for it instead, or a hybrid pipeline that switches to the cascade when tool use is heavy. See [Voice AI Pipeline Guide](/docs/guides/capabilities/voice/voice-ai).
 
-| Mode         | Description                                            |
-|-------------|--------------------------------------------------------|
-| `"built-in"` | Model handles reasoning internally (default)           |
-| `"external"` | Application provides reasoning via an external LLM     |
+## Step 2: Instructions for Interaction Style
 
-## Step 2: System Prompts for Interaction Style
-
-S2S models respond to system-level instructions that shape their behavior, just as text-based LLMs do. The prompt design matters more for S2S because it directly affects response length, which determines how long the user hears audio. Shorter, more directive prompts produce faster responses because the model generates fewer tokens internally before producing audio output.
+S2S models follow session instructions the way text LLMs follow a system prompt. Instructions matter even more for voice, because response length is how long the user listens. Short, directive instructions produce shorter responses and less time spent speaking.
 
 ```go
 const (
-	conciergePrompt = "You are a fast hotel concierge. Give short, 1-sentence answers. Be direct."
-	tutorPrompt     = "You are a patient math tutor. Explain your reasoning step-by-step. " +
+	tutorPrompt = "You are a patient math tutor. Explain your reasoning step-by-step. " +
 		"Use analogies. Confirm the student understands before moving on."
 	assistantPrompt = "You are a helpful assistant. Provide clear, moderate-length answers."
 )
 ```
 
-Pass the prompt as part of the conversation context when starting a session. The `Preferences` map provides a flexible way to pass provider-specific settings without changing the core session interface:
+## Step 3: Latency Optimization
+
+To keep microphone-to-speaker latency low, reduce delay at every stage:
+
+1. **Send small frames**: 20 ms audio frames (640 bytes at 16 kHz mono, 960 bytes at 24 kHz) let the model receive input sooner.
+2. **Use server-side turn detection**: the `openai` provider configures the session with server-side VAD (`turn_detection: server_vad`), so the model decides when the user finished speaking without an extra client round trip.
+3. **Choose the model**: smaller realtime models usually respond faster; compare options from your provider on your own prompts.
+4. **Keep responses short**: concise instructions reduce how long each response takes to play.
 
 ```go
-	conversationCtx := &s2s.ConversationContext{
-		SessionID: "session-001",
-		UserID:    "user-001",
-		Preferences: map[string]any{
-			"system_prompt": conciergePrompt,
-		},
-	}
-
-	session, err := streamingProvider.StartStreaming(ctx, conversationCtx,
-		s2s.WithLatencyTarget("low"),
+	session, err := engine.Start(ctx,
+		s2s.WithModel(os.Getenv("FAST_REALTIME_MODEL")), // a smaller realtime model from your provider
+		s2s.WithSampleRate(24000),
+		s2s.WithInstructions(conciergePrompt),
 	)
 	if err != nil {
 		log.Fatalf("start session: %v", err)
-	}
-	defer session.Close()
-```
-
-## Step 3: Latency Optimization
-
-To achieve glass-to-glass (microphone to speaker) latency under one second, you need to minimize delay at every stage of the pipeline. Each of these optimizations targets a specific source of latency:
-
-1. **Reduce chunk size**: Send 20ms audio frames (640 bytes at 16kHz mono). Smaller frames mean the model receives input sooner, reducing the time before it can begin generating a response.
-2. **Use server-side VAD**: Let the S2S model handle voice activity detection natively. Server-side VAD avoids the round-trip delay of client-side detection followed by a separate signal to the server.
-3. **Set low latency target**: Configure the provider for speed over depth, accepting shorter, less reasoned responses in exchange for faster delivery.
-
-```go
-	provider, err := s2s.NewProvider(ctx, "openai_realtime", &s2s.Config{
-		Provider:      "openai_realtime",
-		APIKey:        os.Getenv("OPENAI_API_KEY"),
-		LatencyTarget: "low",
-		SampleRate:    24000,
-		ProviderSpecific: map[string]any{
-			"turn_detection_type": "server_vad",
-			"silence_duration":    500, // ms before triggering response
-		},
-	})
-	if err != nil {
-		log.Fatalf("create provider: %v", err)
 	}
 ```
 
 ## Step 4: Dynamic Mode Switching
 
-Switch reasoning modes at runtime based on detected user intent or conversation context. This pattern is valuable for applications that serve multiple interaction styles within a single session -- for example, a virtual assistant that handles both quick factual queries and in-depth explanations. The mode map centralizes configuration for each style, making it straightforward to add new modes or adjust existing ones.
+Session settings are fixed when the session starts, so switching modes means closing the current session and starting a new one with the new settings. Do it at a turn boundary (after `s2s.EventTurnEnd`), and carry context over by including a short summary of the conversation in the new instructions.
 
 ```go
-// ModeConfig holds the configuration for an interaction mode.
+import (
+	"context"
+	"fmt"
+
+	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
+)
+
+// ModeConfig holds the session settings for an interaction mode.
 type ModeConfig struct {
-	Prompt        string
-	LatencyTarget string
+	Model        string // empty keeps the engine default
+	Instructions string
 }
 
 var modes = map[string]ModeConfig{
-	"concierge": {
-		Prompt:        conciergePrompt,
-		LatencyTarget: "low",
-	},
-	"assistant": {
-		Prompt:        assistantPrompt,
-		LatencyTarget: "medium",
-	},
-	"tutor": {
-		Prompt:        tutorPrompt,
-		LatencyTarget: "high",
-	},
+	"concierge": {Instructions: conciergePrompt},
+	"assistant": {Instructions: assistantPrompt},
+	"tutor":     {Model: "gpt-4o-realtime-preview", Instructions: tutorPrompt},
 }
 
-// SwitchMode reconfigures the S2S session for a different interaction style.
-func SwitchMode(ctx context.Context, provider s2s.S2SProvider, modeName string) error {
+// SwitchMode closes the current session and starts a new one for modeName.
+// summary is a short recap of the conversation so far.
+func SwitchMode(ctx context.Context, engine s2s.S2S, current s2s.Session, modeName, summary string) (s2s.Session, error) {
 	mode, ok := modes[modeName]
 	if !ok {
-		return fmt.Errorf("unknown mode: %s", modeName)
+		return nil, fmt.Errorf("unknown mode: %s", modeName)
+	}
+	if current != nil {
+		if err := current.Close(); err != nil {
+			return nil, fmt.Errorf("close session: %w", err)
+		}
 	}
 
-	streamingProvider, ok := provider.(s2s.StreamingS2SProvider)
-	if !ok {
-		return fmt.Errorf("provider does not support streaming")
+	opts := []s2s.Option{
+		s2s.WithInstructions(mode.Instructions + "\n\nConversation so far: " + summary),
+	}
+	if mode.Model != "" {
+		opts = append(opts, s2s.WithModel(mode.Model))
 	}
 
-	conversationCtx := &s2s.ConversationContext{
-		SessionID: "session-001",
-		UserID:    "user-001",
-		Preferences: map[string]any{
-			"system_prompt": mode.Prompt,
-		},
-	}
-
-	session, err := streamingProvider.StartStreaming(ctx, conversationCtx,
-		s2s.WithLatencyTarget(mode.LatencyTarget),
-	)
+	session, err := engine.Start(ctx, opts...)
 	if err != nil {
-		return fmt.Errorf("start session for mode %s: %w", modeName, err)
+		return nil, fmt.Errorf("start session for mode %s: %w", modeName, err)
 	}
-
-	// Use session for subsequent interaction
-	_ = session
-	return nil
+	return session, nil
 }
 ```
 
+How you detect the intent to switch is up to you: a keyword ("explain", "step by step"), a tool the model can call to request a mode change, or a lightweight classifier on the transcript (`s2s.EventTranscript`).
+
 ## Verification
 
-1. Set `LatencyTarget` to `"low"`. Ask "What is 2+2?" and measure time to first audio.
-2. Set `LatencyTarget` to `"high"`. Ask "Explain the theory of relativity" and compare response depth and latency.
-3. Switch modes dynamically and verify the behavior changes.
+1. In concierge mode, ask "What is 2+2?" and measure the time to the first `EventAudioOutput`.
+2. In tutor mode, ask "Explain the theory of relativity" and compare response depth and latency.
+3. Call `SwitchMode` at a turn boundary and verify the new instructions take effect.
 
 ## Next Steps
 
 - [Native S2S with Amazon Nova](/docs/guides/capabilities/voice/s2s-amazon-nova) -- Try a different S2S provider
 - [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming) -- Compare with the traditional pipeline
-- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) -- Tune VAD and turn detection thresholds
+- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) -- Tune VAD thresholds

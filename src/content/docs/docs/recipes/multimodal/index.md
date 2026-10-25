@@ -227,7 +227,7 @@ func main() {
 
 Sending raw, high-resolution images to vision models wastes tokens and money. Preprocessing (resize, compress, format conversion) reduces API costs and improves response latency while preserving sufficient visual information for the model.
 
-This example uses only the Go standard library; the `image/jpeg` and `image/png` packages handle encoding, and `golang.org/x/image/draw` handles resizing without external dependencies:
+This example uses the Go standard library's `image/jpeg` and `image/png` packages for encoding, plus `golang.org/x/image/draw` (the Go project's extended image module) for resizing:
 
 ```go
 package main
@@ -237,7 +237,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/draw"
 	"image/jpeg"
 	_ "image/png"
 	"log/slog"
@@ -247,6 +246,8 @@ import (
 	"github.com/lookatitude/beluga-ai/v2/llm"
 	"github.com/lookatitude/beluga-ai/v2/schema"
 	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+
+	"golang.org/x/image/draw"
 )
 
 // ImageProcessor resizes and reencodes images before sending to vision models.

@@ -40,92 +40,138 @@ The tool-based integration approach is deliberate: rather than training a custom
 
 ### Concierge Setup
 
-The concierge is built by creating an S2S session with tool definitions for hotel operations. Beluga AI's `tool.NewFuncTool` creates type-safe tools from Go functions with automatic JSON schema generation from the struct tags. The event loop processes three event types: audio output (stream to guest), tool calls (execute against hotel systems), and transcripts (log for quality assurance).
+The concierge is built by creating an S2S session with tool definitions for hotel operations. Beluga AI's `tool.NewFuncTool` creates type-safe tools from Go functions, generating the JSON schema from the `json`, `description`, `enum`, and `required` struct tags. The event loop ranges over `session.Recv(ctx)` and handles audio output (play to the guest), tool calls (execute against hotel systems and return the result with `SendToolResult`), and transcripts (log for quality assurance). Guest audio is sent into the session with `session.SendAudio` from your transport code.
 
 ```go
-package main
+package concierge
 
 import (
-    "context"
-    "fmt"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"os"
 
-    "github.com/lookatitude/beluga-ai/v2/schema"
-    "github.com/lookatitude/beluga-ai/v2/tool"
-    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	"github.com/lookatitude/beluga-ai/v2/tool"
+	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
 
-    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
-func startConcierge(ctx context.Context, guestID string) error {
-    bookingTool := tool.NewFuncTool[BookingInput](
-        "make_reservation",
-        "Make a restaurant, spa, or activity reservation for the guest",
-        func(ctx context.Context, input BookingInput) (*tool.Result, error) {
-            confirmation, err := bookingSystem.Reserve(ctx, input)
-            if err != nil {
-                return tool.ErrorResult(err), nil
-            }
-            return tool.TextResult(fmt.Sprintf("Reservation confirmed: %s", confirmation)), nil
-        },
-    )
+// BookingSystem and InfoService are your hotel back-office integrations.
+type BookingSystem interface {
+	Reserve(ctx context.Context, in BookingInput) (string, error)
+}
 
-    infoTool := tool.NewFuncTool[InfoInput](
-        "hotel_info",
-        "Look up hotel information (hours, amenities, directions)",
-        func(ctx context.Context, input InfoInput) (*tool.Result, error) {
-            info, err := hotelDB.Lookup(ctx, input.Topic)
-            if err != nil {
-                return tool.ErrorResult(err), nil
-            }
-            return tool.TextResult(info), nil
-        },
-    )
-
-    engine, err := s2s.New("openai", nil)
-    if err != nil {
-        return fmt.Errorf("create s2s engine: %w", err)
-    }
-
-    session, err := engine.Start(ctx,
-        s2s.WithVoice("nova"),
-        s2s.WithInstructions("You are a luxury hotel concierge. Be warm, professional, "+
-            "and helpful. Use the guest's name when known. You can make reservations "+
-            "and look up hotel information."),
-        s2s.WithTools([]schema.ToolDefinition{
-            tool.ToDefinition(bookingTool),
-            tool.ToDefinition(infoTool),
-        }),
-    )
-    if err != nil {
-        return fmt.Errorf("start session: %w", err)
-    }
-    defer session.Close()
-
-    for event := range session.Recv() {
-        switch event.Type {
-        case s2s.EventAudioOutput:
-            transport.SendAudio(event.Audio)
-        case s2s.EventToolCall:
-            result := executeTool(ctx, event.ToolCall, bookingTool, infoTool)
-            session.SendToolResult(ctx, result)
-        case s2s.EventTranscript:
-            logTranscript(ctx, guestID, event.Text)
-        }
-    }
-
-    return nil
+type InfoService interface {
+	Lookup(ctx context.Context, topic string) (string, error)
 }
 
 type BookingInput struct {
-    Type   string `json:"type" jsonschema:"enum=restaurant,spa,activity"`
-    Date   string `json:"date" jsonschema:"description=Reservation date (YYYY-MM-DD)"`
-    Time   string `json:"time" jsonschema:"description=Reservation time (HH:MM)"`
-    Guests int    `json:"guests"`
-    Name   string `json:"name" jsonschema:"description=Guest name"`
+	Type   string `json:"type" description:"Kind of reservation" enum:"restaurant,spa,activity" required:"true"`
+	Date   string `json:"date" description:"Reservation date (YYYY-MM-DD)" required:"true"`
+	Time   string `json:"time" description:"Reservation time (HH:MM)" required:"true"`
+	Guests int    `json:"guests" description:"Number of guests"`
+	Name   string `json:"name" description:"Guest name"`
 }
 
 type InfoInput struct {
-    Topic string `json:"topic" jsonschema:"description=Topic to look up (pool hours, restaurant menu, etc.)"`
+	Topic string `json:"topic" description:"Topic to look up (pool hours, restaurant menu, etc.)" required:"true"`
+}
+
+func startConcierge(ctx context.Context, guestID string, bookings BookingSystem, info InfoService, speaker io.Writer) error {
+	bookingTool := tool.NewFuncTool[BookingInput](
+		"make_reservation",
+		"Make a restaurant, spa, or activity reservation for the guest",
+		func(ctx context.Context, input BookingInput) (*tool.Result, error) {
+			confirmation, err := bookings.Reserve(ctx, input)
+			if err != nil {
+				return tool.ErrorResult(err), nil
+			}
+			return tool.TextResult(fmt.Sprintf("Reservation confirmed: %s", confirmation)), nil
+		},
+	)
+
+	infoTool := tool.NewFuncTool[InfoInput](
+		"hotel_info",
+		"Look up hotel information (hours, amenities, directions)",
+		func(ctx context.Context, input InfoInput) (*tool.Result, error) {
+			text, err := info.Lookup(ctx, input.Topic)
+			if err != nil {
+				return tool.ErrorResult(err), nil
+			}
+			return tool.TextResult(text), nil
+		},
+	)
+	tools := map[string]tool.Tool{bookingTool.Name(): bookingTool, infoTool.Name(): infoTool}
+
+	engine, err := s2s.New("openai", s2s.Config{
+		Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
+	})
+	if err != nil {
+		return fmt.Errorf("create s2s engine: %w", err)
+	}
+
+	session, err := engine.Start(ctx,
+		s2s.WithVoice("alloy"),
+		s2s.WithInstructions("You are a luxury hotel concierge. Be warm, professional, "+
+			"and helpful. Use the guest's name when known. You can make reservations "+
+			"and look up hotel information."),
+		s2s.WithTools([]schema.ToolDefinition{
+			tool.ToDefinition(bookingTool),
+			tool.ToDefinition(infoTool),
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("start session: %w", err)
+	}
+	defer session.Close()
+
+	// Guest audio is sent from your transport with session.SendAudio(ctx, pcm).
+	for event, err := range session.Recv(ctx) {
+		if err != nil {
+			return fmt.Errorf("session: %w", err)
+		}
+		switch event.Type {
+		case s2s.EventAudioOutput:
+			if _, err := speaker.Write(event.Audio); err != nil {
+				return fmt.Errorf("play audio: %w", err)
+			}
+		case s2s.EventToolCall:
+			result := runToolCall(ctx, tools, *event.ToolCall)
+			if err := session.SendToolResult(ctx, result); err != nil {
+				return fmt.Errorf("send tool result: %w", err)
+			}
+		case s2s.EventTranscript:
+			log.Printf("guest %s: %s", guestID, event.Text)
+		case s2s.EventError:
+			log.Printf("provider error: %v", event.Error)
+		}
+	}
+	return nil
+}
+
+// runToolCall executes a tool call from the model and converts the result
+// into the schema.ToolResult the session expects.
+func runToolCall(ctx context.Context, tools map[string]tool.Tool, call schema.ToolCall) schema.ToolResult {
+	t, ok := tools[call.Name]
+	if !ok {
+		return schema.ToolResult{CallID: call.ID, IsError: true,
+			Content: []schema.ContentPart{schema.TextPart{Text: "unknown tool " + call.Name}}}
+	}
+	var input map[string]any
+	if err := json.Unmarshal([]byte(call.Arguments), &input); err != nil {
+		return schema.ToolResult{CallID: call.ID, IsError: true,
+			Content: []schema.ContentPart{schema.TextPart{Text: "invalid arguments: " + err.Error()}}}
+	}
+	res, err := t.Execute(ctx, input)
+	if err != nil {
+		return schema.ToolResult{CallID: call.ID, IsError: true,
+			Content: []schema.ContentPart{schema.TextPart{Text: err.Error()}}}
+	}
+	return schema.ToolResult{CallID: call.ID, Content: res.Content, IsError: res.IsError}
 }
 ```
 
@@ -135,19 +181,10 @@ type InfoInput struct {
 - **System integration**: Connect tool functions to hotel PMS, reservation systems, and knowledge bases
 - **Conversation memory**: Use persistent state to maintain context across guest interactions
 - **Multi-language**: Configure S2S instructions for each supported language
-- **Failover**: Use Beluga AI's circuit breaker for provider failover; fall back to text-based chat if voice fails
+- **Failover**: Wrap session start in your own retry or circuit-breaker logic (see the `resilience` package); fall back to text-based chat if voice fails
 - **Observability**: Track conversation quality, tool usage, and guest satisfaction with OpenTelemetry
 
-## Results
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Monthly cost per hotel | $50K+ | $9.5K | 81% reduction |
-| Availability | 14 hrs/day | 24 hrs/day | 24/7 |
-| Average response time | 120-300s | 1.5s | 99%+ reduction |
-| Guest satisfaction | 7/10 | 9.2/10 | 31% improvement |
-
-### Lessons Learned
+## Lessons Learned
 
 - **S2S for real-time interaction**: Speech-to-speech provides the most responsive and natural guest experience
 - **Persistent conversation state**: Implement state management early; in-memory state causes issues on reconnection

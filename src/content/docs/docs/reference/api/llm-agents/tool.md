@@ -58,7 +58,7 @@ type SearchInput struct {
 func main() {
     search := tool.NewFuncTool("search", "Search the web",
         func(ctx context.Context, input SearchInput) (*tool.Result, error) {
-            results := doSearch(ctx, input.Query, input.Limit)
+            results := fmt.Sprintf("top %d results for %q", input.Limit, input.Query)
             return tool.TextResult(results), nil
         },
     )
@@ -112,6 +112,7 @@ def := tool.ToDefinition(myTool) // returns schema.ToolDefinition
 package main
 
 import (
+    "context"
     "fmt"
     "log"
 
@@ -121,6 +122,11 @@ import (
 func main() {
     reg := tool.NewRegistry()
 
+    search := tool.NewFuncTool("search", "Search the web",
+        func(ctx context.Context, input struct{ Query string `json:"query"` }) (*tool.Result, error) {
+            return tool.TextResult("results for " + input.Query), nil
+        },
+    )
     if err := reg.Add(search); err != nil {
         log.Fatal(err)
     }
@@ -134,6 +140,7 @@ func main() {
     names := reg.List()       // sorted tool names
     all := reg.All()          // sorted tool instances
     defs := reg.Definitions() // []map[string]any for each tool
+    fmt.Println(len(names), len(all), len(defs))
 }
 ```
 
@@ -277,8 +284,7 @@ Applied via `ApplyMiddleware`. The first middleware in the list is the
 outermost wrapper and executes first:
 
 ```go
-package main
-
+package example
 import (
     "time"
 
@@ -300,8 +306,7 @@ optional; nil hooks are skipped. Compose multiple `Hooks` values with
 `ComposeHooks`, or wrap a tool with `WithHooks`:
 
 ```go
-package main
-
+package example
 import (
     "context"
     "log"

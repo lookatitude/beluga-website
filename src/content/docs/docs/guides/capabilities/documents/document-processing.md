@@ -10,14 +10,14 @@ head:
 
 Before documents can be embedded and searched in a RAG pipeline, they need to be loaded from their source format, cleaned, and split into chunks that embedding models can process. This ingestion stage is the foundation of any knowledge-powered AI system — the quality of your chunking strategy directly affects retrieval precision and, consequently, the quality of generated answers.
 
-Beluga AI provides document loaders for multiple formats (text, PDF, HTML, CSV, cloud storage) and intelligent text splitters that preserve semantic structure. The entire pipeline is designed for production scale: lazy loading for memory efficiency, batch processing for throughput, and comprehensive error handling for reliability.
+Beluga AI provides document loaders for text, Markdown, CSV, and JSON, provider loaders for PDFs and office documents (via Docling or Unstructured.io), web pages, and cloud storage, and text splitters that preserve document structure. The pipeline is designed for production scale: file-by-file processing for bounded memory, batch processing for throughput, and explicit error handling for reliability.
 
 ## What You'll Learn
 
 This guide covers:
 - Loading documents from multiple sources (filesystem, PDF, HTML, cloud storage)
-- Using lazy loading for large datasets that exceed available memory
-- Text splitting strategies and when to use each (recursive, semantic, markdown-aware, code-aware)
+- Processing large datasets file by file so memory stays bounded
+- Text splitting strategies and when to use each (recursive, markdown-aware, token, and code-friendly separators)
 - Preserving document structure and metadata through the pipeline
 - Batch processing with error handling and progress tracking
 - Optimizing chunk size and overlap for retrieval quality
@@ -40,11 +40,13 @@ Before starting this guide:
 
 ## Document Loaders
 
-Document loaders abstract the details of reading and parsing different file formats into a uniform `[]schema.Document` output. Each loader handles format-specific concerns — PDF text extraction, HTML tag stripping, CSV row parsing — so that downstream pipeline stages (splitting, embedding, storing) work with clean, structured documents regardless of the original format.
+Document loaders abstract the details of reading and parsing different file formats into a uniform `[]schema.Document` output. Every loader implements the `loader.DocumentLoader` interface, a single method `Load(ctx, source string) ([]schema.Document, error)`, so downstream pipeline stages (splitting, embedding, storing) work with clean, structured documents regardless of the original format.
 
-### Directory Loader
+The `rag/loader` package registers `text`, `markdown`, `csv`, and `json` loaders. Format-specific and remote loaders live under `rag/loader/providers/` (`docling`, `unstructured`, `cloudstorage`, `firecrawl`, `confluence`, `notion`, `gdrive`, `github`) and register themselves when you blank-import them.
 
-The directory loader recursively walks a filesystem tree, loading all matching files. It supports extension filtering, path exclusions, depth limits, and parallel loading. This is the typical starting point for building a knowledge base from a collection of local files.
+### Loading a Directory
+
+There is no built-in directory loader. Walk the tree with the standard library and hand each file to the loader registered for its extension. This keeps extension filtering and path exclusions in your code, where they are easy to change.
 
 ```go
 package main
@@ -52,6 +54,7 @@ package main
 import (
     "context"
     "fmt"
+    "io/fs"
     "log"
     "path/filepath"
 
@@ -60,28 +63,46 @@ import (
     "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-func LoadDirectory(dirPath string) ([]schema.Document, error) {
-    ctx := context.Background()
+// loaderFor maps a file extension to a registered loader name.
+var loaderFor = map[string]string{
+    ".txt": "text",
+    ".md":  "markdown",
+    ".csv": "csv",
+}
 
-    // Clean the path to remove any traversal components.
-    cleanPath := filepath.Clean(dirPath)
+func LoadDirectory(ctx context.Context, dirPath string) ([]schema.Document, error) {
+    root := filepath.Clean(dirPath)
 
-    // Create a directory loader via the registry
-    l, err := loader.New("directory", config.ProviderConfig{
-        Options: map[string]any{
-            "path":        cleanPath,
-            "extensions":  []string{".md", ".txt", ".pdf", ".html"},
-            "concurrency": 4,
-        },
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create loader: %w", err)
+    loaders := make(map[string]loader.DocumentLoader)
+    for _, name := range loaderFor {
+        l, err := loader.New(name, config.ProviderConfig{})
+        if err != nil {
+            return nil, fmt.Errorf("create %s loader: %w", name, err)
+        }
+        loaders[name] = l
     }
 
-    // Load all documents
-    docs, err := l.Load(ctx, cleanPath)
+    var docs []schema.Document
+    err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+        if err != nil {
+            return err
+        }
+        if d.IsDir() {
+            return nil
+        }
+        name, ok := loaderFor[filepath.Ext(path)]
+        if !ok {
+            return nil // skip unsupported extensions
+        }
+        loaded, err := loaders[name].Load(ctx, path)
+        if err != nil {
+            return fmt.Errorf("load %s: %w", path, err)
+        }
+        docs = append(docs, loaded...)
+        return nil
+    })
     if err != nil {
-        return nil, fmt.Errorf("load documents: %w", err)
+        return nil, err
     }
 
     fmt.Printf("Loaded %d documents\n", len(docs))
@@ -89,7 +110,7 @@ func LoadDirectory(dirPath string) ([]schema.Document, error) {
 }
 
 func main() {
-    docs, err := LoadDirectory("./knowledge_base")
+    docs, err := LoadDirectory(context.Background(), "./knowledge_base")
     if err != nil {
         log.Fatal(err)
     }
@@ -97,35 +118,33 @@ func main() {
     for _, doc := range docs {
         fmt.Printf("Document: %s (%d bytes)\n",
             doc.Metadata["source"],
-            len(doc.PageContent),
+            len(doc.Content),
         )
     }
 }
 ```
 
-### PDF Loader
+### PDF and Office Documents
 
-PDF is one of the most common document formats in enterprise environments, but extracting clean text from PDFs is notoriously difficult due to complex layouts, embedded fonts, and mixed content. The PDF loader handles text extraction with options for formatting preservation and page separation.
+PDF is one of the most common document formats in enterprise environments, but extracting clean text from PDFs is notoriously difficult due to complex layouts, embedded fonts, and mixed content. Beluga AI delegates this to a document-understanding service. The `docling` provider calls an IBM Docling server; the `unstructured` provider calls the Unstructured.io partition API. Both accept a local file path and return the extracted content as documents.
 
 ```go
 import (
+    "context"
+    "fmt"
+
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/pdf"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-func LoadPDF(filePath string) ([]schema.Document, error) {
-    ctx := context.Background()
-
-    l, err := loader.New("pdf", config.ProviderConfig{
-        Options: map[string]any{
-            "extract_images":      false,
-            "preserve_formatting": true,
-            "page_separator":      "\n---\n",
-        },
+func LoadPDF(ctx context.Context, filePath string) ([]schema.Document, error) {
+    l, err := loader.New("docling", config.ProviderConfig{
+        BaseURL: "http://localhost:5001", // your Docling server
     })
     if err != nil {
-        return nil, fmt.Errorf("create pdf loader: %w", err)
+        return nil, fmt.Errorf("create docling loader: %w", err)
     }
 
     docs, err := l.Load(ctx, filePath)
@@ -137,68 +156,68 @@ func LoadPDF(filePath string) ([]schema.Document, error) {
 }
 ```
 
-### HTML Loader
+### Web Pages
 
-Web pages contain significant noise — scripts, stylesheets, navigation elements — that degrades embedding quality. The HTML loader strips non-content elements and extracts clean text, optionally preserving page metadata (title, description, Open Graph tags) that can be used for filtering during retrieval.
+Web pages contain significant noise (scripts, stylesheets, navigation) that degrades embedding quality. The `firecrawl` provider uses the Firecrawl service to render the page and return clean markdown.
 
 ```go
 import (
+    "context"
+    "fmt"
+    "os"
+
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/html"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/firecrawl"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-func LoadHTML(pageURL string) ([]schema.Document, error) {
-    ctx := context.Background()
-
-    l, err := loader.New("html", config.ProviderConfig{
-        Options: map[string]any{
-            "remove_scripts":   true,
-            "remove_styles":    true,
-            "extract_metadata": true,
-            "follow_links":     false,
-        },
+func LoadWebPage(ctx context.Context, pageURL string) ([]schema.Document, error) {
+    l, err := loader.New("firecrawl", config.ProviderConfig{
+        APIKey: os.Getenv("FIRECRAWL_API_KEY"),
     })
     if err != nil {
-        return nil, fmt.Errorf("create html loader: %w", err)
+        return nil, fmt.Errorf("create firecrawl loader: %w", err)
     }
 
     docs, err := l.Load(ctx, pageURL)
     if err != nil {
-        return nil, fmt.Errorf("load HTML: %w", err)
+        return nil, fmt.Errorf("load page: %w", err)
     }
 
     return docs, nil
 }
 ```
 
-### S3 Loader
+### Cloud Storage
 
-For cloud-native applications, documents often reside in object storage rather than local filesystems. The S3 loader handles bucket traversal, prefix filtering, and file type selection, integrating with the AWS SDK for authentication and access control.
+For cloud-native applications, documents often reside in object storage rather than local filesystems. The `cloudstorage` provider loads objects from S3 (`s3://`), GCS (`gs://`), and Azure Blob (`az://`), picking the backend from the URL prefix.
 
 ```go
 import (
+    "context"
+    "fmt"
+    "os"
+
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/s3"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/cloudstorage"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-func LoadFromS3(bucket, prefix string) ([]schema.Document, error) {
-    ctx := context.Background()
-
-    l, err := loader.New("s3", config.ProviderConfig{
+func LoadFromS3(ctx context.Context, bucket, key string) ([]schema.Document, error) {
+    l, err := loader.New("cloudstorage", config.ProviderConfig{
+        APIKey: os.Getenv("AWS_ACCESS_KEY_ID"),
         Options: map[string]any{
-            "bucket":     bucket,
-            "prefix":     prefix,
-            "recursive":  true,
-            "extensions": []string{".txt", ".md", ".pdf"},
+            "secret_key": os.Getenv("AWS_SECRET_ACCESS_KEY"),
+            "region":     "us-east-1",
         },
     })
     if err != nil {
-        return nil, fmt.Errorf("create s3 loader: %w", err)
+        return nil, fmt.Errorf("create cloudstorage loader: %w", err)
     }
 
-    docs, err := l.Load(ctx, bucket)
+    docs, err := l.Load(ctx, "s3://"+bucket+"/"+key)
     if err != nil {
         return nil, fmt.Errorf("load from S3: %w", err)
     }
@@ -207,61 +226,53 @@ func LoadFromS3(bucket, prefix string) ([]schema.Document, error) {
 }
 ```
 
-## Lazy Loading for Large Datasets
+## Processing Large Datasets File by File
 
-Loading millions of documents into memory at once is not feasible — it would exhaust available RAM and potentially crash the process. Lazy loading solves this by returning an iterator that yields documents one at a time, processing each before loading the next. This keeps memory usage constant regardless of dataset size, making it suitable for ingesting entire document repositories.
+Loading millions of documents into memory at once is not feasible: it would exhaust available RAM and potentially crash the process. `DocumentLoader.Load` works on one source at a time, so the way to keep memory bounded is to load, process, and discard one file before moving to the next. Memory use then depends on the largest file, not on the size of the corpus.
 
 ```go
-func ProcessLargeDataset(dirPath string) error {
-    ctx := context.Background()
+func ProcessLargeDataset(ctx context.Context, dirPath string, l loader.DocumentLoader) error {
+    processed := 0
+    err := filepath.WalkDir(filepath.Clean(dirPath), func(path string, d fs.DirEntry, err error) error {
+        if err != nil || d.IsDir() {
+            return err
+        }
 
-    l, err := loader.New("directory", config.ProviderConfig{
-        Options: map[string]any{"path": filepath.Clean(dirPath)},
+        docs, err := l.Load(ctx, path)
+        if err != nil {
+            log.Printf("Error loading %s: %v", path, err)
+            return nil // skip this file, keep walking
+        }
+
+        for _, doc := range docs {
+            // Process one document at a time: chunk, embed, and store.
+            if err := processDocument(ctx, doc); err != nil {
+                log.Printf("Error processing %s: %v", path, err)
+                continue
+            }
+            processed++
+            if processed%100 == 0 {
+                fmt.Printf("Processed %d documents\n", processed)
+            }
+        }
+        return nil
     })
     if err != nil {
         return err
     }
 
-    // LazyLoad returns an iterator
-    docIterator, err := l.LazyLoad(ctx)
-    if err != nil {
-        return err
-    }
-
-    processed := 0
-    for doc := range docIterator {
-        if doc.Error != nil {
-            log.Printf("Error loading document: %v", doc.Error)
-            continue
-        }
-
-        // Process one document at a time
-        if err := processDocument(ctx, doc.Document); err != nil {
-            log.Printf("Error processing %s: %v", doc.Document.Metadata["source"], err)
-            continue
-        }
-
-        processed++
-        if processed%100 == 0 {
-            fmt.Printf("Processed %d documents\n", processed)
-        }
-    }
-
     fmt.Printf("Total processed: %d documents\n", processed)
     return nil
 }
-
-func processDocument(ctx context.Context, doc schema.Document) error {
-    // Chunk, embed, and store
-    chunks := splitDocument(doc)
-    embeddings := embedChunks(ctx, chunks)
-    return storeInVectorDB(ctx, chunks, embeddings)
-}
 ```
+
+`processDocument` is your own function that splits, embeds, and stores a single document (see the batch pipeline below). For transforms that run on every document, `loader.NewPipeline(loader.WithLoader(...), loader.WithTransformer(...))` composes a loader with `loader.Transformer` steps; see [Lazy Loading](/docs/guides/capabilities/documents/lazy-loading/).
 
 ## Text Splitting Strategies
 
-Choosing the right splitting strategy is one of the most impactful decisions in a RAG pipeline. Different content types have different structure — prose paragraphs, markdown headings, code functions, semantic topics — and a splitter that respects that structure produces chunks that are more semantically coherent and easier to retrieve accurately.
+Choosing the right splitting strategy is one of the most impactful decisions in a RAG pipeline. Different content types have different structure (prose paragraphs, markdown headings, code functions) and a splitter that respects that structure produces chunks that are more semantically coherent and easier to retrieve accurately.
+
+The `rag/splitter` package ships three splitters, each also registered by name: `recursive`, `markdown`, and `token`. All implement `splitter.TextSplitter` (`Split` for raw text, `SplitDocuments` for documents with metadata).
 
 ### Recursive Character Splitter
 
@@ -269,20 +280,18 @@ The recursive character splitter is the recommended default for general-purpose 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/v2/config"
+    "context"
+    "fmt"
+
     "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func SplitRecursive(ctx context.Context, doc schema.Document) ([]schema.Document, error) {
-    s, err := splitter.New("recursive", config.ProviderConfig{
-        Options: map[string]any{
-            "chunk_size":    1000,
-            "chunk_overlap": 200,
-        },
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create splitter: %w", err)
-    }
+    s := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(1000),
+        splitter.WithChunkOverlap(200),
+    )
 
     chunks, err := s.SplitDocuments(ctx, []schema.Document{doc})
     if err != nil {
@@ -295,26 +304,15 @@ func SplitRecursive(ctx context.Context, doc schema.Document) ([]schema.Document
 
 ### Markdown-Aware Splitter
 
-Markdown documents have explicit structure through headings. The markdown splitter leverages this structure by splitting at heading boundaries, ensuring that each chunk corresponds to a coherent section. When `IncludeHeaders` is enabled, each chunk includes its parent headings as context, so a chunk from a deeply nested section retains the full path of headings that scope its content.
+Markdown documents have explicit structure through headings. The markdown splitter splits at heading boundaries, so each chunk corresponds to a coherent section. With `WithPreserveHeaders(true)`, each chunk includes its parent headings as context, so a chunk from a deeply nested section retains the full path of headings that scope its content.
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/config"
-    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/splitter/providers/markdown"
-)
-
 func SplitMarkdown(ctx context.Context, doc schema.Document) ([]schema.Document, error) {
-    s, err := splitter.New("markdown", config.ProviderConfig{
-        Options: map[string]any{
-            "headers_to_split_on": []string{"#", "##", "###"},
-            "include_headers":     true,
-            "chunk_size":          1500,
-        },
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create splitter: %w", err)
-    }
+    s := splitter.NewMarkdownSplitter(
+        splitter.WithMarkdownChunkSize(1500),
+        splitter.WithMarkdownChunkOverlap(100),
+        splitter.WithPreserveHeaders(true),
+    )
 
     chunks, err := s.SplitDocuments(ctx, []schema.Document{doc})
     if err != nil {
@@ -325,30 +323,17 @@ func SplitMarkdown(ctx context.Context, doc schema.Document) ([]schema.Document,
 }
 ```
 
-### Code-Aware Splitter
+### Splitting Source Code
 
-Splitting code at arbitrary character boundaries breaks function definitions, class bodies, and control flow structures, producing chunks that are syntactically invalid and semantically incoherent. The code-aware splitter parses language-specific syntax and splits at function or class boundaries, keeping logical units intact. This produces chunks that are meaningful for code search and explanation tasks.
+Splitting code at arbitrary character boundaries breaks function definitions and control flow, producing chunks that are hard to retrieve. Beluga AI has no language-aware code splitter, but you can get most of the benefit by giving the recursive splitter language-specific separators, so it prefers to cut at declaration boundaries first.
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/config"
-    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/splitter/providers/code"
-)
-
-func SplitCode(ctx context.Context, doc schema.Document, language string) ([]schema.Document, error) {
-    s, err := splitter.New("code", config.ProviderConfig{
-        Options: map[string]any{
-            "language":          language,
-            "chunk_size":        1000,
-            "chunk_overlap":     100,
-            "preserve_functions": true,
-            "preserve_classes":  true,
-        },
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create splitter: %w", err)
-    }
+func SplitGoCode(ctx context.Context, doc schema.Document) ([]schema.Document, error) {
+    s := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(1000),
+        splitter.WithChunkOverlap(100),
+        splitter.WithSeparators([]string{"\nfunc ", "\ntype ", "\n\n", "\n", " "}),
+    )
 
     chunks, err := s.SplitDocuments(ctx, []schema.Document{doc})
     if err != nil {
@@ -359,46 +344,22 @@ func SplitCode(ctx context.Context, doc schema.Document, language string) ([]sch
 }
 ```
 
-### Semantic Splitter
+### Token Splitter and Semantic Splitting
 
-Character-based splitting ignores the actual meaning of the text. Two adjacent paragraphs about completely different topics get merged into one chunk, diluting the embedding. The semantic splitter uses an embedding model to detect topic boundaries by measuring similarity between consecutive text segments. When similarity drops below the threshold, a new chunk begins. This produces chunks that are topically coherent, improving retrieval precision at the cost of an extra embedding pass during indexing.
+When your limit is a model's token budget rather than a character count, use `splitter.NewTokenSplitter(splitter.WithTokenChunkSize(...), splitter.WithTokenChunkOverlap(...), splitter.WithTokenizer(...))`.
 
-```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/config"
-    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
-    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/splitter/providers/semantic"
-)
-
-func SplitSemantic(ctx context.Context, doc schema.Document, emb embedding.Embedder) ([]schema.Document, error) {
-    s, err := splitter.New("semantic", config.ProviderConfig{
-        Options: map[string]any{
-            "embedder":            emb,
-            "breakpoint_threshold": 0.75,
-            "min_chunk_size":      200,
-            "chunk_size":          1500,
-        },
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create splitter: %w", err)
-    }
-
-    chunks, err := s.SplitDocuments(ctx, []schema.Document{doc})
-    if err != nil {
-        return nil, fmt.Errorf("split semantically: %w", err)
-    }
-
-    return chunks, nil
-}
-```
+Semantic splitting (cutting where the embedding similarity between consecutive segments drops) is not a built-in splitter. You can implement it as your own `splitter.TextSplitter` on top of an `embedding.Embedder`; [Semantic Splitting](/docs/guides/capabilities/documents/semantic-splitting/) walks through one implementation.
 
 ## Metadata Enrichment
 
-Metadata attached to documents flows through the entire pipeline — from loading through splitting to storage. Rich metadata enables filtered searches (e.g., "find documents from the engineering team written in 2024"), debugging (tracing a chunk back to its source file), and analytics (monitoring which document types are most frequently retrieved). Investing in metadata enrichment early in the pipeline pays dividends in retrieval quality and operational visibility.
+Metadata attached to documents flows through the entire pipeline, from loading through splitting to storage. Rich metadata enables filtered searches (e.g., "find documents from the engineering team written in 2024"), debugging (tracing a chunk back to its source file), and analytics (monitoring which document types are most frequently retrieved). Investing in metadata enrichment early in the pipeline pays dividends in retrieval quality and operational visibility.
 
 ```go
 func EnrichMetadata(doc schema.Document) schema.Document {
+    if doc.Metadata == nil {
+        doc.Metadata = map[string]any{}
+    }
+
     // Add file metadata
     if source, ok := doc.Metadata["source"].(string); ok {
         doc.Metadata["file_extension"] = filepath.Ext(source)
@@ -407,16 +368,16 @@ func EnrichMetadata(doc schema.Document) schema.Document {
     }
 
     // Add content metadata
-    doc.Metadata["word_count"] = len(strings.Fields(doc.PageContent))
-    doc.Metadata["char_count"] = len(doc.PageContent)
-    doc.Metadata["line_count"] = strings.Count(doc.PageContent, "\n")
+    doc.Metadata["word_count"] = len(strings.Fields(doc.Content))
+    doc.Metadata["char_count"] = len(doc.Content)
+    doc.Metadata["line_count"] = strings.Count(doc.Content, "\n")
 
     // Add processing metadata
     doc.Metadata["processed_at"] = time.Now().Format(time.RFC3339)
     doc.Metadata["processor_version"] = "1.0"
 
     // Extract language (simple heuristic)
-    doc.Metadata["language"] = detectLanguage(doc.PageContent)
+    doc.Metadata["language"] = detectLanguage(doc.Content)
 
     return doc
 }
@@ -439,13 +400,15 @@ func detectLanguage(text string) string {
 }
 ```
 
+To run this as part of loading, wrap it in a `loader.TransformerFunc` and add it to a `loader.NewPipeline` with `loader.WithTransformer`.
+
 ## Batch Processing Pipeline
 
 Production document ingestion requires batching for efficiency, error handling for resilience, and progress tracking for observability. Processing documents one at a time wastes API call overhead (embedding models accept batches), while loading everything at once risks memory exhaustion. The batch processing pattern below processes documents in configurable groups, accumulates statistics, and continues processing when individual documents fail.
 
 ```go
 type DocumentProcessor struct {
-    loader    loader.Loader
+    loader    loader.DocumentLoader
     splitter  splitter.TextSplitter
     embedder  embedding.Embedder
     vectorDB  vectorstore.VectorStore
@@ -453,7 +416,7 @@ type DocumentProcessor struct {
 }
 
 func NewDocumentProcessor(
-    l loader.Loader,
+    l loader.DocumentLoader,
     s splitter.TextSplitter,
     emb embedding.Embedder,
     vectorDB vectorstore.VectorStore,
@@ -476,33 +439,31 @@ type ProcessingStats struct {
     EndTime       time.Time
 }
 
-func (dp *DocumentProcessor) Process(ctx context.Context) (*ProcessingStats, error) {
+// Process loads each source in turn and processes its documents in batches.
+func (dp *DocumentProcessor) Process(ctx context.Context, sources []string) (*ProcessingStats, error) {
     stats := &ProcessingStats{
         StartTime: time.Now(),
     }
 
-    // Load documents
-    docIterator, err := dp.loader.LazyLoad(ctx)
-    if err != nil {
-        return stats, fmt.Errorf("lazy load: %w", err)
-    }
-
     var batch []schema.Document
-    for docResult := range docIterator {
-        if docResult.Error != nil {
-            stats.Errors = append(stats.Errors, docResult.Error)
+    for _, source := range sources {
+        docs, err := dp.loader.Load(ctx, source)
+        if err != nil {
+            stats.Errors = append(stats.Errors, fmt.Errorf("load %s: %w", source, err))
             continue
         }
 
-        stats.DocsLoaded++
-        batch = append(batch, docResult.Document)
+        for _, doc := range docs {
+            stats.DocsLoaded++
+            batch = append(batch, doc)
 
-        // Process in batches
-        if len(batch) >= dp.batchSize {
-            if err := dp.processBatch(ctx, batch, stats); err != nil {
-                stats.Errors = append(stats.Errors, err)
+            // Process in batches
+            if len(batch) >= dp.batchSize {
+                if err := dp.processBatch(ctx, batch, stats); err != nil {
+                    stats.Errors = append(stats.Errors, err)
+                }
+                batch = nil
             }
-            batch = nil
         }
     }
 
@@ -523,13 +484,9 @@ func (dp *DocumentProcessor) processBatch(
     stats *ProcessingStats,
 ) error {
     // Split documents
-    var allChunks []schema.Document
-    for _, doc := range docs {
-        chunks, err := dp.splitter.SplitDocuments([]schema.Document{doc})
-        if err != nil {
-            return fmt.Errorf("split document %s: %w", doc.Metadata["source"], err)
-        }
-        allChunks = append(allChunks, chunks...)
+    allChunks, err := dp.splitter.SplitDocuments(ctx, docs)
+    if err != nil {
+        return fmt.Errorf("split documents: %w", err)
     }
 
     stats.ChunksCreated += len(allChunks)
@@ -537,7 +494,7 @@ func (dp *DocumentProcessor) processBatch(
     // Embed chunks in a single batch call
     texts := make([]string, len(allChunks))
     for i, chunk := range allChunks {
-        texts[i] = chunk.PageContent
+        texts[i] = chunk.Content
     }
     vecs, err := dp.embedder.Embed(ctx, texts)
     if err != nil {
@@ -578,23 +535,24 @@ func (stats *ProcessingStats) Report() string {
 
 ## Custom Loaders
 
-When built-in loaders do not cover your data source, you can implement custom loaders by satisfying the `Load(ctx context.Context) ([]schema.Document, error)` contract. Custom loaders integrate seamlessly with the rest of the pipeline — splitters, embedders, and vector stores do not care where the documents came from. The following example loads a CSV file, using one column as document content and the remaining columns as metadata.
+When built-in loaders do not cover your data source, implement `loader.DocumentLoader` yourself: a single `Load(ctx context.Context, source string) ([]schema.Document, error)` method. Custom loaders integrate with the rest of the pipeline; splitters, embedders, and vector stores do not care where the documents came from. To make one available by name, register it with `loader.Register` in an `init` function.
+
+The following example loads a CSV file, using one column as document content and the remaining columns as metadata. (For simple cases the built-in `csv` loader, `loader.NewCSVLoader(loader.WithContentColumns(...))`, already does this.)
 
 ```go
-type CSVLoader struct {
-    filePath   string
+type ColumnCSVLoader struct {
     columnName string // Column to use as document content
 }
 
-func NewCSVLoader(filePath, columnName string) *CSVLoader {
-    return &CSVLoader{
-        filePath:   filePath,
-        columnName: columnName,
-    }
+// Compile-time interface check.
+var _ loader.DocumentLoader = (*ColumnCSVLoader)(nil)
+
+func NewColumnCSVLoader(columnName string) *ColumnCSVLoader {
+    return &ColumnCSVLoader{columnName: columnName}
 }
 
-func (l *CSVLoader) Load(ctx context.Context) ([]schema.Document, error) {
-    file, err := os.Open(l.filePath)
+func (l *ColumnCSVLoader) Load(ctx context.Context, source string) ([]schema.Document, error) {
+    file, err := os.Open(filepath.Clean(source))
     if err != nil {
         return nil, fmt.Errorf("open file: %w", err)
     }
@@ -632,20 +590,21 @@ func (l *CSVLoader) Load(ctx context.Context) ([]schema.Document, error) {
         }
 
         // Create metadata from other columns
-        metadata := map[string]interface{}{
-            "source":     l.filePath,
+        metadata := map[string]any{
+            "source":     source,
             "row_number": i + 1,
         }
 
         for j, col := range header {
-            if j != columnIdx {
+            if j != columnIdx && j < len(record) {
                 metadata[col] = record[j]
             }
         }
 
         docs = append(docs, schema.Document{
-            PageContent: record[columnIdx],
-            Metadata:    metadata,
+            ID:       fmt.Sprintf("%s#%d", source, i+1),
+            Content:  record[columnIdx],
+            Metadata: metadata,
         })
     }
 
@@ -774,7 +733,7 @@ func isRetryable(err error) bool {
 
 The following checklist summarizes the key considerations for deploying document processing pipelines in production environments:
 
-1. **Use lazy loading** for datasets larger than available memory
+1. **Process file by file** for datasets larger than available memory
 2. **Process in batches** to optimize API calls and database writes
 3. **Add comprehensive metadata** for filtering and debugging
 4. **Choose appropriate chunk sizes** based on query patterns

@@ -22,7 +22,7 @@ Beluga AI defaults to hybrid search (Vector + BM25 + RRF fusion) because neither
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
 │   Documents  │───▶│  Splitter    │───▶│  Embedder    │
 │  (PDF, HTML, │    │  (Recursive, │    │  (OpenAI,    │
-│   Markdown)  │    │   Semantic)  │    │   Ollama)    │
+│   Markdown)  │    │   Markdown)  │    │   Ollama)    │
 └──────────────┘    └──────────────┘    └──────┬───────┘
                                                │
                                                ▼
@@ -42,7 +42,7 @@ Beluga AI defaults to hybrid search (Vector + BM25 + RRF fusion) because neither
 
 ## Document Ingestion Pipeline
 
-The ingestion pipeline loads documents from various sources, splits them into chunks, generates embeddings, and stores them in a vector database.
+The ingestion pipeline loads documents from various sources, splits them into chunks, generates embeddings, and stores them in a vector database. Built-in loaders cover text, Markdown, CSV and JSON; PDFs and office documents go through a document-conversion provider such as `docling` or `unstructured`.
 
 ```go
 package main
@@ -51,77 +51,89 @@ import (
     "context"
     "fmt"
     "log"
+    "os"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/loader"
     "github.com/lookatitude/beluga-ai/v2/rag/splitter"
     "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/v2/schema"
 
     _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/pdf"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/html"
-    _ "github.com/lookatitude/beluga-ai/v2/rag/splitter/providers/recursive"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling"
     _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
-func ingestDocuments(ctx context.Context) error {
-    // Load documents from PDF files
-    pdfLoader, err := loader.New("pdf", nil)
+func ingestDocuments(ctx context.Context, paths []string) error {
+    // Load PDFs (and DOCX, HTML, ...) through a Docling server
+    pdfLoader, err := loader.New("docling", config.ProviderConfig{
+        BaseURL: os.Getenv("DOCLING_URL"), // e.g. http://localhost:5001
+    })
     if err != nil {
         return fmt.Errorf("create loader: %w", err)
     }
 
-    docs, err := pdfLoader.Load(ctx, "/data/knowledge-base/")
-    if err != nil {
-        return fmt.Errorf("load documents: %w", err)
-    }
+    textSplitter := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(1000),
+        splitter.WithChunkOverlap(150),
+    )
 
-    // Split into chunks for embedding
-    textSplitter, err := splitter.New("recursive", nil)
-    if err != nil {
-        return fmt.Errorf("create splitter: %w", err)
-    }
-
-    chunks, err := textSplitter.SplitDocuments(ctx, docs)
-    if err != nil {
-        return fmt.Errorf("split documents: %w", err)
-    }
-
-    // Generate embeddings
-    embedder, err := embedding.New("openai", nil)
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
     if err != nil {
         return fmt.Errorf("create embedder: %w", err)
     }
 
-    texts := make([]string, len(chunks))
-    for i, chunk := range chunks {
-        texts[i] = chunk.Content
-    }
-
-    embeddings, err := embedder.Embed(ctx, texts)
-    if err != nil {
-        return fmt.Errorf("embed documents: %w", err)
-    }
-
-    // Store in vector database
-    store, err := vectorstore.New("pgvector", nil)
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("DATABASE_URL"),
+    })
     if err != nil {
         return fmt.Errorf("create vector store: %w", err)
     }
 
-    if err := store.Add(ctx, chunks, embeddings); err != nil {
-        return fmt.Errorf("store documents: %w", err)
-    }
+    for _, path := range paths {
+        docs, err := pdfLoader.Load(ctx, path)
+        if err != nil {
+            return fmt.Errorf("load %s: %w", path, err)
+        }
 
-    log.Printf("Ingested %d chunks from %d documents", len(chunks), len(docs))
+        // Split into chunks for embedding
+        chunks, err := textSplitter.SplitDocuments(ctx, docs)
+        if err != nil {
+            return fmt.Errorf("split documents: %w", err)
+        }
+
+        texts := make([]string, len(chunks))
+        for i, chunk := range chunks {
+            texts[i] = chunk.Content
+        }
+
+        embeddings, err := embedder.Embed(ctx, texts)
+        if err != nil {
+            return fmt.Errorf("embed documents: %w", err)
+        }
+
+        if err := store.Add(ctx, chunks, embeddings); err != nil {
+            return fmt.Errorf("store documents: %w", err)
+        }
+
+        log.Printf("Ingested %d chunks from %s", len(chunks), path)
+    }
     return nil
+}
+
+func main() {
+    if err := ingestDocuments(context.Background(), []string{"/data/knowledge-base/handbook.pdf"}); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
 ## Hybrid Retrieval with RRF Fusion
 
-Beluga AI's default retrieval strategy combines vector similarity search with BM25 keyword matching, using Reciprocal Rank Fusion to merge results. This hybrid approach outperforms either method alone.
+Beluga AI's default retrieval strategy combines vector similarity search with BM25 keyword matching, using Reciprocal Rank Fusion to merge results. This hybrid approach outperforms either method alone. `retriever.NewHybridRetriever` needs a keyword backend that implements `retriever.BM25Searcher`; Beluga AI does not ship a BM25 index, so you connect your own.
 
 ```go
 package main
@@ -129,7 +141,11 @@ package main
 import (
     "context"
     "fmt"
+    "log"
+    "os"
+    "strings"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/retriever"
@@ -143,71 +159,100 @@ import (
 
 // RAGSystem combines retrieval and generation.
 type RAGSystem struct {
+    embedder  embedding.Embedder
+    store     vectorstore.VectorStore
     retriever retriever.Retriever
     model     llm.ChatModel
 }
 
-func NewRAGSystem(ctx context.Context) (*RAGSystem, error) {
-    embedder, err := embedding.New("openai", nil)
+// NewRAGSystem takes your BM25 keyword index (Elasticsearch, OpenSearch,
+// Typesense, ...) wrapped in the retriever.BM25Searcher interface.
+// Beluga AI does not bundle a BM25 engine.
+func NewRAGSystem(ctx context.Context, bm25 retriever.BM25Searcher) (*RAGSystem, error) {
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", nil)
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("DATABASE_URL"),
+    })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
     }
 
     // Hybrid retriever: vector + BM25 + RRF fusion
-    ret, err := retriever.New("hybrid", nil)
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
+    ret := retriever.NewHybridRetriever(store, embedder, bm25)
 
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
 
     return &RAGSystem{
+        embedder:  embedder,
+        store:     store,
         retriever: ret,
         model:     model,
     }, nil
 }
 
+// buildMessages formats retrieved documents as grounded context.
+func buildMessages(docs []schema.Document, question string) []schema.Message {
+    var docContext strings.Builder
+    for _, doc := range docs {
+        docContext.WriteString(doc.Content)
+        docContext.WriteString("\n\n")
+    }
+    return []schema.Message{
+        schema.NewSystemMessage("Answer the question using only the provided context. " +
+            "If the context doesn't contain the answer, say so."),
+        schema.NewHumanMessage(fmt.Sprintf("Context:\n%s\n\nQuestion: %s", docContext.String(), question)),
+    }
+}
+
 func (r *RAGSystem) Query(ctx context.Context, question string) (string, error) {
     // Retrieve relevant documents
-    docs, err := r.retriever.Retrieve(ctx, question,
-        retriever.WithTopK(5),
-        retriever.WithThreshold(0.7),
-    )
+    docs, err := r.retriever.Retrieve(ctx, question, retriever.WithTopK(5))
     if err != nil {
         return "", fmt.Errorf("retrieve: %w", err)
     }
 
-    // Build context from retrieved documents
-    var context string
-    for _, doc := range docs {
-        context += doc.Content + "\n\n"
-    }
-
     // Generate answer grounded in retrieved context
-    msgs := []schema.Message{
-        &schema.SystemMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: "Answer the question using only the provided context. " +
-                "If the context doesn't contain the answer, say so."},
-        }},
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: fmt.Sprintf("Context:\n%s\n\nQuestion: %s", context, question)},
-        }},
-    }
-
-    resp, err := r.model.Generate(ctx, msgs)
+    resp, err := r.model.Generate(ctx, buildMessages(docs, question))
     if err != nil {
         return "", fmt.Errorf("generate: %w", err)
     }
 
-    return resp.Parts[0].(schema.TextPart).Text, nil
+    return resp.Text(), nil
+}
+
+func main() {
+    ctx := context.Background()
+    rag, err := NewRAGSystem(ctx, newKeywordIndex())
+    if err != nil {
+        log.Fatal(err)
+    }
+    answer, err := rag.Query(ctx, "How do we handle customer refunds?")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println(answer)
+}
+
+// newKeywordIndex returns your BM25 backend. This stub returns no hits.
+func newKeywordIndex() retriever.BM25Searcher { return noKeywordHits{} }
+
+type noKeywordHits struct{}
+
+func (noKeywordHits) Search(context.Context, string, int) ([]schema.Document, error) {
+    return nil, nil
 }
 ```
 
@@ -220,16 +265,19 @@ Beyond hybrid search, Beluga AI supports advanced retrieval strategies for highe
 CRAG evaluates the relevance of retrieved documents and falls back to alternative sources when relevance is low:
 
 ```go
-// CRAG retriever evaluates retrieval quality and self-corrects
-cragRetriever, err := retriever.New("crag", nil)
-if err != nil {
-    return fmt.Errorf("create crag retriever: %w", err)
-}
+// CRAG wraps a base retriever. When the model grades the retrieved
+// documents as not relevant enough, it falls back to a web search.
+// webSearcher is your implementation of retriever.WebSearcher.
+cragRetriever := retriever.NewCRAGRetriever(r.retriever, r.model, webSearcher,
+    retriever.WithCRAGThreshold(0.6),
+)
 
 docs, err := cragRetriever.Retrieve(ctx, "What is our refund policy?",
     retriever.WithTopK(10),
-    retriever.WithThreshold(0.6),
 )
+if err != nil {
+    return fmt.Errorf("crag retrieve: %w", err)
+}
 ```
 
 ### HyDE (Hypothetical Document Embeddings)
@@ -237,15 +285,16 @@ docs, err := cragRetriever.Retrieve(ctx, "What is our refund policy?",
 HyDE generates a hypothetical answer to the query first, then uses that hypothetical answer's embedding for retrieval. This bridges the gap between short queries and long documents:
 
 ```go
-// HyDE generates a hypothetical document for better matching
-hydeRetriever, err := retriever.New("hyde", nil)
-if err != nil {
-    return fmt.Errorf("create hyde retriever: %w", err)
-}
+// HyDE asks the model for a hypothetical answer, embeds it,
+// and searches the vector store with that embedding.
+hydeRetriever := retriever.NewHyDERetriever(r.model, r.embedder, r.store)
 
 docs, err := hydeRetriever.Retrieve(ctx, "quarterly revenue trends",
     retriever.WithTopK(5),
 )
+if err != nil {
+    return fmt.Errorf("hyde retrieve: %w", err)
+}
 ```
 
 ## Streaming Responses
@@ -261,21 +310,8 @@ func (r *RAGSystem) StreamQuery(ctx context.Context, question string) iter.Seq2[
         }
     }
 
-    var context string
-    for _, doc := range docs {
-        context += doc.Content + "\n\n"
-    }
-
-    msgs := []schema.Message{
-        &schema.SystemMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: "Answer using the provided context."},
-        }},
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: fmt.Sprintf("Context:\n%s\n\nQuestion: %s", context, question)},
-        }},
-    }
-
-    return r.model.Stream(ctx, msgs)
+    // Each chunk carries a text Delta
+    return r.model.Stream(ctx, buildMessages(docs, question))
 }
 ```
 
@@ -287,7 +323,6 @@ Instrument the RAG pipeline with OpenTelemetry to track latency, retrieval quali
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
@@ -307,8 +342,12 @@ func (r *RAGSystem) QueryWithTracing(ctx context.Context, question string) (stri
 
     span.SetAttributes(attribute.Int("rag.documents_retrieved", len(docs)))
 
-    // ... generate response ...
-    return answer, nil
+    resp, err := r.model.Generate(ctx, buildMessages(docs, question))
+    if err != nil {
+        span.RecordError(err)
+        return "", err
+    }
+    return resp.Text(), nil
 }
 ```
 

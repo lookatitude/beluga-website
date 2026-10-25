@@ -84,7 +84,7 @@ func loadDirectory(ctx context.Context, rootDir string) ([]schema.Document, erro
 
 ## Step 2: Implement a Custom PDF Loader
 
-Create a custom loader for PDF files. The `PDFLoader` implements the same `DocumentLoader` interface as built-in loaders, which means it plugs into the extension-to-loader map and the `LoaderPipeline` without any special handling. The pattern shown here -- implementing the interface with a placeholder and noting where to add the real parsing library -- is the recommended approach for custom format support. The metadata includes the source path and format, enabling downstream components to filter or prioritize documents by type.
+Create a custom loader for PDF files. The `PDFLoader` implements the same `DocumentLoader` interface as built-in loaders, which means it plugs into the extension-to-loader map and the `LoaderPipeline` without any special handling. The pattern shown here -- implementing the interface with a placeholder and noting where to add the real parsing library -- is the recommended approach for custom format support. The metadata includes the source path and format, enabling downstream components to filter or prioritize documents by type. If you would rather not parse PDFs yourself, the `docling` and `unstructured` providers under `rag/loader/providers/` implement the same interface on top of hosted document-conversion services.
 
 ```go
 // PDFLoader extracts text from PDF files.
@@ -201,8 +201,11 @@ func enrichMetadata(docs []schema.Document) []schema.Document {
 Combine loaders and transformers using `LoaderPipeline`. The pipeline's functional options (`WithLoader`, `WithTransformer`) follow Beluga AI's standard configuration pattern. The `TransformerFunc` adapter converts a plain function into a pipeline-compatible transformer, similar to how `http.HandlerFunc` adapts a function into an `http.Handler`.
 
 ```go
-func buildIngestionPipeline() *loader.LoaderPipeline {
-    textLoader, _ := loader.New("text", config.ProviderConfig{})
+func buildIngestionPipeline() (*loader.LoaderPipeline, error) {
+    textLoader, err := loader.New("text", config.ProviderConfig{})
+    if err != nil {
+        return nil, fmt.Errorf("create text loader: %w", err)
+    }
 
     enricher := loader.TransformerFunc(
         func(ctx context.Context, doc schema.Document) (schema.Document, error) {
@@ -220,7 +223,7 @@ func buildIngestionPipeline() *loader.LoaderPipeline {
     return loader.NewPipeline(
         loader.WithLoader(textLoader),
         loader.WithTransformer(enricher),
-    )
+    ), nil
 }
 ```
 
@@ -230,8 +233,14 @@ Combine all components into a complete scraper. The scraper uses a continue-on-e
 
 ```go
 func scrapeDirectory(ctx context.Context, rootDir string) ([]schema.Document, error) {
-    textLoader, _ := loader.New("text", config.ProviderConfig{})
-    markdownLoader, _ := loader.New("markdown", config.ProviderConfig{})
+    textLoader, err := loader.New("text", config.ProviderConfig{})
+    if err != nil {
+        return nil, fmt.Errorf("create text loader: %w", err)
+    }
+    markdownLoader, err := loader.New("markdown", config.ProviderConfig{})
+    if err != nil {
+        return nil, fmt.Errorf("create markdown loader: %w", err)
+    }
     pdfLoader := &PDFLoader{}
 
     loaders := map[string]loader.DocumentLoader{
@@ -242,7 +251,7 @@ func scrapeDirectory(ctx context.Context, rootDir string) ([]schema.Document, er
 
     var allDocs []schema.Document
 
-    err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+    err = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
         if err != nil {
             return err
         }

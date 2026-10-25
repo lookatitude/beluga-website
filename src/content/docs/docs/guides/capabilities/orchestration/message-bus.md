@@ -159,11 +159,13 @@ func registerResearchAgent(ctx context.Context, bus agent.EventBus) (agent.Subsc
         result := fmt.Sprintf("Research result for: %s", query)
 
         // Publish a completion event for downstream agents.
-        _ = bus.Publish(ctx, "research.complete", agent.AgentEvent{
+        if err := bus.Publish(ctx, "research.complete", agent.AgentEvent{
             Type:     "research.complete",
             SourceID: "research-agent",
             Payload:  result,
-        })
+        }); err != nil {
+            fmt.Printf("[RESEARCH] publish failed: %v\n", err)
+        }
     })
 }
 
@@ -206,7 +208,7 @@ if err := sub.Unsubscribe(); err != nil {
 
 The event-driven pattern enables a clean separation of concerns:
 
-```
+```text
 User Input
     |
     v

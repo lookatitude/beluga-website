@@ -32,7 +32,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
 	"github.com/lookatitude/beluga-ai/v2/schema"
 )
@@ -96,7 +96,7 @@ func (rt *ReindexTracker) StartReindex(ctx context.Context, jobID string, docume
 
 	go rt.executeReindex(context.Background(), jobID, documents)
 
-	span.SetStatus(trace.StatusOK, "reindex started")
+	span.SetStatus(codes.Ok, "reindex started")
 	return nil
 }
 
@@ -133,7 +133,7 @@ func (rt *ReindexTracker) executeReindex(ctx context.Context, jobID string, docu
 	job.CompletedAt = &completedAt
 	rt.mu.Unlock()
 
-	span.SetStatus(trace.StatusOK, "reindex completed")
+	span.SetStatus(codes.Ok, "reindex completed")
 }
 
 // GetStatus returns the status of a reindexing job.

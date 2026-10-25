@@ -257,15 +257,15 @@ Hooks provide observation and control points at each phase of agent execution wi
 a := agent.New("monitored",
 	agent.WithLLM(model),
 	agent.WithHooks(agent.Hooks{
-		OnStart: func(ctx context.Context, input any) error {
-			log.Printf("Agent started with: %v", input)
+		OnStart: func(ctx context.Context, input string) error {
+			log.Printf("Agent started with: %s", input)
 			return nil
 		},
-		OnEnd: func(ctx context.Context, result any, err error) {
-			log.Printf("Agent finished: result=%v, err=%v", result, err)
+		OnEnd: func(ctx context.Context, result string, err error) {
+			log.Printf("Agent finished: result=%s, err=%v", result, err)
 		},
-		OnToolCall: func(ctx context.Context, call any) error {
-			log.Printf("Tool call: %v", call)
+		OnToolCall: func(ctx context.Context, call agent.ToolCallInfo) error {
+			log.Printf("Tool call: %s(%s)", call.Name, call.Arguments)
 			return nil
 		},
 		OnError: func(ctx context.Context, err error) error {

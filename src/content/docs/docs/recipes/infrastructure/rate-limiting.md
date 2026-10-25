@@ -43,7 +43,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.server.rate_limiting")
@@ -129,7 +129,7 @@ func (rl *RateLimiter) Allow(ctx context.Context, projectID string) (bool, error
 	span.SetAttributes(
 		attribute.Int("remaining_minute", limit.RequestsPerMinute-len(counter.MinuteCount)),
 	)
-	span.SetStatus(trace.StatusOK, "request allowed")
+	span.SetStatus(codes.Ok, "request allowed")
 	return true, nil
 }
 

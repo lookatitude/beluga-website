@@ -14,7 +14,7 @@ A unified search bot aggregates results from all sources, applies intelligent ra
 
 ## Solution Architecture
 
-Beluga AI's server package provides both REST and MCP (Model Context Protocol) APIs for flexible integration. The search orchestrator queries multiple systems in parallel, aggregates results using score-based ranking, and returns unified results with source attribution and relevance scores.
+Beluga AI's `server` package provides HTTP adapters (the built-in `stdlib` adapter plus Gin, Chi, Echo, Fiber and others under `server/adapters/`), and `protocol/mcp` provides an MCP (Model Context Protocol) server, so the same search can be exposed as a REST endpoint and as an MCP tool. The search orchestrator queries multiple systems in parallel, aggregates results using score-based ranking, and returns unified results with source attribution and relevance scores.
 
 Parallel querying is essential because total latency must be bounded by the slowest source, not the sum of all sources. Score-based ranking (rather than simple interleaving) ensures that a highly relevant result from one source ranks above marginally relevant results from another, regardless of which system responded first.
 
@@ -50,53 +50,49 @@ Parallel querying is essential because total latency must be bounded by the slow
 
 ## Search Server Setup
 
-Create REST and MCP servers for flexible integration:
+Create the HTTP server and the MCP server:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
+    "time"
 
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
     "github.com/lookatitude/beluga-ai/v2/server"
-    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/metric"
+    "go.opentelemetry.io/otel/trace"
 )
 
 type SearchEverythingBot struct {
-    restServer   *server.RESTServer
-    mcpServer    *server.MCPServer
+    httpServer   server.ServerAdapter
+    mcpServer    *mcp.MCPServer
     orchestrator *SearchOrchestrator
     tracer       trace.Tracer
     meter        metric.Meter
 }
 
 func NewSearchEverythingBot(ctx context.Context) (*SearchEverythingBot, error) {
-    // Setup REST server
-    restServer, err := server.NewRESTServer(
-        server.WithHost("0.0.0.0"),
-        server.WithPort(8080),
-        server.WithBasePath("/api/v1"),
-    )
+    // HTTP server: the built-in "stdlib" adapter (gin, chi, echo, fiber, ...
+    // are available under server/adapters/)
+    httpServer, err := server.New("stdlib", server.Config{
+        ReadTimeout:  10 * time.Second,
+        WriteTimeout: 30 * time.Second,
+    })
     if err != nil {
-        return nil, fmt.Errorf("create REST server: %w", err)
+        return nil, fmt.Errorf("create HTTP server: %w", err)
     }
 
-    // Setup MCP server
-    mcpServer, err := server.NewMCPServer(
-        server.WithName("search-everything"),
-        server.WithDescription("Search across all internal systems"),
-    )
-    if err != nil {
-        return nil, fmt.Errorf("create MCP server: %w", err)
-    }
+    // MCP server exposing the search as a tool over Streamable HTTP
+    mcpServer := mcp.NewServer("search-everything", "1.0.0")
 
     return &SearchEverythingBot{
-        restServer:   restServer,
+        httpServer:   httpServer,
         mcpServer:    mcpServer,
         orchestrator: NewSearchOrchestrator(),
+        tracer:       otel.Tracer("search-everything"),
+        meter:        otel.Meter("search-everything"),
     }, nil
 }
 ```
@@ -106,13 +102,11 @@ func NewSearchEverythingBot(ctx context.Context) (*SearchEverythingBot, error) {
 Query all systems in parallel and aggregate results:
 
 ```go
-package main
-
 import (
     "context"
+    "log"
+    "sort"
     "sync"
-
-    "go.opentelemetry.io/otel/attribute"
 )
 
 type SearchOrchestrator struct {
@@ -123,12 +117,12 @@ type SearchOrchestrator struct {
 }
 
 type SearchResult struct {
-    Title       string
-    Content     string
-    Source      string // "docs", "code", "wiki", "database"
-    SourceURL   string
-    Score       float64
-    Metadata    map[string]interface{}
+    Title     string
+    Content   string
+    Source    string // "docs", "code", "wiki", "database"
+    SourceURL string
+    Score     float64
+    Metadata  map[string]any
 }
 
 type SourceResults struct {
@@ -176,7 +170,7 @@ func (s *SearchOrchestrator) SearchEverything(ctx context.Context, query string,
     allResults := make([]SearchResult, 0)
     for sourceResults := range resultsChan {
         if sourceResults.Error != nil {
-            // Log error but continue with other sources
+            log.Printf("search %s: %v", sourceResults.Source, sourceResults.Error) // continue with other sources
             continue
         }
         allResults = append(allResults, sourceResults.Results...)
@@ -224,26 +218,32 @@ func (s *SearchOrchestrator) rankResults(results []SearchResult, query string) [
 Expose REST and MCP interfaces:
 
 ```go
-package main
-
 import (
+    "context"
     "encoding/json"
+    "fmt"
     "net/http"
+
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
-func (s *SearchEverythingBot) SetupAPIs(ctx context.Context) error {
-    // REST endpoint
-    s.restServer.HandleFunc("POST", "/search", func(w http.ResponseWriter, r *http.Request) {
-        var req struct {
-            Query string `json:"query"`
-            Limit int    `json:"limit,omitempty"`
-        }
+type searchInput struct {
+    Query string `json:"query" description:"Search query" required:"true"`
+    Limit int    `json:"limit" description:"Maximum number of results" default:"10"`
+}
 
+func (s *SearchEverythingBot) SetupAPIs(ctx context.Context) error {
+    // REST endpoint: POST /api/v1/search
+    search := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.Method != http.MethodPost {
+            http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+            return
+        }
+        var req searchInput
         if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
             http.Error(w, "invalid request", http.StatusBadRequest)
             return
         }
-
         if req.Limit == 0 {
             req.Limit = 10
         }
@@ -255,53 +255,61 @@ func (s *SearchEverythingBot) SetupAPIs(ctx context.Context) error {
         }
 
         w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]interface{}{
+        if err := json.NewEncoder(w).Encode(map[string]any{
             "query":   req.Query,
             "results": results,
             "count":   len(results),
-        })
+        }); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+        }
     })
+    if err := s.httpServer.RegisterHandler("/api/v1/search", search); err != nil {
+        return fmt.Errorf("register search handler: %w", err)
+    }
 
-    // MCP tool registration
-    s.mcpServer.RegisterTool("search_everything", server.Tool{
-        Description: "Search across all internal systems (docs, code, wikis, databases)",
-        InputSchema: map[string]interface{}{
-            "type": "object",
-            "properties": map[string]interface{}{
-                "query": map[string]interface{}{
-                    "type":        "string",
-                    "description": "Search query",
-                },
-                "limit": map[string]interface{}{
-                    "type":        "integer",
-                    "description": "Maximum number of results (default: 10)",
-                    "default":     10,
-                },
-            },
-            "required": []string{"query"},
-        },
-    }, s.handleMCPSearch)
+    // MCP tool: the input schema is generated from searchInput's struct tags
+    searchTool := tool.NewFuncTool("search_everything",
+        "Search across all internal systems (docs, code, wikis, databases)",
+        s.handleMCPSearch,
+    )
+    s.mcpServer.AddTool(searchTool)
+
+    // Serve MCP on the same HTTP server
+    if err := s.httpServer.RegisterHandler("/mcp", s.mcpServer.Handler()); err != nil {
+        return fmt.Errorf("register MCP handler: %w", err)
+    }
 
     return nil
 }
 
-func (s *SearchEverythingBot) handleMCPSearch(ctx context.Context, params map[string]interface{}) (interface{}, error) {
-    query := params["query"].(string)
-    limit := 10
-    if l, ok := params["limit"].(int); ok {
-        limit = l
+func (s *SearchEverythingBot) handleMCPSearch(ctx context.Context, in searchInput) (*tool.Result, error) {
+    limit := in.Limit
+    if limit == 0 {
+        limit = 10
     }
 
-    results, err := s.orchestrator.SearchEverything(ctx, query, limit)
+    results, err := s.orchestrator.SearchEverything(ctx, in.Query, limit)
+    if err != nil {
+        return tool.ErrorResult(err), nil
+    }
+
+    body, err := json.Marshal(map[string]any{
+        "query":   in.Query,
+        "results": results,
+        "count":   len(results),
+    })
     if err != nil {
         return nil, err
     }
+    return tool.TextResult(string(body)), nil
+}
 
-    return map[string]interface{}{
-        "query":   query,
-        "results": results,
-        "count":   len(results),
-    }, nil
+// Run starts serving REST and MCP on :8080 until ctx is canceled.
+func (s *SearchEverythingBot) Run(ctx context.Context) error {
+    if err := s.SetupAPIs(ctx); err != nil {
+        return err
+    }
+    return s.httpServer.Serve(ctx, ":8080")
 }
 ```
 
@@ -310,10 +318,9 @@ func (s *SearchEverythingBot) handleMCPSearch(ctx context.Context, params map[st
 Implement adapters for each source system:
 
 ```go
-package main
-
 import (
     "context"
+
     "github.com/lookatitude/beluga-ai/v2/rag/retriever"
 )
 
@@ -329,12 +336,14 @@ func (d *DocumentationSearcher) Search(ctx context.Context, query string) ([]Sea
 
     results := make([]SearchResult, len(docs))
     for i, doc := range docs {
+        title, _ := doc.Metadata["title"].(string)
+        url, _ := doc.Metadata["url"].(string)
         results[i] = SearchResult{
-            Title:     doc.Metadata["title"].(string),
+            Title:     title,
             Content:   doc.Content,
             Source:    "docs",
-            SourceURL: doc.Metadata["url"].(string),
-            Score:     doc.Metadata["score"].(float64),
+            SourceURL: url,
+            Score:     doc.Score, // relevance set by the retriever
             Metadata:  doc.Metadata,
         }
     }
@@ -354,12 +363,14 @@ func (c *CodeSearcher) Search(ctx context.Context, query string) ([]SearchResult
 
     results := make([]SearchResult, len(docs))
     for i, doc := range docs {
+        path, _ := doc.Metadata["file_path"].(string)
+        repo, _ := doc.Metadata["repo_url"].(string)
         results[i] = SearchResult{
-            Title:     doc.Metadata["file_path"].(string),
+            Title:     path,
             Content:   doc.Content,
             Source:    "code",
-            SourceURL: doc.Metadata["repo_url"].(string),
-            Score:     doc.Metadata["score"].(float64),
+            SourceURL: repo,
+            Score:     doc.Score,
             Metadata:  doc.Metadata,
         }
     }
@@ -376,12 +387,19 @@ Track search metrics and source performance:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "time"
+
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
 
+var (
+    searchTracer = otel.Tracer("search-everything")
+    searchMeter  = otel.Meter("search-everything")
+)
+
 func (s *SearchOrchestrator) SearchWithObservability(ctx context.Context, query string, limit int) ([]SearchResult, error) {
-    ctx, span := s.tracer.Start(ctx, "search.everything")
+    ctx, span := searchTracer.Start(ctx, "search.everything")
     defer span.End()
 
     span.SetAttributes(
@@ -403,8 +421,12 @@ func (s *SearchOrchestrator) SearchWithObservability(ctx context.Context, query 
         attribute.Float64("duration.ms", float64(duration.Milliseconds())),
     )
 
-    s.meter.RecordHistogram(ctx, "search.duration", duration.Milliseconds())
-    s.meter.IncrementCounter(ctx, "search.requests")
+    // Create instruments once at startup in real code
+    hist, err := searchMeter.Int64Histogram("search.duration")
+    if err != nil {
+        return nil, err
+    }
+    hist.Record(ctx, duration.Milliseconds())
 
     return results, nil
 }
@@ -426,8 +448,14 @@ func (c *CachedSearchOrchestrator) SearchEverything(ctx context.Context, query s
     cacheKey := fmt.Sprintf("search:%s:%d", query, limit)
 
     // Check cache first
-    if cached, ok := c.cache.Get(ctx, cacheKey); ok {
-        return cached.([]SearchResult), nil
+    cached, ok, err := c.cache.Get(ctx, cacheKey)
+    if err != nil {
+        return nil, err
+    }
+    if ok {
+        if results, isResults := cached.([]SearchResult); isResults {
+            return results, nil
+        }
     }
 
     // Perform search
@@ -437,7 +465,9 @@ func (c *CachedSearchOrchestrator) SearchEverything(ctx context.Context, query s
     }
 
     // Cache results for 5 minutes
-    c.cache.Set(ctx, cacheKey, results, 5*time.Minute)
+    if err := c.cache.Set(ctx, cacheKey, results, 5*time.Minute); err != nil {
+        return nil, err
+    }
 
     return results, nil
 }

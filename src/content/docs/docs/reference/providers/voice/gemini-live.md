@@ -75,7 +75,11 @@ func main() {
     }
 
     // Receive events
-    for event := range session.Recv() {
+    for event, err := range session.Recv(ctx) {
+        if err != nil {
+            log.Printf("session: %v", err)
+            break
+        }
         switch event.Type {
         case s2s.EventAudioOutput:
             playAudio(event.Audio)
@@ -89,6 +93,13 @@ func main() {
             log.Printf("error: %v", event.Error)
         }
     }
+}
+// audioChunk is PCM16 audio captured from your microphone or transport.
+var audioChunk []byte
+
+// playAudio writes synthesized PCM16 audio to your output device or transport.
+func playAudio(pcm []byte) {
+    fmt.Printf("received %d bytes of audio\n", len(pcm))
 }
 ```
 
@@ -133,7 +144,11 @@ session, err := engine.Start(ctx,
     }),
 )
 
-for event := range session.Recv() {
+for event, err := range session.Recv(ctx) {
+    if err != nil {
+        log.Printf("session: %v", err)
+        break
+    }
     if event.Type == s2s.EventToolCall {
         result := executeSearch(event.ToolCall.Arguments)
         if err := session.SendToolResult(ctx, schema.ToolResult{

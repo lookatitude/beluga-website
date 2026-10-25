@@ -192,6 +192,8 @@ package main
 
 import (
     "context"
+    "iter"
+    "log"
 
     "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/schema"
@@ -234,7 +236,7 @@ func (m *costTrackingModel) Generate(ctx context.Context, msgs []schema.Message,
         resp.Usage.OutputTokens,
     ); err != nil {
         // Log error but don't fail the request
-        logger.Error("failed to track cost", "error", err)
+        log.Printf("failed to track cost: %v", err)
     }
 
     return resp, nil
@@ -244,7 +246,7 @@ func (m *costTrackingModel) Stream(ctx context.Context, msgs []schema.Message, o
     return m.inner.Stream(ctx, msgs, opts...)
 }
 
-func (m *costTrackingModel) BindTools(tools []tool.Tool) llm.ChatModel {
+func (m *costTrackingModel) BindTools(tools []schema.ToolDefinition) llm.ChatModel {
     return &costTrackingModel{
         inner:   m.inner.BindTools(tools),
         tracker: m.tracker,

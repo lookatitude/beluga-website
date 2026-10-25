@@ -55,9 +55,7 @@ package main
 import (
     "context"
     "fmt"
-    "os"
 
-    "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
     "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
@@ -96,7 +94,7 @@ func main() {
 
 ## Step 2: Create the MCP Server
 
-Register tools with the MCP server. The `AddTool` method accepts any value implementing the `tool.Tool` interface, which means tools built for agent use work without modification. The server internally maps each tool's `Name()` to its `Schema()` for the `tools/list` response and delegates to `Execute()` for `tools/call` requests.
+Register tools with the MCP server. The `AddTool` method accepts any value implementing the `tool.Tool` interface, which means tools built for agent use work without modification. The server internally maps each tool's `Name()` to its `InputSchema()` for the `tools/list` response and delegates to `Execute()` for `tools/call` requests.
 
 ```go
 func buildServer() *mcp.MCPServer {

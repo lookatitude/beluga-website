@@ -8,6 +8,10 @@ head:
       content: "LiveKit, WebRTC, audio transport, voice pipeline, SFU, scalable, real-time, Go, Beluga AI"
 ---
 
+:::caution[Not yet functional]
+The LiveKit adapter is registered and validates its configuration, but it does not connect yet: it never dials LiveKit, `Send` discards frames, `AudioOut` discards audio, and `Recv` never yields a frame. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
+:::
+
 The LiveKit provider implements bidirectional audio transport through LiveKit rooms. LiveKit is treated as a transport layer — it provides WebRTC connectivity while Beluga handles all STT, LLM, and TTS processing through the frame-based pipeline.
 
 Choose LiveKit when you need a self-hostable, open-source WebRTC infrastructure for production voice deployments. LiveKit provides room management, access token authentication, and scalable media routing. Beluga treats LiveKit as a pure transport layer, handling all voice processing in the frame-based pipeline. For a managed alternative, consider [Daily](/docs/reference/providers/transport/daily).
@@ -61,12 +65,10 @@ func main() {
     defer t.Close()
 
     // Receive incoming audio frames
-    frames, err := t.Recv(context.Background())
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    for frame := range frames {
+    for frame, err := range t.Recv(context.Background()) {
+        if err != nil {
+            log.Fatal(err)
+        }
         fmt.Printf("Received %d bytes of audio\n", len(frame.Data))
     }
 }
@@ -143,6 +145,6 @@ if err != nil {
 }
 ```
 
-Both `URL` and `Token` are required. The transport returns errors from `Recv` and `Send` if `Close` has already been called.
+Both `URL` and `Token` are required. The transport returns an error from `Send` (and yields one from the `Recv` iterator) if `Close` has already been called.
 
 Refer to the [LiveKit documentation](https://docs.livekit.io/) for server setup, room management, and token generation.

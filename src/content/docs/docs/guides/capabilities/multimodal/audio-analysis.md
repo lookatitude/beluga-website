@@ -56,13 +56,11 @@ Create a model that supports audio input via the registry pattern. Google Gemini
 package main
 
 import (
-    "context"
     "fmt"
     "os"
 
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
-    "github.com/lookatitude/beluga-ai/v2/schema"
 
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 )
@@ -77,9 +75,8 @@ func main() {
         return
     }
 
-    ctx := context.Background()
-    _ = model
-    _ = ctx
+    // The functions in the following steps take this model and a context.Context.
+    fmt.Println("model ready:", model.ModelID())
 }
 ```
 

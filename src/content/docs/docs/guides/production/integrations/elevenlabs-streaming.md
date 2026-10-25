@@ -12,7 +12,7 @@ ElevenLabs produces some of the most natural-sounding synthetic voices available
 
 ## Overview
 
-The ElevenLabs integration uses the `voice/tts` package registry to create a streaming TTS provider. It supports voice selection, stability and similarity tuning, and real-time audio generation with the multilingual v2 model.
+The ElevenLabs integration uses the `voice/tts` package registry to create a streaming TTS provider. It supports voice and model selection through `tts.Config`, and streaming synthesis over a stream of text chunks.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ export ELEVENLABS_API_KEY="your-api-key"
 
 ## Configuration
 
-Create an ElevenLabs TTS provider:
+The ElevenLabs provider registers itself as `"elevenlabs"` with the `tts` registry when you blank-import it. The API key goes in `tts.Config.Extra`:
 
 ```go
 package main
@@ -45,24 +45,21 @@ import (
     "os"
 
     "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 func main() {
     ctx := context.Background()
 
-    config := tts.Config{
-        Provider: "elevenlabs",
-        APIKey:   os.Getenv("ELEVENLABS_API_KEY"),
-        VoiceID:  "21m00Tcm4TlvDq8ikWAM",
-    }
-
-    provider, err := tts.NewProvider(ctx, "elevenlabs", config)
+    engine, err := tts.New("elevenlabs", tts.Config{
+        Voice: "21m00Tcm4TlvDq8ikWAM", // Rachel
+        Extra: map[string]any{"api_key": os.Getenv("ELEVENLABS_API_KEY")},
+    })
     if err != nil {
         log.Fatalf("Failed to create provider: %v", err)
     }
 
-    text := "Hello, this is a test of ElevenLabs text-to-speech."
-    audio, err := provider.GenerateSpeech(ctx, text)
+    audio, err := engine.Synthesize(ctx, "Hello, this is a test of ElevenLabs text-to-speech.")
     if err != nil {
         log.Fatalf("Generation failed: %v", err)
     }
@@ -73,38 +70,47 @@ func main() {
 
 ## Usage
 
-### Voice Selection and Tuning
+### Voice and Model Selection
 
-Customize voice parameters for quality and consistency:
+Set the voice and model on the config, or override them per call with options:
 
 ```go
-config := tts.Config{
-    Provider:        "elevenlabs",
-    APIKey:          os.Getenv("ELEVENLABS_API_KEY"),
-    VoiceID:         "your-voice-id",
-    ModelID:         "eleven_multilingual_v2",
-    Stability:       0.5,
-    SimilarityBoost: 0.75,
+engine, err := tts.New("elevenlabs", tts.Config{
+    Voice: "your-voice-id",
+    Model: "eleven_multilingual_v2",
+    Extra: map[string]any{"api_key": os.Getenv("ELEVENLABS_API_KEY")},
+})
+if err != nil {
+    log.Fatalf("Failed to create provider: %v", err)
+}
+
+audio, err := engine.Synthesize(ctx, "Hola!", tts.WithVoice("another-voice-id"))
+if err != nil {
+    log.Fatalf("Generation failed: %v", err)
 }
 ```
+
+The provider currently sends fixed voice settings (stability `0.5`, similarity boost `0.75`); they are not configurable through `tts.Config`.
 
 ### Streaming Audio Generation
 
-Stream audio chunks as they are generated for low-latency playback:
+`SynthesizeStream` takes an `iter.Seq2[string, error]` of text chunks (for example, sentences from an LLM stream) and yields one audio buffer per chunk, so playback can start before the full response is ready:
 
 ```go
-func streamAudio(ctx context.Context, provider tts.Provider, text string) (<-chan []byte, error) {
-    audioChan := make(chan []byte, 10)
-
-    go func() {
-        defer close(audioChan)
-        // ElevenLabs supports streaming audio generation.
-        // Implementation handles chunked API responses.
-    }()
-
-    return audioChan, nil
+func streamAudio(ctx context.Context, engine tts.TTS, sentences iter.Seq2[string, error], play func([]byte) error) error {
+    for chunk, err := range engine.SynthesizeStream(ctx, sentences) {
+        if err != nil {
+            return fmt.Errorf("synthesize: %w", err)
+        }
+        if err := play(chunk); err != nil {
+            return fmt.Errorf("play: %w", err)
+        }
+    }
+    return nil
 }
 ```
+
+In a voice pipeline, use `tts.AsFrameProcessor(engine, 24000)` as the TTS stage.
 
 ### Observability
 
@@ -120,7 +126,7 @@ import (
 tracer := otel.Tracer("beluga.voice.tts.elevenlabs")
 ctx, span := tracer.Start(ctx, "elevenlabs.generate",
     trace.WithAttributes(
-        attribute.String("voice_id", config.VoiceID),
+        attribute.String("voice_id", "21m00Tcm4TlvDq8ikWAM"),
     ),
 )
 defer span.End()
@@ -128,13 +134,12 @@ defer span.End()
 
 ## Configuration Reference
 
-| Option            | Description           | Default                    | Required |
-|-------------------|-----------------------|----------------------------|----------|
-| `APIKey`          | ElevenLabs API key    | -                          | Yes      |
-| `VoiceID`         | Voice identifier      | -                          | Yes      |
-| `ModelID`         | Model identifier      | `eleven_multilingual_v2`   | No       |
-| `Stability`       | Voice stability (0-1) | `0.5`                      | No       |
-| `SimilarityBoost` | Similarity boost (0-1)| `0.75`                     | No       |
+| Field               | Description           | Default                    | Required |
+|---------------------|-----------------------|----------------------------|----------|
+| `Extra["api_key"]`  | ElevenLabs API key    | -                          | Yes      |
+| `Extra["base_url"]` | Custom API base URL   | `https://api.elevenlabs.io/v1` | No   |
+| `Voice`             | Voice identifier      | `21m00Tcm4TlvDq8ikWAM` (Rachel) | No  |
+| `Model`             | Model identifier      | `eleven_monolingual_v1`    | No       |
 
 ## Troubleshooting
 
@@ -153,7 +158,6 @@ Check that the voice ID exists. List available voices through the ElevenLabs API
 - Use voice cloning for custom brand voices
 - Enable streaming for low-latency audio generation
 - Monitor API usage for cost management
-- Balance stability and similarity settings for your use case
 - Implement retry logic for transient API failures
 
 ## Related Resources

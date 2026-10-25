@@ -43,19 +43,27 @@ package main
 import (
     "context"
     "fmt"
+    "os"
     "path/filepath"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/loader"
     "github.com/lookatitude/beluga-ai/v2/rag/splitter"
-    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
     "github.com/lookatitude/beluga-ai/v2/schema"
+
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/unstructured"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 // ArchiveIngestionSystem implements legacy archive ingestion.
 type ArchiveIngestionSystem struct {
     formatDetector   *FormatDetector
     qualityValidator *QualityValidator
+    loaders          map[string]loader.DocumentLoader // keyed by format
     splitter         splitter.TextSplitter
     embedder         embedding.Embedder
     vectorStore      vectorstore.VectorStore
@@ -63,17 +71,40 @@ type ArchiveIngestionSystem struct {
 
 // NewArchiveIngestionSystem creates a new ingestion system.
 func NewArchiveIngestionSystem(ctx context.Context) (*ArchiveIngestionSystem, error) {
-    spl, err := splitter.New("recursive", nil)
-    if err != nil {
-        return nil, fmt.Errorf("create splitter: %w", err)
+    // One loader per detected format. Text and Markdown are built in;
+    // PDF/DOCX go through a Docling server, HTML through Unstructured.io.
+    loaderConfigs := map[string]config.ProviderConfig{
+        "text":         {},
+        "markdown":     {},
+        "docling":      {BaseURL: os.Getenv("DOCLING_URL")},
+        "unstructured": {APIKey: os.Getenv("UNSTRUCTURED_API_KEY")},
+    }
+    loaders := make(map[string]loader.DocumentLoader, len(loaderConfigs))
+    for name, cfg := range loaderConfigs {
+        l, err := loader.New(name, cfg)
+        if err != nil {
+            return nil, fmt.Errorf("create %s loader: %w", name, err)
+        }
+        loaders[name] = l
     }
 
-    emb, err := embedding.New("openai", nil)
+    spl := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(1000),
+        splitter.WithChunkOverlap(200),
+    )
+
+    emb, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", nil)
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("DATABASE_URL"), // postgres connection string
+        Options: map[string]any{"table": "archive_documents"},
+    })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
     }
@@ -81,6 +112,7 @@ func NewArchiveIngestionSystem(ctx context.Context) (*ArchiveIngestionSystem, er
     return &ArchiveIngestionSystem{
         formatDetector:   NewFormatDetector(),
         qualityValidator: NewQualityValidator(),
+        loaders:          loaders,
         splitter:         spl,
         embedder:         emb,
         vectorStore:      store,
@@ -142,19 +174,17 @@ func NewFormatDetector() *FormatDetector {
     return &FormatDetector{}
 }
 
-// Detect determines the document format.
+// Detect returns the name of the registered loader for a file.
 func (fd *FormatDetector) Detect(ctx context.Context, filePath string) string {
     // Check file extension
     ext := filepath.Ext(filePath)
     switch ext {
-    case ".pdf":
-        return "pdf"
-    case ".docx":
-        return "docx"
+    case ".pdf", ".docx":
+        return "docling"
     case ".txt":
         return "text"
     case ".html", ".htm":
-        return "html"
+        return "unstructured"
     case ".md":
         return "markdown"
     default:
@@ -186,15 +216,13 @@ func (a *ArchiveIngestionSystem) processBatch(ctx context.Context, files []strin
         }
 
         // Get appropriate loader
-        ldr, err := loader.New(format, map[string]any{
-            "path": filePath,
-        })
-        if err != nil {
+        ldr, ok := a.loaders[format]
+        if !ok {
             continue
         }
 
         // Load documents
-        docs, err := ldr.Load(ctx)
+        docs, err := ldr.Load(ctx, filePath)
         if err != nil {
             continue
         }
@@ -375,7 +403,11 @@ import (
 func (a *ArchiveIngestionSystem) recordMetrics(ctx context.Context, format string, success bool) {
     meter := otel.Meter("archive-ingestion")
 
-    counter, _ := meter.Int64Counter("documents_processed_total")
+    counter, err := meter.Int64Counter("documents_processed_total")
+    if err != nil {
+        otel.Handle(err) // report instrument errors through the global OTel handler
+        return
+    }
     counter.Add(ctx, 1,
         metric.WithAttributes(
             attribute.String("format", format),

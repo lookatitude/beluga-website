@@ -19,17 +19,17 @@ Before you begin, make sure you have the following installed. Go 1.26+ is requir
 | **Go** | 1.26+ | Yes | The framework `go.mod` declares `go 1.26.0`; streaming uses `iter.Seq2` |
 | **Git** | 2.x+ | Yes | For cloning and version control |
 | **Make** | Any | Recommended | Simplifies common tasks via Makefile targets |
-| **golangci-lint** | Latest | Recommended | Runs all configured linters in one pass |
+| **golangci-lint** | v2.x | Recommended | Runs all configured linters in one pass |
 | **Node.js** | 22+ | Docs only | Only needed if working on the documentation website |
 
 ### Installing golangci-lint
 
 ```bash
 # macOS / Linux
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
-# Or via Go
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+# Or via Go (the framework's .golangci.yml is v2 format; a v1 binary rejects it)
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 ```
 
 ## Fork and Clone

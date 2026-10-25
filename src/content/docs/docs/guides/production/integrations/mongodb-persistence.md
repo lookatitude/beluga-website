@@ -21,6 +21,10 @@ The `mongodb` store implements the `memory.MessageStore` interface, storing each
 - Scalable storage for high-volume applications
 - Integration with MongoDB Atlas for managed cloud deployments
 
+:::note[Memory store vs. vector store]
+This page covers the **memory** store `memory/stores/mongodb`, which uses the official MongoDB Go driver and works with any MongoDB deployment, including Atlas clusters reached through a normal connection string. It is unrelated to the MongoDB **vector store** provider (`rag/vectorstore/providers/mongodb`), which is built on the Atlas Data API. MongoDB shut the Atlas Data API down on 30 September 2025, so that vector store provider no longer works; use another vector store (for example `pgvector` or `qdrant`) for embeddings.
+:::
+
 ## Prerequisites
 
 - Go 1.26 or later
@@ -59,7 +63,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/lookatitude/beluga-ai/v2/memory/stores/mongodb"
 	"github.com/lookatitude/beluga-ai/v2/schema"
@@ -100,10 +103,10 @@ func main() {
 		log.Fatalf("Append failed: %v", err)
 	}
 
-	// Retrieve recent messages.
-	msgs, err := store.Last(ctx, 10)
+	// Retrieve the full history in chronological order.
+	msgs, err := store.All(ctx)
 	if err != nil {
-		log.Fatalf("Last failed: %v", err)
+		log.Fatalf("All failed: %v", err)
 	}
 
 	fmt.Printf("Retrieved %d messages\n", len(msgs))
@@ -112,7 +115,7 @@ func main() {
 
 ### Using with CompositeMemory
 
-The MongoDB store plugs into Beluga's `CompositeMemory` as the recall tier for searchable conversation history:
+The MongoDB store implements `memory.MessageStore`, so it plugs into Beluga's `CompositeMemory` as the backing store of the recall tier:
 
 ```go
 import (
@@ -129,9 +132,9 @@ if err != nil {
 }
 
 // Build a CompositeMemory with MongoDB as the recall tier.
-mem := memory.NewComposite(memory.CompositeConfig{
-	RecallStore: recallStore,
-})
+mem := memory.NewComposite(
+	memory.WithRecall(memory.NewRecall(recallStore)),
+)
 
 // Save a conversation turn.
 err = mem.Save(ctx,
@@ -153,7 +156,7 @@ if err != nil {
 
 ### Searching Messages
 
-The MongoDB store supports text-based search across stored messages:
+The MongoDB store supports case-insensitive substring search across stored messages. Matching happens in the application after loading the collection, so it is suited to modest history sizes:
 
 ```go
 results, err := store.Search(ctx, "weather", 5)
@@ -162,7 +165,7 @@ if err != nil {
 }
 
 for _, msg := range results {
-	fmt.Printf("[%s] %s\n", msg.GetRole(), extractText(msg))
+	fmt.Printf("[%s] %v\n", msg.GetRole(), msg.GetContent())
 }
 ```
 
@@ -293,7 +296,7 @@ mongosh "mongodb://localhost:27017"
 
 ### Slow Queries
 
-If search operations are slow on large collections, ensure the appropriate indexes exist. The store uses sequence-ordered inserts, so a compound index on `(seq, role)` can improve filtered retrieval.
+`Search` and `All` read the whole collection in `seq` order and filter in Go, so an index on `seq` helps ordering but search cost still grows with collection size. Keep per-session collections small (see Session Isolation) or archive old messages with a TTL index.
 
 ## Related Resources
 

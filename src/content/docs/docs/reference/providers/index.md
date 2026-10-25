@@ -23,14 +23,15 @@ Each provider page documents configuration options, code examples, and guidance 
 | [Document Loader](./loader/) | 8 | `loader.DocumentLoader` | Cloud storage, Confluence, Firecrawl, Google Drive, GitHub, Notion |
 | [Guard](./guard/) | 5 | `guard.Guard` | Azure Safety, Guardrails AI, Lakera, LLM Guard, NeMo |
 | [Evaluation](./eval/) | 3 | `eval.Metric` | Braintrust, DeepEval, RAGAS |
-| [Observability](./observability/) | 4 | `o11y.TracerProvider` | Langfuse, LangSmith, Opik, Phoenix |
-| [Workflow](./workflow/) | 6 | `workflow.Engine` | Dapr, In-memory, Inngest, Kafka, NATS, Temporal |
-| [Transport](./transport/) | 3 | `transport.Transport` | Daily, LiveKit, Pipecat |
-| [VAD](./vad/) | 2 | `vad.Detector` | Silero, WebRTC |
-| [Cache](./cache/) | 1 | `cache.Store` | In-memory |
+| [Observability](./observability/) | 4 | `o11y.TraceExporter` | Langfuse, LangSmith, Opik, Phoenix |
+| [Workflow](./workflow/) | 6 | `workflow.DurableExecutor` | Dapr, In-memory, Inngest, Kafka, NATS, Temporal |
+| [Transport](./transport/) | 3 | `transport.AudioTransport` | Daily, LiveKit, Pipecat (adapters not yet functional; use the built-in WebSocket transport) |
+| [VAD](./vad/) | 2 | `voice.ActivityDetector` | Silero, WebRTC |
+| [Cache](./cache/) | 1 | `cache.Cache` | In-memory |
 | [State](./state/) | 1 | `state.Store` | In-memory |
-| [Prompt](./prompt/) | 1 | `prompt.Loader` | File-based |
+| [Prompt](./prompt/) | 1 | `prompt.PromptManager` | File-based |
 | [MCP](./mcp/) | 1 | MCP integration | Composio |
+| [Memory stores](/docs/reference/api/memory-rag/memory-stores/) | 8 | `memory.MessageStore` / `memory.GraphStore` | Postgres, Redis, MongoDB, SQLite, Dragonfly, Neo4j, Memgraph, In-memory (documented in the API reference) |
 
 ## Registry Pattern
 

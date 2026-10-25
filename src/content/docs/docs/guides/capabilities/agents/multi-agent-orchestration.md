@@ -43,8 +43,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/v2/config"
-	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/schema"
 )
 

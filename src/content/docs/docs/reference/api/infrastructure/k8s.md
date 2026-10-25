@@ -315,19 +315,24 @@ helm install beluga-operator ./k8s/helm \
 
 # Upgrade with custom values.
 helm upgrade beluga-operator ./k8s/helm \
-  --set operator.workers=4 \
-  --set operator.image.tag=v1.2.0
+  --set replicaCount=2 \
+  --set metrics.enabled=true
 ```
 
 Key values in `k8s/helm/values.yaml`:
 
 | Value | Default | Description |
 |-------|---------|-------------|
-| `operator.image.repository` | `beluga-operator` | Operator container image. |
-| `operator.image.tag` | `latest` | Image tag. |
-| `operator.workers` | `2` | Reconciliation worker count. |
-| `operator.namespace` | `""` | Restrict to namespace; empty means cluster-scoped. |
-| `rbac.create` | `true` | Create ClusterRole and ClusterRoleBinding. |
+| `replicaCount` | `1` | Operator replicas (use with leader election). |
+| `image.repository` | `ghcr.io/lookatitude/beluga-operator` | Operator container image. |
+| `image.tag` | `""` | Image tag; empty uses the chart's `appVersion`. |
+| `image.pullPolicy` | `IfNotPresent` | Image pull policy. |
+| `serviceAccount.create` | `true` | Create the operator's ServiceAccount. |
+| `leaderElection.enabled` | `true` | Enable leader election between replicas. |
+| `leaderElection.namespace` | `""` | Namespace for the leader-election lease; empty uses the release namespace. |
+| `metrics.enabled` / `metrics.port` | `false` / `8081` | Expose the metrics endpoint. |
+| `webhook.enabled` / `webhook.port` | `false` / `9443` | Run the admission webhook server. |
+| `resources` | 100m / 128Mi requests, 500m / 256Mi limits | Container resource requests and limits. |
 
 ## Related Packages
 

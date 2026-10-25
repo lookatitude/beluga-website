@@ -104,7 +104,6 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/v2/schema"
     "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
@@ -178,28 +177,23 @@ func main() {
     names := reg.List() // sorted: ["get_weather", "greet"]
     fmt.Println("Available tools:", names)
 
-    // Retrieve tools by name
+    // Retrieve a tool by name and call it directly
     t, err := reg.Get("greet")
     if err != nil {
         log.Fatalf("get tool: %v", err)
     }
-
-    // Collect all tools for an agent
-    var agentTools []tool.Tool
-    for _, name := range reg.List() {
-        t, err := reg.Get(name)
-        if err != nil {
-            log.Fatalf("get tool %s: %v", name, err)
-        }
-        agentTools = append(agentTools, t)
+    res, err := t.Execute(ctx, map[string]any{"name": "Alice"})
+    if err != nil {
+        log.Fatalf("execute: %v", err)
     }
+    fmt.Println(res.Content)
 
-    // Pass tools to an agent
+    // Pass every registered tool to an agent
     a := agent.New("assistant",
-        agent.WithTools(agentTools),
+        agent.WithTools(reg.All()),
         // ... agent.WithLLM(model),
     )
-    _ = a
+    fmt.Println("agent:", a.ID())
 }
 ```
 
@@ -207,34 +201,37 @@ func main() {
 
 ### Tool Middleware
 
-Wrap tools with middleware to add cross-cutting concerns like logging, metrics, or timeouts.
+Wrap tools with middleware to add cross-cutting concerns like timeouts, retries, or tracing. The package ships `tool.WithTimeout`, `tool.WithRetry`, and `tool.WithTracing`; write your own `tool.Middleware` (`func(tool.Tool) tool.Tool`) for anything else, such as logging.
 
 ```go
 import "github.com/lookatitude/beluga-ai/v2/tool"
 
 // Apply middleware to a tool
 wrapped := tool.ApplyMiddleware(myTool,
-    tool.WithTimeout(5 * time.Second),
-    tool.WithLogging(logger),
+    tool.WithTimeout(5*time.Second),
+    tool.WithRetry(3),
+    tool.WithTracing(),
 )
 ```
 
 ### Tool Hooks
 
-Attach lifecycle hooks to observe tool execution events.
+Attach lifecycle hooks to observe tool execution events. Every field is optional; returning an error from `BeforeExecute` aborts the call.
 
 ```go
 hooks := tool.Hooks{
-    OnStart: func(ctx context.Context, name string, input map[string]any) error {
+    BeforeExecute: func(ctx context.Context, name string, input map[string]any) error {
         log.Printf("tool %s called with %v", name, input)
         return nil
     },
-    OnEnd: func(ctx context.Context, name string, result *tool.Result, err error) {
+    AfterExecute: func(ctx context.Context, name string, result *tool.Result, err error) {
         if err != nil {
             log.Printf("tool %s failed: %v", name, err)
         }
     },
 }
+
+observed := tool.WithHooks(myTool, hooks)
 ```
 
 ### Validating Tool Input
@@ -245,7 +242,7 @@ Always validate input in `Execute` and return clear error messages. The LLM uses
 func (t *MyTool) Execute(ctx context.Context, input map[string]any) (*tool.Result, error) {
     query, ok := input["query"].(string)
     if !ok || query == "" {
-        return tool.ErrorResult("query parameter is required and must be a string"), nil
+        return tool.ErrorResult(errors.New("query parameter is required and must be a string")), nil
     }
     // proceed with validated input
 }
@@ -277,6 +274,7 @@ func (t *APITool) Execute(ctx context.Context, input map[string]any) (*tool.Resu
 | `Registry.Add` | `Add(t Tool) error` | Register a tool (fails on duplicates) |
 | `Registry.Get` | `Get(name string) (Tool, error)` | Retrieve a tool by name |
 | `Registry.List` | `List() []string` | List all registered tool names (sorted) |
+| `Registry.All` | `All() []Tool` | Return all registered tools (sorted by name) |
 
 ## Troubleshooting
 

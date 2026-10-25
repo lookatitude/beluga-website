@@ -32,40 +32,44 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.memory.ttl_cleanup")
 
-// TTLMemoryWrapper wraps memory with TTL support.
-type TTLMemoryWrapper struct {
-    memory        memory.Memory
-    ttl           time.Duration
-    entries       map[string]*MemoryEntry
-    mu            sync.RWMutex
-    cleanupTicker *time.Ticker
-    stopCh        chan struct{}
-}
+// MemoryFactory creates a fresh memory.Memory for a new session.
+type MemoryFactory func() (memory.Memory, error)
 
-// MemoryEntry represents a memory entry with TTL metadata.
+// MemoryEntry is one session's memory plus its TTL metadata.
 type MemoryEntry struct {
-    Key        string
-    Value      interface{}
+    Memory     memory.Memory
     CreatedAt  time.Time
     AccessedAt time.Time
     ExpiresAt  time.Time
     Priority   int // Higher priority entries expire later
 }
 
+// TTLMemoryWrapper keeps one memory.Memory per session and expires idle sessions.
+type TTLMemoryWrapper struct {
+    newMemory     MemoryFactory
+    ttl           time.Duration
+    entries       map[string]*MemoryEntry
+    mu            sync.Mutex
+    cleanupTicker *time.Ticker
+    stopCh        chan struct{}
+}
+
 // NewTTLMemoryWrapper creates a new TTL wrapper.
-func NewTTLMemoryWrapper(mem memory.Memory, ttl time.Duration, cleanupInterval time.Duration) *TTLMemoryWrapper {
+func NewTTLMemoryWrapper(factory MemoryFactory, ttl time.Duration, cleanupInterval time.Duration) *TTLMemoryWrapper {
     wrapper := &TTLMemoryWrapper{
-        memory:  mem,
-        ttl:     ttl,
-        entries: make(map[string]*MemoryEntry),
-        stopCh:  make(chan struct{}),
+        newMemory: factory,
+        ttl:       ttl,
+        entries:   make(map[string]*MemoryEntry),
+        stopCh:    make(chan struct{}),
     }
 
     wrapper.cleanupTicker = time.NewTicker(cleanupInterval)
@@ -74,76 +78,85 @@ func NewTTLMemoryWrapper(mem memory.Memory, ttl time.Duration, cleanupInterval t
     return wrapper
 }
 
-// SaveContext saves context with TTL tracking.
-func (tmw *TTLMemoryWrapper) SaveContext(ctx context.Context, inputs, outputs map[string]interface{}) error {
-    ctx, span := tracer.Start(ctx, "ttl_memory.save_context")
+// entryFor returns the live entry for a session, creating it if absent and
+// clearing it if it has expired. Callers must hold tmw.mu.
+func (tmw *TTLMemoryWrapper) entryFor(ctx context.Context, sessionID string) (*MemoryEntry, bool, error) {
+    now := time.Now()
+    expired := false
+    if entry, ok := tmw.entries[sessionID]; ok {
+        if now.Before(entry.ExpiresAt) {
+            entry.AccessedAt = now
+            return entry, false, nil
+        }
+        if err := entry.Memory.Clear(ctx); err != nil {
+            return nil, false, err
+        }
+        delete(tmw.entries, sessionID)
+        expired = true
+    }
+
+    mem, err := tmw.newMemory()
+    if err != nil {
+        return nil, expired, err
+    }
+    entry := &MemoryEntry{Memory: mem, CreatedAt: now, AccessedAt: now, ExpiresAt: now.Add(tmw.ttl)}
+    tmw.entries[sessionID] = entry
+    return entry, expired, nil
+}
+
+// Save stores a conversation turn for the session. The session's expiry is
+// set when it is created; use ExtendTTL or SetPriority to lengthen it.
+func (tmw *TTLMemoryWrapper) Save(ctx context.Context, sessionID string, input, output schema.Message) error {
+    ctx, span := tracer.Start(ctx, "ttl_memory.save")
     defer span.End()
 
     tmw.mu.Lock()
     defer tmw.mu.Unlock()
 
-    if err := tmw.memory.SaveContext(ctx, inputs, outputs); err != nil {
+    entry, _, err := tmw.entryFor(ctx, sessionID)
+    if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return err
     }
-
-    sessionID := fmt.Sprintf("%v", inputs["session_id"])
-    entry := &MemoryEntry{
-        Key:        sessionID,
-        Value:      outputs,
-        CreatedAt:  time.Now(),
-        AccessedAt: time.Now(),
-        ExpiresAt:  time.Now().Add(tmw.ttl),
-        Priority:   0,
+    if err := entry.Memory.Save(ctx, input, output); err != nil {
+        span.RecordError(err)
+        span.SetStatus(codes.Error, err.Error())
+        return err
     }
-
-    tmw.entries[sessionID] = entry
 
     span.SetAttributes(
         attribute.String("session_id", sessionID),
         attribute.String("expires_at", entry.ExpiresAt.Format(time.RFC3339)),
     )
-    span.SetStatus(trace.StatusOK, "context saved with TTL")
-
+    span.SetStatus(codes.Ok, "turn saved with TTL")
     return nil
 }
 
-// LoadMemoryVariables loads variables with TTL check.
-func (tmw *TTLMemoryWrapper) LoadMemoryVariables(ctx context.Context, inputs map[string]interface{}) (map[string]interface{}, error) {
+// Load returns the session's messages, or nothing if the session expired.
+func (tmw *TTLMemoryWrapper) Load(ctx context.Context, sessionID, query string) ([]schema.Message, error) {
     ctx, span := tracer.Start(ctx, "ttl_memory.load")
     defer span.End()
 
-    sessionID := fmt.Sprintf("%v", inputs["session_id"])
-
     tmw.mu.Lock()
-    entry, exists := tmw.entries[sessionID]
-    if exists {
-        if time.Now().After(entry.ExpiresAt) {
-            delete(tmw.entries, sessionID)
-            tmw.mu.Unlock()
+    defer tmw.mu.Unlock()
 
-            span.SetAttributes(attribute.Bool("expired", true))
-            span.SetStatus(trace.StatusOK, "entry expired")
-
-            return tmw.memory.LoadMemoryVariables(ctx, inputs)
-        }
-
-        entry.AccessedAt = time.Now()
-    }
-    tmw.mu.Unlock()
-
-    vars, err := tmw.memory.LoadMemoryVariables(ctx, inputs)
+    entry, expired, err := tmw.entryFor(ctx, sessionID)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
+    span.SetAttributes(attribute.Bool("expired", expired))
 
-    span.SetAttributes(attribute.Bool("expired", false))
-    span.SetStatus(trace.StatusOK, "variables loaded")
-
-    return vars, nil
+    msgs, err := entry.Memory.Load(ctx, query)
+    if err != nil {
+        span.RecordError(err)
+        span.SetStatus(codes.Error, err.Error())
+        return nil, err
+    }
+    span.SetStatus(codes.Ok, "messages loaded")
+    return msgs, nil
 }
 
 // cleanupLoop periodically cleans up expired entries.
@@ -158,7 +171,7 @@ func (tmw *TTLMemoryWrapper) cleanupLoop(ctx context.Context) {
     }
 }
 
-// cleanupExpired removes expired entries.
+// cleanupExpired clears and removes expired sessions.
 func (tmw *TTLMemoryWrapper) cleanupExpired(ctx context.Context) {
     ctx, span := tracer.Start(ctx, "ttl_memory.cleanup")
     defer span.End()
@@ -167,27 +180,27 @@ func (tmw *TTLMemoryWrapper) cleanupExpired(ctx context.Context) {
     defer tmw.mu.Unlock()
 
     now := time.Now()
-    expired := []string{}
-
+    expired := 0
     for key, entry := range tmw.entries {
         if now.After(entry.ExpiresAt) {
-            expired = append(expired, key)
+            if err := entry.Memory.Clear(ctx); err != nil {
+                span.RecordError(err)
+                continue // keep the entry and retry on the next tick
+            }
+            delete(tmw.entries, key)
+            expired++
         }
     }
 
-    for _, key := range expired {
-        delete(tmw.entries, key)
-    }
-
     span.SetAttributes(
-        attribute.Int("expired_count", len(expired)),
+        attribute.Int("expired_count", expired),
         attribute.Int("remaining_count", len(tmw.entries)),
     )
 }
 
 // ExtendTTL extends the TTL for a session.
 func (tmw *TTLMemoryWrapper) ExtendTTL(ctx context.Context, sessionID string, additionalTTL time.Duration) error {
-    ctx, span := tracer.Start(ctx, "ttl_memory.extend")
+    _, span := tracer.Start(ctx, "ttl_memory.extend")
     defer span.End()
 
     tmw.mu.Lock()
@@ -204,21 +217,18 @@ func (tmw *TTLMemoryWrapper) ExtendTTL(ctx context.Context, sessionID string, ad
         attribute.String("session_id", sessionID),
         attribute.String("new_expires_at", entry.ExpiresAt.Format(time.RFC3339)),
     )
-    span.SetStatus(trace.StatusOK, "TTL extended")
-
+    span.SetStatus(codes.Ok, "TTL extended")
     return nil
 }
 
 // SetPriority sets priority for an entry (higher priority = longer TTL).
-func (tmw *TTLMemoryWrapper) SetPriority(ctx context.Context, sessionID string, priority int) {
+func (tmw *TTLMemoryWrapper) SetPriority(sessionID string, priority int) {
     tmw.mu.Lock()
     defer tmw.mu.Unlock()
 
-    entry, exists := tmw.entries[sessionID]
-    if exists {
+    if entry, exists := tmw.entries[sessionID]; exists {
         entry.Priority = priority
-        extension := time.Duration(priority) * time.Hour
-        entry.ExpiresAt = entry.ExpiresAt.Add(extension)
+        entry.ExpiresAt = entry.ExpiresAt.Add(time.Duration(priority) * time.Hour)
     }
 }
 
@@ -233,28 +243,32 @@ func (tmw *TTLMemoryWrapper) Stop() {
 func main() {
     ctx := context.Background()
 
-    // mem := your memory.Memory instance
-    ttlMemory := NewTTLMemoryWrapper(mem, 24*time.Hour, 1*time.Hour)
+    // Each session gets its own recall memory.
+    factory := func() (memory.Memory, error) {
+        return memory.New("recall", config.ProviderConfig{Provider: "recall"})
+    }
+    ttlMemory := NewTTLMemoryWrapper(factory, 24*time.Hour, 1*time.Hour)
     defer ttlMemory.Stop()
 
-    inputs := map[string]interface{}{"session_id": "session-123", "message": "Hello"}
-    outputs := map[string]interface{}{"response": "Hi!"}
-
-    if err := ttlMemory.SaveContext(ctx, inputs, outputs); err != nil {
+    err := ttlMemory.Save(ctx, "session-123",
+        schema.NewHumanMessage("Hello"),
+        schema.NewAIMessage("Hi!"),
+    )
+    if err != nil {
         log.Fatalf("Failed to save: %v", err)
     }
 
-    vars, err := ttlMemory.LoadMemoryVariables(ctx, map[string]interface{}{"session_id": "session-123"})
+    msgs, err := ttlMemory.Load(ctx, "session-123", "")
     if err != nil {
         log.Fatalf("Failed to load: %v", err)
     }
-    fmt.Printf("Loaded: %v\n", vars)
+    fmt.Printf("Loaded %d messages\n", len(msgs))
 }
 ```
 
 ## Explanation
 
-1. **TTL tracking** -- Each memory entry is associated with a creation time and an expiration time. When entries are loaded, the wrapper checks the TTL before returning data. Expired entries are treated as non-existent, ensuring stale data is never served. This provides automatic data lifecycle management without requiring callers to manage expiration themselves.
+1. **TTL tracking** -- Each session gets its own `memory.Memory`, associated with a creation time and an expiration time. When entries are loaded, the wrapper checks the TTL before returning data. Expired sessions are cleared with `Memory.Clear` and replaced by a fresh memory, ensuring stale data is never served. This provides automatic data lifecycle management without requiring callers to manage expiration themselves.
 
 2. **Periodic cleanup** -- A background goroutine periodically scans all entries and removes expired ones. This prevents the entry map from growing unbounded even if entries are never accessed (and thus never checked lazily). The cleanup interval should balance between responsiveness (removing expired entries promptly) and overhead (lock contention from frequent scans).
 
@@ -269,7 +283,7 @@ func main() {
 Check expiration only on access instead of running a background cleanup, reducing overhead for small deployments:
 
 ```go
-func (tmw *TTLMemoryWrapper) LoadWithLazyExpiration(ctx context.Context, inputs map[string]interface{}) (map[string]interface{}, error) {
+func (tmw *TTLMemoryWrapper) LoadWithLazyExpiration(ctx context.Context, sessionID, query string) ([]schema.Message, error) {
     // Check expiration on load only
 }
 ```

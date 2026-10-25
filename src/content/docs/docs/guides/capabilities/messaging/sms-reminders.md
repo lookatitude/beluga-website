@@ -14,12 +14,12 @@ SMS reminders address reachability (95%+ open rates within 3 minutes), but one-w
 
 ## Solution Architecture
 
-Beluga AI's server package provides messaging backend abstractions that decouple the reminder logic from the SMS provider (Twilio, Vonage, etc.), enabling provider switching without rewriting application code. The two-way communication architecture uses intent parsing to handle patient responses — confirmations, rescheduling requests, and cancellations — without human intervention for common cases. The scheduler component manages reminder timing (typically 24 hours before appointments) and handles edge cases like same-day appointments that need immediate reminders.
+Beluga AI does not ship an SMS or messaging provider. The reminder logic depends on a one-method `SMSSender` interface that you implement with your provider's SDK (Twilio, Vonage, etc.), so you can switch providers without rewriting application code. Inbound replies arrive on a webhook registered on a Beluga `server.ServerAdapter`. The two-way communication architecture uses intent parsing to handle patient responses — confirmations, rescheduling requests, and cancellations — without human intervention for common cases. The scheduler component manages reminder timing (typically 24 hours before appointments) and handles edge cases like same-day appointments that need immediate reminders.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Appointment  │───▶│   Reminder   │───▶│   Messaging  │
-│   Schedule   │    │   Scheduler  │    │    Backend   │
+│ Appointment  │───▶│   Reminder   │───▶│  SMSSender   │
+│   Schedule   │    │   Scheduler  │    │ (your SDK)   │
 └──────────────┘    └──────────────┘    └──────┬───────┘
                                                │
                                         ┌──────▼───────┐
@@ -40,47 +40,37 @@ Beluga AI's server package provides messaging backend abstractions that decouple
 The system manages SMS reminders with two-way communication:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
     "time"
-
-    "github.com/lookatitude/beluga-ai/v2/schema"
-    "github.com/lookatitude/beluga-ai/v2/server"
-
-    _ "github.com/lookatitude/beluga-ai/v2/server/providers/twilio"
 )
 
+// SMSSender sends one text message. Beluga AI does not ship an SMS
+// provider; implement this with the Twilio, Vonage, or MessageBird SDK
+// (or their REST APIs).
+type SMSSender interface {
+    SendSMS(ctx context.Context, to, body string) error
+}
+
 type AppointmentReminderSystem struct {
-    messaging server.MessagingBackend
+    sms       SMSSender
     scheduler *ReminderScheduler
 }
 
-func NewAppointmentReminderSystem(ctx context.Context) (*AppointmentReminderSystem, error) {
-    messaging, err := server.NewMessagingBackend("twilio", server.MessagingConfig{
-        AccountSID: "your-account-sid",
-        AuthToken:  "your-auth-token",
-        Channel:    "sms",
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create messaging backend: %w", err)
-    }
-
-    return &AppointmentReminderSystem{
-        messaging: messaging,
-        scheduler: NewReminderScheduler(),
-    }, nil
+func NewAppointmentReminderSystem(sms SMSSender) *AppointmentReminderSystem {
+    s := &AppointmentReminderSystem{sms: sms}
+    s.scheduler = &ReminderScheduler{system: s}
+    return s
 }
 
 type Appointment struct {
-    ID          string
-    PatientName string
+    ID           string
+    PatientName  string
     PatientPhone string
-    DateTime    time.Time
+    DateTime     time.Time
     ProviderName string
-    Type        string
+    Type         string
 }
 ```
 
@@ -90,22 +80,11 @@ Send automated reminders at scheduled times:
 
 ```go
 func (s *AppointmentReminderSystem) SendReminder(ctx context.Context, appointment Appointment) error {
-    // Get or create conversation with patient
-    conversation, err := s.messaging.GetOrCreateConversation(ctx, appointment.PatientPhone)
-    if err != nil {
-        return fmt.Errorf("get conversation: %w", err)
-    }
-
     // Build reminder message
     message := s.buildReminderMessage(appointment)
 
-    // Send SMS
-    msg := schema.Message{
-        Content: message,
-        Channel: "sms",
-    }
-
-    if err := s.messaging.SendMessage(ctx, conversation.ID, msg); err != nil {
+    // Send SMS through your provider
+    if err := s.sms.SendSMS(ctx, appointment.PatientPhone, message); err != nil {
         return fmt.Errorf("send reminder: %w", err)
     }
 
@@ -127,23 +106,46 @@ func (s *AppointmentReminderSystem) buildReminderMessage(appointment Appointment
 Process patient responses intelligently:
 
 ```go
+import (
+    "net/http"
+    "strings"
+
+    "github.com/lookatitude/beluga-ai/v2/server"
+)
+
 type ResponseHandler struct {
     system *AppointmentReminderSystem
 }
 
-func (h *ResponseHandler) HandleResponse(ctx context.Context, conversationID, message string) error {
-    // Parse response intent
-    intent := h.parseIntent(message)
+// RegisterWebhook exposes the inbound-SMS webhook on a Beluga server
+// adapter. Point your provider's "incoming message" webhook at it.
+// Twilio posts form fields "From" and "Body"; verify its request
+// signature in production.
+func (h *ResponseHandler) RegisterWebhook(srv server.ServerAdapter) error {
+    return srv.RegisterHandler("/webhooks/sms", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if err := r.ParseForm(); err != nil {
+            http.Error(w, "bad request", http.StatusBadRequest)
+            return
+        }
+        if err := h.HandleResponse(r.Context(), r.FormValue("From"), r.FormValue("Body")); err != nil {
+            http.Error(w, "processing failed", http.StatusInternalServerError)
+            return
+        }
+        w.WriteHeader(http.StatusNoContent)
+    }))
+}
 
-    switch intent {
+func (h *ResponseHandler) HandleResponse(ctx context.Context, phone, message string) error {
+    // Parse response intent
+    switch h.parseIntent(message) {
     case "confirm":
-        return h.handleConfirmation(ctx, conversationID)
+        return h.handleConfirmation(ctx, phone)
     case "reschedule":
-        return h.handleRescheduling(ctx, conversationID)
+        return h.handleRescheduling(ctx, phone)
     case "cancel":
-        return h.handleCancellation(ctx, conversationID)
+        return h.handleCancellation(ctx, phone)
     default:
-        return h.sendClarification(ctx, conversationID)
+        return h.sendClarification(ctx, phone)
     }
 }
 
@@ -164,55 +166,42 @@ func (h *ResponseHandler) parseIntent(message string) string {
     return "unknown"
 }
 
-func (h *ResponseHandler) handleConfirmation(ctx context.Context, conversationID string) error {
-    // Update appointment status to confirmed
-    appointment := h.getAppointmentByConversation(ctx, conversationID)
+func (h *ResponseHandler) handleConfirmation(ctx context.Context, phone string) error {
+    // Update appointment status to confirmed (getAppointmentByPhone and
+    // confirmAppointment call your scheduling system)
+    appointment, err := h.getAppointmentByPhone(ctx, phone)
+    if err != nil {
+        return err
+    }
     if err := h.confirmAppointment(ctx, appointment.ID); err != nil {
         return err
     }
 
-    // Send confirmation message
-    msg := schema.Message{
-        Content: "Thank you! Your appointment is confirmed. We look forward to seeing you.",
-        Channel: "sms",
-    }
-
-    return h.system.messaging.SendMessage(ctx, conversationID, msg)
+    return h.system.sms.SendSMS(ctx, phone,
+        "Thank you! Your appointment is confirmed. We look forward to seeing you.")
 }
 
-func (h *ResponseHandler) handleRescheduling(ctx context.Context, conversationID string) error {
-    // Send rescheduling options
-    msg := schema.Message{
-        Content: "I can help you reschedule. Please call our office at (555) 123-4567 or visit our website to select a new time.",
-        Channel: "sms",
-    }
-
-    return h.system.messaging.SendMessage(ctx, conversationID, msg)
+func (h *ResponseHandler) handleRescheduling(ctx context.Context, phone string) error {
+    return h.system.sms.SendSMS(ctx, phone,
+        "I can help you reschedule. Please call our office at (555) 123-4567 or visit our website to select a new time.")
 }
 
-func (h *ResponseHandler) handleCancellation(ctx context.Context, conversationID string) error {
-    // Update appointment status to cancelled
-    appointment := h.getAppointmentByConversation(ctx, conversationID)
+func (h *ResponseHandler) handleCancellation(ctx context.Context, phone string) error {
+    appointment, err := h.getAppointmentByPhone(ctx, phone)
+    if err != nil {
+        return err
+    }
     if err := h.cancelAppointment(ctx, appointment.ID); err != nil {
         return err
     }
 
-    // Send cancellation confirmation
-    msg := schema.Message{
-        Content: "Your appointment has been cancelled. Call us at (555) 123-4567 if you need to reschedule.",
-        Channel: "sms",
-    }
-
-    return h.system.messaging.SendMessage(ctx, conversationID, msg)
+    return h.system.sms.SendSMS(ctx, phone,
+        "Your appointment has been cancelled. Call us at (555) 123-4567 if you need to reschedule.")
 }
 
-func (h *ResponseHandler) sendClarification(ctx context.Context, conversationID string) error {
-    msg := schema.Message{
-        Content: "I didn't understand your response. Reply 1 to confirm, 2 to reschedule, or 3 to cancel.",
-        Channel: "sms",
-    }
-
-    return h.system.messaging.SendMessage(ctx, conversationID, msg)
+func (h *ResponseHandler) sendClarification(ctx context.Context, phone string) error {
+    return h.system.sms.SendSMS(ctx, phone,
+        "I didn't understand your response. Reply 1 to confirm, 2 to reschedule, or 3 to cancel.")
 }
 ```
 
@@ -223,6 +212,8 @@ func (h *ResponseHandler) sendClarification(ctx context.Context, conversationID 
 Schedule reminders automatically based on appointment time:
 
 ```go
+import "log"
+
 type ReminderScheduler struct {
     system *AppointmentReminderSystem
 }
@@ -238,14 +229,13 @@ func (s *ReminderScheduler) ScheduleReminder(ctx context.Context, appointment Ap
         return s.system.SendReminder(ctx, appointment)
     }
 
-    // Schedule for later
-    timer := time.NewTimer(delay)
-    go func() {
-        <-timer.C
+    // Schedule for later. In-process timers are lost on restart; use a
+    // durable job queue or workflow engine in production.
+    time.AfterFunc(delay, func() {
         if err := s.system.SendReminder(context.Background(), appointment); err != nil {
-            // Log error
+            log.Printf("reminder %s: %v", appointment.ID, err)
         }
-    }()
+    })
 
     return nil
 }
@@ -259,7 +249,7 @@ Send reminders for multiple appointments efficiently:
 func (s *AppointmentReminderSystem) SendBatchReminders(ctx context.Context, appointments []Appointment) error {
     for _, appointment := range appointments {
         if err := s.SendReminder(ctx, appointment); err != nil {
-            // Log error but continue with other reminders
+            log.Printf("reminder %s: %v", appointment.ID, err) // continue with other reminders
             continue
         }
 
@@ -276,27 +266,23 @@ func (s *AppointmentReminderSystem) SendBatchReminders(ctx context.Context, appo
 Track reminder delivery and response rates:
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/o11y"
-    "go.opentelemetry.io/otel/attribute"
-)
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 func (s *AppointmentReminderSystem) SendReminderWithTracing(ctx context.Context, appointment Appointment) error {
-    ctx, span := o11y.StartSpan(ctx, "reminder.send")
+    ctx, span := o11y.StartSpan(ctx, "reminder.send", o11y.Attrs{
+        "appointment.id":   appointment.ID,
+        "appointment.type": appointment.Type,
+        // Don't record the phone number: it is patient PII
+    })
     defer span.End()
 
-    span.SetAttributes(
-        attribute.String("appointment.id", appointment.ID),
-        attribute.String("appointment.type", appointment.Type),
-        attribute.String("patient.phone", appointment.PatientPhone),
-    )
-
-    err := s.SendReminder(ctx, appointment)
-    if err != nil {
+    if err := s.SendReminder(ctx, appointment); err != nil {
         span.RecordError(err)
+        span.SetStatus(o11y.StatusError, err.Error())
         return err
     }
 
+    span.SetStatus(o11y.StatusOK, "")
     return nil
 }
 ```
@@ -332,5 +318,5 @@ After implementing SMS appointment reminders, the provider achieved:
 ## Related Resources
 
 - [Messaging Integration](/docs/guides/production/integrations/) for SMS provider configuration
-- [Server Providers](/docs/reference/providers/server/) for Twilio and other messaging backends
+- [Server Providers](/docs/reference/providers/server/) for the HTTP adapters that host the webhook
 - [Agent Guide](/docs/guides/agents/) for intelligent response handling patterns

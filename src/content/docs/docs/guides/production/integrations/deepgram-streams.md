@@ -33,7 +33,7 @@ export DEEPGRAM_API_KEY="your-api-key"
 
 ## Configuration
 
-Create a Deepgram STT provider:
+The Deepgram provider registers itself as `"deepgram"` with the `stt` registry when you blank-import it. The API key goes in `stt.Config.Extra`:
 
 ```go
 package main
@@ -44,24 +44,29 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 func main() {
     ctx := context.Background()
 
-    config := deepgram.Config{
-        APIKey: os.Getenv("DEEPGRAM_API_KEY"),
-        Model:  "nova-2",
-    }
-
-    provider, err := deepgram.NewDeepgramSTT(ctx, config)
+    engine, err := stt.New("deepgram", stt.Config{
+        Language:    "en",
+        Model:       "nova-2",
+        Punctuation: true,
+        Extra:       map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
+    })
     if err != nil {
         log.Fatalf("Failed to create provider: %v", err)
     }
 
-    audio := loadAudioData()
-    transcript, err := provider.Transcribe(ctx, audio)
+    audio, err := os.ReadFile("sample.wav")
+    if err != nil {
+        log.Fatalf("Failed to read audio: %v", err)
+    }
+
+    transcript, err := engine.Transcribe(ctx, audio)
     if err != nil {
         log.Fatalf("Transcription failed: %v", err)
     }
@@ -74,47 +79,53 @@ func main() {
 
 ### Streaming Transcription
 
-Stream audio chunks for real-time transcription:
+`TranscribeStream` uses Deepgram's WebSocket API. It takes an `iter.Seq2[[]byte, error]` of audio chunks and yields `stt.TranscriptEvent` values; interim results have `IsFinal == false`:
 
 ```go
-func streamTranscription(ctx context.Context, provider *deepgram.DeepgramSTT, audioStream <-chan []byte) (<-chan string, error) {
-    transcriptChan := make(chan string, 10)
-
-    go func() {
-        defer close(transcriptChan)
-        for audioChunk := range audioStream {
-            transcript, err := provider.Transcribe(ctx, audioChunk)
-            if err != nil {
-                log.Printf("Stream error: %v", err)
-                continue
-            }
-            transcriptChan <- transcript
+func streamTranscription(ctx context.Context, engine stt.STT, audio iter.Seq2[[]byte, error]) error {
+    for event, err := range engine.TranscribeStream(ctx, audio, stt.WithSampleRate(16000), stt.WithEncoding("linear16")) {
+        if err != nil {
+            return fmt.Errorf("stream: %w", err)
         }
-    }()
-
-    return transcriptChan, nil
+        if event.IsFinal {
+            fmt.Printf("final: %s (%.2f)\n", event.Text, event.Confidence)
+        } else {
+            fmt.Printf("interim: %s\n", event.Text)
+        }
+    }
+    return nil
 }
 ```
 
-### Voice Session Integration
+### Voice Pipeline Integration
 
-Use the Deepgram provider in a voice session:
+Wrap the engine with `stt.AsFrameProcessor` to use it as the STT stage of a `voice.VoicePipeline`:
 
 ```go
-import "github.com/lookatitude/beluga-ai/v2/voice/session"
+import (
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+)
 
-sttProvider, err := deepgram.NewDeepgramSTT(ctx, deepgram.Config{
-    APIKey: os.Getenv("DEEPGRAM_API_KEY"),
-    Model:  "nova-2",
+engine, err := stt.New("deepgram", stt.Config{
+    Model: "nova-2",
+    Extra: map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
 })
 if err != nil {
     log.Fatalf("Failed to create STT provider: %v", err)
 }
 
-sess, err := session.NewVoiceSession(ctx,
-    session.WithSTTProvider(sttProvider),
-    session.WithConfig(session.DefaultConfig()),
+pipe := voice.NewPipeline(
+    voice.WithTransport(transport), // your voice.Transport
+    voice.WithVAD(voice.NewEnergyVAD(voice.EnergyVADConfig{Threshold: 1000})),
+    voice.WithSTT(stt.AsFrameProcessor(engine)),
+    voice.WithLLM(llmStage), // your text-to-text voice.FrameProcessor
+    voice.WithTTS(ttsStage),
 )
+if err := pipe.Run(ctx); err != nil {
+    log.Fatalf("pipeline: %v", err)
+}
 ```
 
 ### Observability
@@ -131,7 +142,7 @@ import (
 tracer := otel.Tracer("beluga.voice.stt.deepgram")
 ctx, span := tracer.Start(ctx, "deepgram.transcribe",
     trace.WithAttributes(
-        attribute.String("model", config.Model),
+        attribute.String("model", "nova-2"),
     ),
 )
 defer span.End()
@@ -139,13 +150,15 @@ defer span.End()
 
 ## Configuration Reference
 
-| Option      | Description           | Default  | Required |
-|-------------|-----------------------|----------|----------|
-| `APIKey`    | Deepgram API key      | -        | Yes      |
-| `Model`     | Deepgram model        | `nova-2` | No       |
-| `Language`  | Language code         | `en`     | No       |
-| `Punctuate` | Add punctuation       | `true`   | No       |
-| `Diarize`   | Speaker diarization   | `false`  | No       |
+| Field                | Description           | Default  | Required |
+|----------------------|-----------------------|----------|----------|
+| `Extra["api_key"]`   | Deepgram API key      | -        | Yes      |
+| `Extra["base_url"]`  | Custom REST base URL  | -        | No       |
+| `Extra["ws_url"]`    | Custom WebSocket URL  | -        | No       |
+| `Model`              | Deepgram model        | `nova-2` | No       |
+| `Language`           | Language code         | -        | No       |
+| `Punctuation`        | Add punctuation       | `false`  | No       |
+| `Diarization`        | Speaker diarization   | `false`  | No       |
 
 ## Troubleshooting
 

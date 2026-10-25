@@ -34,8 +34,7 @@ Slack    --> |                  |                  |
 Create a provider-agnostic messaging interface. The `NormalizedMessage` struct decouples your agent logic from any specific messaging platform's payload format. The `UserID` field is a canonical identifier (such as a phone number) that remains the same regardless of which channel the user contacts from -- this is what enables cross-channel conversation continuity. The `ChannelProvider` interface has only two methods (`Send` and `Channel`), keeping the contract minimal for new provider implementations.
 
 ```go
-package main
-
+// main.go: Steps 1-6 together form one file.
 import (
     "context"
     "fmt"
@@ -229,6 +228,8 @@ func main() {
     http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)
     })
+    // Note: until you register providers, ProcessMessage returns
+    // "unsupported channel" for every message.
 
     addr := ":8080"
     slog.Info("gateway starting", "addr", addr)
@@ -242,12 +243,25 @@ func main() {
 
 The gateway uses the canonical user ID (phone number) to key conversation history. This means a user who starts a conversation on SMS and continues on WhatsApp sees a seamless experience -- the agent remembers what was discussed regardless of which channel the user switches to.
 
-For production deployments, replace the in-memory `sessions` map with a persistent store. The `memory` package provides ready-made store implementations (Redis, PostgreSQL, SQLite) that support the same session-keyed access pattern with TTL-based expiration and concurrent access safety.
+For production deployments, replace the in-memory `sessions` map with a persistent store. The `memory/stores` packages provide `memory.MessageStore` implementations (Redis, PostgreSQL, SQLite, MongoDB, and others). With the Redis store you can keep one key per canonical user ID:
 
 ```go
-// Use Redis or PostgreSQL for production session storage.
-// The memory package provides ready-made store implementations.
-import "github.com/lookatitude/beluga-ai/v2/memory"
+import (
+    goredis "github.com/redis/go-redis/v9"
+
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    redisstore "github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
+)
+
+func (g *Gateway) historyStore(client *goredis.Client, userID string) (memory.MessageStore, error) {
+    return redisstore.New(redisstore.Config{
+        Client: client,
+        Key:    "gateway:history:" + userID,
+    })
+}
+
+// In ProcessMessage: store.Append(ctx, msg) to save a turn and
+// store.All(ctx) to load the history before calling the model.
 ```
 
 ## Verification

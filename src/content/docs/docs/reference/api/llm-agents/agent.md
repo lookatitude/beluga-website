@@ -204,8 +204,7 @@ Custom planners register via `RegisterPlanner` and are created via `NewPlanner`.
 Use `ListPlanners` for discovery:
 
 ```go
-package main
-
+package example
 import (
     "github.com/lookatitude/beluga-ai/v2/agent"
 )
@@ -231,8 +230,7 @@ Handoffs enable agent-to-agent transfers. They are automatically converted
 to tools named `transfer_to_{id}` that appear in the LLM's tool list:
 
 ```go
-package main
-
+package example
 import (
     "github.com/lookatitude/beluga-ai/v2/agent"
     "github.com/lookatitude/beluga-ai/v2/llm"

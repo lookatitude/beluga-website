@@ -222,14 +222,14 @@ func main() {
 	}
 
 	doc := schema.Document{
-		PageContent: "Beluga AI is a Go-native agentic framework.",
+		Content: "Beluga AI is a Go-native agentic framework.",
 		Metadata: map[string]any{
 			"source": "docs",
 		},
 	}
 
 	dto := documentDTO{
-		PageContent: doc.PageContent,
+		PageContent: doc.Content,
 		Metadata:    doc.Metadata,
 	}
 

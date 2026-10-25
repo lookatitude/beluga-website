@@ -35,7 +35,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
 	"github.com/lookatitude/beluga-ai/v2/core"
 )
@@ -107,14 +107,14 @@ func (tr *TimeoutRunnable) Invoke(ctx context.Context, input any, options ...cor
 	result, err := tr.runnable.Invoke(timeoutCtx, input, options...)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(trace.StatusError, err.Error())
+		span.SetStatus(codes.Error, err.Error())
 		if timeoutCtx.Err() != nil {
 			return nil, fmt.Errorf("operation %s timed out after %v: %w", tr.operationName, timeout, timeoutCtx.Err())
 		}
 		return nil, err
 	}
 
-	span.SetStatus(trace.StatusOK, "operation completed")
+	span.SetStatus(codes.Ok, "operation completed")
 	return result, nil
 }
 

@@ -31,7 +31,6 @@ import (
 	"log"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var tracer = otel.Tracer("beluga.voice.s2s.latency")

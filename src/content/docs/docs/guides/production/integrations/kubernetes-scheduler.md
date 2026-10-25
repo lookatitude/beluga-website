@@ -163,8 +163,10 @@ func main() {
     }
 
     job, err := scheduler.ScheduleWorkflow(ctx, "workflow-123",
-        "beluga-ai:latest",
-        []string{"beluga", "run", "--workflow", "workflow-123"},
+        "my-registry/workflow-worker:latest",
+        // Your own worker binary built with Beluga; it reads the workflow ID
+        // and runs it (the beluga CLI has no --workflow flag).
+        []string{"/app/workflow-worker", "--workflow-id", "workflow-123"},
     )
     if err != nil {
         log.Fatalf("failed to schedule workflow: %v", err)
@@ -382,7 +384,7 @@ The container image is not accessible from the cluster. Verify the image exists 
 
 ```bash
 # Check if the image is accessible
-kubectl run test --image=beluga-ai:latest --rm -it --restart=Never -- echo "ok"
+kubectl run test --image=my-registry/workflow-worker:latest --rm -it --restart=Never -- echo "ok"
 
 # For private registries, create an image pull secret
 kubectl create secret docker-registry beluga-registry \

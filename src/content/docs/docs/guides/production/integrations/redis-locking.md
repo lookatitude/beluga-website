@@ -174,8 +174,11 @@ import (
 
 	"github.com/lookatitude/beluga-ai/v2/config"
 	"github.com/lookatitude/beluga-ai/v2/memory"
+	_ "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
 	"github.com/lookatitude/beluga-ai/v2/schema"
 	"github.com/redis/go-redis/v9"
+
+	"myapp/distlock" // the package defined above
 )
 
 func main() {

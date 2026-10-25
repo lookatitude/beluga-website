@@ -43,16 +43,6 @@ Beluga AI's schema validation provides strict enforcement of HL7 FHIR output sch
 Define FHIR resource schemas with strict validation rules:
 
 ```go
-package main
-
-import (
-    "context"
-    "fmt"
-
-    "github.com/lookatitude/beluga-ai/v2/schema"
-    "github.com/lookatitude/beluga-ai/v2/o11y"
-)
-
 // FHIRPatient represents a standardized FHIR Patient resource
 type FHIRPatient struct {
     ResourceType string          `json:"resourceType" validate:"required,eq=Patient"`
@@ -269,11 +259,7 @@ type MappedData struct {
 Track transformation metrics and validation failures:
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/o11y"
-    "go.opentelemetry.io/otel"
-    "go.opentelemetry.io/otel/metric"
-)
+import "time"
 
 type AuditTrail struct {
     RecordID       string

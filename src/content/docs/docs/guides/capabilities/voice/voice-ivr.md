@@ -43,22 +43,32 @@ package main
 import (
     "context"
     "fmt"
+    "os"
+    "strings"
 
     "github.com/lookatitude/beluga-ai/v2/voice"
     "github.com/lookatitude/beluga-ai/v2/voice/stt"
     "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
     _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
 )
 
 func buildIVRPipeline(ctx context.Context) (voice.FrameProcessor, error) {
-    sttEngine, err := stt.New("deepgram", nil)
+    sttEngine, err := stt.New("deepgram", stt.Config{
+        SampleRate: 8000, // narrowband telephony audio
+        Encoding:   "linear16",
+        Extra:      map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
+    })
     if err != nil {
         return nil, fmt.Errorf("create stt engine: %w", err)
     }
 
-    ttsEngine, err := tts.New("openai", nil)
+    ttsEngine, err := tts.New("cartesia", tts.Config{
+        Voice:      os.Getenv("CARTESIA_VOICE_ID"),
+        SampleRate: 8000,
+        Extra:      map[string]any{"api_key": os.Getenv("CARTESIA_API_KEY")},
+    })
     if err != nil {
         return nil, fmt.Errorf("create tts engine: %w", err)
     }
@@ -68,9 +78,7 @@ func buildIVRPipeline(ctx context.Context) (voice.FrameProcessor, error) {
         stt.WithPunctuation(true),
     )
 
-    ttsProc := tts.AsFrameProcessor(ttsEngine, 16000,
-        tts.WithVoice("nova"),
-    )
+    ttsProc := tts.AsFrameProcessor(ttsEngine, 8000)
 
     pipeline := voice.Chain(sttProc, intentProcessor(), ttsProc)
     return pipeline, nil
@@ -79,24 +87,28 @@ func buildIVRPipeline(ctx context.Context) (voice.FrameProcessor, error) {
 
 ### Intent Detection and Routing
 
-The intent processor implements `FrameProcessorFunc`, Beluga AI's adapter for turning a plain function into a frame processor. It passes through non-text frames unchanged and only processes text frames — this pattern ensures audio and control frames propagate correctly through the pipeline. The intent detection uses keyword matching for simplicity and determinism, though it can be replaced with an LLM-based classifier for more nuanced intent recognition.
+The intent processor uses `voice.FrameLoop`, Beluga AI's adapter for turning a per-frame function into a frame processor. It passes through non-text frames unchanged and only processes text frames — this pattern ensures audio and control frames propagate correctly through the pipeline. The intent detection uses keyword matching for simplicity and determinism, though it can be replaced with an LLM-based classifier for more nuanced intent recognition.
 
 ```go
 func intentProcessor() voice.FrameProcessor {
-    return voice.FrameProcessorFunc(func(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-        for frame := range in {
-            textFrame, ok := frame.(voice.TextFrame)
-            if !ok {
-                out <- frame
-                continue
-            }
-
-            intent := detectIntent(textFrame.Text())
-            response := routeIntent(ctx, intent)
-            out <- voice.NewTextFrame(response)
+    return voice.FrameLoop(func(ctx context.Context, frame voice.Frame) ([]voice.Frame, error) {
+        if frame.Type != voice.FrameText {
+            return []voice.Frame{frame}, nil
         }
-        return nil
+        intent := detectIntent(frame.Text())
+        response := routeIntent(ctx, intent)
+        return []voice.Frame{voice.NewTextFrame(response)}, nil
     })
+}
+
+func containsAny(s string, words ...string) bool {
+    s = strings.ToLower(s)
+    for _, w := range words {
+        if strings.Contains(s, w) {
+            return true
+        }
+    }
+    return false
 }
 
 func detectIntent(transcript string) string {
@@ -129,19 +141,15 @@ func routeIntent(ctx context.Context, intent string) string {
 
 ## Deployment Considerations
 
-- **Telephony integration**: Use WebSocket or WebRTC transport to connect with SIP/telephony providers
+- **Telephony integration**: Beluga's `voice/telephony` package defines the `TelephonyProvider`, `SIPEndpoint`, and `CallRouter` interfaces (plus a `PrefixRouter`), but ships no carrier provider. Bridge your carrier's media stream to the pipeline with `transport.NewWebSocketTransport`, and implement `TelephonyProvider` for call control
 - **Concurrent sessions**: Configure maximum concurrent sessions and reject or queue callers at capacity
 - **Multi-language**: Design intent sets and prompts for each language upfront
 - **Fallback**: Keep DTMF as fallback for noisy or non-English callers
 - **Observability**: Instrument STT, routing decisions, and telephony events with OpenTelemetry
 
-## Results
+## What to Measure
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| IVR completion rate | 72% | 89% | +24% |
-| Average time to route | 45s | 18s | 60% faster |
-| Misroute rate | 8% | 2.5% | 69% reduction |
+Track IVR completion rate, average time to route, and misroute rate before and after the rollout, so you can see whether the voice front end actually helps your callers.
 
 ### Lessons Learned
 

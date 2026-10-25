@@ -28,12 +28,15 @@ import (
     "fmt"
     "log"
     "math"
+    "os"
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
     "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
@@ -89,7 +92,7 @@ func (mac *MetadataAwareClusterer) ClusterDocuments(ctx context.Context, documen
     embeddings, err := mac.embedder.Embed(ctx, texts)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
 
@@ -106,12 +109,12 @@ func (mac *MetadataAwareClusterer) ClusterDocuments(ctx context.Context, documen
     clusters, err := mac.performClustering(ctx, docsWithEmbeddings, k)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
 
     span.SetAttributes(attribute.Int("cluster_count", len(clusters)))
-    span.SetStatus(trace.StatusOK, "clustering completed")
+    span.SetStatus(codes.Ok, "clustering completed")
 
     return clusters, nil
 }
@@ -214,11 +217,11 @@ func (mac *MetadataAwareClusterer) metadataSimilarity(doc schema.Document, clust
         return 0
     }
 
-    docMeta := doc.GetMetadata()
+    docMeta := doc.Metadata
     matches := 0
 
     for _, clusterDoc := range clusterDocs {
-        clusterMeta := clusterDoc.Document.GetMetadata()
+        clusterMeta := clusterDoc.Document.Metadata
         for key, value := range docMeta {
             if clusterValue, exists := clusterMeta[key]; exists && clusterValue == value {
                 matches++
@@ -262,7 +265,7 @@ func (mac *MetadataAwareClusterer) aggregateMetadata(docs []DocumentWithEmbeddin
     valueCounts := make(map[string]map[interface{}]int)
 
     for _, doc := range docs {
-        meta := doc.Document.GetMetadata()
+        meta := doc.Document.Metadata
         for key, value := range meta {
             if valueCounts[key] == nil {
                 valueCounts[key] = make(map[interface{}]int)
@@ -302,7 +305,12 @@ func (mac *MetadataAwareClusterer) vectorsEqual(a, b []float32) bool {
 func main() {
     ctx := context.Background()
 
-    // embedder := your embedding.Embedder instance
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+    })
+    if err != nil {
+        log.Fatalf("Failed to create embedder: %v", err)
+    }
     clusterer := NewMetadataAwareClusterer(embedder, 0.3, 5)
 
     documents := []schema.Document{

@@ -27,7 +27,6 @@ import (
     "context"
     "fmt"
     "log"
-    "os"
 
     "github.com/lookatitude/beluga-ai/v2/guard"
     "github.com/lookatitude/beluga-ai/v2/guard/providers/guardrailsai"

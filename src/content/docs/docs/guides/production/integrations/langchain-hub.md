@@ -15,7 +15,7 @@ Writing effective prompts from scratch is time-consuming. LangChain Hub hosts a 
 LangChain Hub provides a repository of reusable prompt templates. By building a thin loader on top of Beluga AI's prompt system, you can:
 
 - Load prompts from the LangChain Hub REST API
-- Convert them to Beluga AI `PromptTemplate` format
+- Convert them to Beluga AI `prompt.Template` values (Go `text/template` syntax)
 - Use them alongside locally defined templates
 - Cache loaded prompts for production use
 
@@ -114,27 +114,34 @@ func (l *LangChainHubLoader) LoadPrompt(ctx context.Context, owner, repo, prompt
 
 ### Converting to Beluga AI Format
 
-Once loaded, convert the Hub prompt into a Beluga AI `PromptTemplate`:
+Once loaded, convert the Hub prompt into a Beluga AI `prompt.Template`. LangChain templates use f-string placeholders (`{question}`), while Beluga templates use Go `text/template` syntax (`{{.question}}`), so rewrite each declared input variable:
 
 ```go
-func (l *LangChainHubLoader) ConvertToBelugaTemplate(ctx context.Context, hubPrompt *LangChainHubPrompt) (prompt.PromptTemplate, error) {
-	manager, err := prompt.NewPromptManager()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create manager: %w", err)
+// toGoTemplate rewrites LangChain {var} placeholders to Go {{.var}} syntax.
+func toGoTemplate(content string, vars []string) string {
+	for _, v := range vars {
+		content = strings.ReplaceAll(content, "{"+v+"}", "{{."+v+"}}")
 	}
+	return content
+}
 
+func (l *LangChainHubLoader) ConvertToBelugaTemplate(name string, hubPrompt *LangChainHubPrompt) (*prompt.Template, error) {
 	// Concatenate message content into a single template string
-	var templateStr string
+	var sb strings.Builder
 	for _, msg := range hubPrompt.Messages {
-		templateStr += fmt.Sprintf("%s: %s\n", msg.Role, msg.Content)
+		fmt.Fprintf(&sb, "%s: %s\n", msg.Role, toGoTemplate(msg.Content, hubPrompt.InputVariables))
 	}
 
-	template, err := manager.NewStringTemplate(templateStr, hubPrompt.InputVariables)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create template: %w", err)
+	tmpl := &prompt.Template{
+		Name:     name,
+		Version:  "1.0.0",
+		Content:  sb.String(),
+		Metadata: map[string]any{"source": "langchain-hub"},
 	}
-
-	return template, nil
+	if err := tmpl.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid template: %w", err)
+	}
+	return tmpl, nil
 }
 ```
 
@@ -150,20 +157,20 @@ func main() {
 		log.Fatalf("Failed to load prompt: %v", err)
 	}
 
-	template, err := loader.ConvertToBelugaTemplate(ctx, hubPrompt)
+	tmpl, err := loader.ConvertToBelugaTemplate("rag", hubPrompt)
 	if err != nil {
 		log.Fatalf("Failed to convert prompt: %v", err)
 	}
 
-	result, err := template.Format(ctx, map[string]any{
+	result, err := tmpl.Render(map[string]any{
 		"context":  "Machine learning is...",
 		"question": "What is ML?",
 	})
 	if err != nil {
-		log.Fatalf("Failed to format: %v", err)
+		log.Fatalf("Failed to render: %v", err)
 	}
 
-	fmt.Printf("Formatted prompt: %s\n", result.ToString())
+	fmt.Printf("Formatted prompt: %s\n", result)
 }
 ```
 
@@ -183,6 +190,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/lookatitude/beluga-ai/v2/prompt"
@@ -207,7 +215,7 @@ func NewLangChainHubLoader() *LangChainHubLoader {
 	}
 }
 
-func (l *LangChainHubLoader) LoadAndConvert(ctx context.Context, owner, repo, promptID string) (prompt.PromptTemplate, error) {
+func (l *LangChainHubLoader) LoadAndConvert(ctx context.Context, owner, repo, promptID string) (*prompt.Template, error) {
 	ctx, span := l.tracer.Start(ctx, "langchain_hub.load",
 		trace.WithAttributes(
 			attribute.String("owner", owner),
@@ -253,48 +261,50 @@ func (l *LangChainHubLoader) LoadAndConvert(ctx context.Context, owner, repo, pr
 		return nil, fmt.Errorf("failed to parse: %w", err)
 	}
 
-	// Convert to Beluga AI template
-	manager, err := prompt.NewPromptManager()
-	if err != nil {
-		span.RecordError(err)
-		return nil, fmt.Errorf("failed to create manager: %w", err)
-	}
-
-	templateStr := ""
+	// Convert to a Beluga AI template: LangChain {var} -> Go {{.var}}
+	var sb strings.Builder
 	for _, msg := range hubPrompt.Messages {
 		if content, ok := msg["content"].(string); ok {
-			templateStr += content + "\n"
+			for _, v := range hubPrompt.InputVariables {
+				content = strings.ReplaceAll(content, "{"+v+"}", "{{."+v+"}}")
+			}
+			sb.WriteString(content + "\n")
 		}
 	}
 
-	template, err := manager.NewStringTemplate(templateStr, hubPrompt.InputVariables)
-	if err != nil {
+	tmpl := &prompt.Template{
+		Name:     promptID,
+		Version:  "1.0.0",
+		Content:  sb.String(),
+		Metadata: map[string]any{"source": "langchain-hub", "owner": owner, "repo": repo},
+	}
+	if err := tmpl.Validate(); err != nil {
 		span.RecordError(err)
-		return nil, fmt.Errorf("failed to create template: %w", err)
+		return nil, fmt.Errorf("invalid template: %w", err)
 	}
 
 	span.SetAttributes(attribute.Int("input_variables", len(hubPrompt.InputVariables)))
-	return template, nil
+	return tmpl, nil
 }
 
 func main() {
 	ctx := context.Background()
 
 	loader := NewLangChainHubLoader()
-	template, err := loader.LoadAndConvert(ctx, "langchain-ai", "prompt-hub", "prompts/rag")
+	tmpl, err := loader.LoadAndConvert(ctx, "langchain-ai", "prompt-hub", "prompts/rag")
 	if err != nil {
 		log.Fatalf("Failed to load prompt: %v", err)
 	}
 
-	result, err := template.Format(ctx, map[string]any{
+	result, err := tmpl.Render(map[string]any{
 		"context":  "AI is transforming technology.",
 		"question": "What is AI?",
 	})
 	if err != nil {
-		log.Fatalf("Failed to format: %v", err)
+		log.Fatalf("Failed to render: %v", err)
 	}
 
-	fmt.Printf("Prompt: %s\n", result.ToString())
+	fmt.Printf("Prompt: %s\n", result)
 }
 ```
 
@@ -322,7 +332,7 @@ LangChain prompt formats can vary. When encountering incompatible formats, inspe
 
 ## Production Considerations
 
-- **Cache prompts** locally to reduce API calls and improve startup time
+- **Cache prompts** locally to reduce API calls and improve startup time; for example, write converted templates as JSON files and serve them with the file-based `PromptManager` (`prompt/providers/file`)
 - **Pin prompt versions** in production to avoid unexpected changes
 - **Validate loaded prompts** before use to catch format mismatches early
 - **Provide local fallbacks** in case the Hub API is unreachable

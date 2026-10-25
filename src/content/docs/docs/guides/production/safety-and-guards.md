@@ -65,18 +65,21 @@ type GuardResult struct {
 The pipeline constructor accepts guards grouped by stage. Guards within each stage execute in order, and the first guard that blocks content short-circuits the remaining guards in that stage. This ordering matters: place the cheapest, most common checks first to avoid unnecessary work.
 
 ```go
-import "github.com/lookatitude/beluga-ai/v2/guard"
+import (
+	"github.com/lookatitude/beluga-ai/v2/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard/agentic"
+)
 
 pipeline := guard.NewPipeline(
 	guard.Input(
 		guard.NewPromptInjectionDetector(),
-		guard.NewContentFilter(),
+		guard.NewContentFilter(guard.WithKeywords("bomb-making", "credit card dump")),
 	),
 	guard.Output(
 		guard.NewPIIRedactor(guard.DefaultPIIPatterns...),
 	),
 	guard.Tool(
-		guard.NewToolValidator(),
+		agentic.NewToolMisuseGuard(agentic.WithAllowedTools("search", "get_weather")),
 	),
 )
 
@@ -92,6 +95,9 @@ if !result.Allowed {
 
 // Validate model output before sending to user
 result, err = pipeline.ValidateOutput(ctx, modelResponse)
+if err != nil {
+	log.Fatal(err)
+}
 if result.Modified != "" {
 	modelResponse = result.Modified // Use sanitized version
 }
@@ -101,17 +107,20 @@ if result.Modified != "" {
 
 ### Prompt Injection Detection
 
-Prompt injection is the most common attack vector against LLM applications. Attackers embed instructions in user input that attempt to override the system prompt, causing the model to ignore its original instructions. The injection detector analyzes input for known patterns and returns a confidence score. Content above the threshold is blocked.
+Prompt injection is the most common attack vector against LLM applications. Attackers embed instructions in user input that attempt to override the system prompt, causing the model to ignore its original instructions. The injection detector matches input against a built-in set of regular-expression patterns (instruction overrides, system-prompt extraction, role overrides, delimiter escapes, jailbreak phrases) and blocks on the first match. Add your own patterns with `guard.WithPattern`, or drop the defaults with `guard.WithoutDefaults()`.
 
 ```go
 injectionGuard := guard.NewPromptInjectionDetector(
-	guard.WithInjectionThreshold(0.7),
+	guard.WithPattern("tool_override", `(?i)call\s+the\s+\w+\s+tool\s+with`),
 )
 
 result, err := injectionGuard.Validate(ctx, guard.GuardInput{
 	Content: userMessage,
 	Role:    "input",
 })
+if err != nil {
+	return err
+}
 if !result.Allowed {
 	// Prompt injection detected
 }
@@ -121,33 +130,37 @@ if !result.Allowed {
 
 Models may inadvertently include PII in their responses, either by echoing user-provided data or generating plausible-looking personal information. The PII redactor scans output for patterns matching common PII types and replaces them with redaction markers.
 
-Pattern ordering matters in PII detection. Credit card patterns are evaluated before phone number patterns because a 16-digit credit card number could partially match a phone number regex, leading to incomplete redaction. By checking credit cards first, the more specific pattern matches before the broader one has a chance to produce a false partial match.
+Pattern ordering matters in PII detection. `guard.DefaultPIIPatterns` (email, credit card, SSN, phone, IPv4) evaluates credit card patterns before phone number patterns because a 16-digit credit card number could partially match a phone number regex, leading to incomplete redaction. Custom patterns are `guard.PIIPattern` values (name, compiled regexp, placeholder).
 
 ```go
-piiGuard := guard.NewPIIRedactor(
-	guard.PIIPatternEmail,
-	guard.PIIPatternPhone,
-	guard.PIIPatternCreditCard,
-	guard.PIIPatternSSN,
-)
+piiGuard := guard.NewPIIRedactor(append(guard.DefaultPIIPatterns,
+	guard.PIIPattern{
+		Name:        "employee_id",
+		Pattern:     regexp.MustCompile(`\bEMP-\d{6}\b`),
+		Placeholder: "[EMPLOYEE_ID]",
+	},
+)...)
 
 result, err := piiGuard.Validate(ctx, guard.GuardInput{
 	Content: "Contact john@example.com at 555-123-4567",
 	Role:    "output",
 })
+if err != nil {
+	return err
+}
 
 fmt.Println(result.Modified)
-// Output: "Contact [EMAIL REDACTED] at [PHONE REDACTED]"
+// Output: "Contact [EMAIL] at [PHONE]"
 ```
 
 ### Content Moderation
 
-The content filter checks for harmful or inappropriate content across configurable categories. It uses a scoring model to evaluate content and blocks responses that exceed the threshold for any category.
+The built-in content filter is keyword-based: it counts case-insensitive matches against a blocked keyword list and blocks content once the match count reaches the threshold (default 1). For model-based moderation by category, use a hosted guard provider such as `guard/providers/azuresafety`, `lakera`, or `llmguard`.
 
 ```go
 contentGuard := guard.NewContentFilter(
-	guard.WithCategories("hate", "violence", "self-harm"),
-	guard.WithThreshold(0.8),
+	guard.WithKeywords("hate speech", "graphic violence", "self-harm"),
+	guard.WithThreshold(1),
 )
 ```
 
@@ -156,9 +169,14 @@ contentGuard := guard.NewContentFilter(
 Indirect prompt injection occurs when untrusted external content (retrieved documents, tool outputs, user-provided files) contains embedded instructions. Spotlighting wraps untrusted content in explicit delimiters so the model can distinguish between system instructions and external data, reducing the effectiveness of injection attempts embedded in retrieved content.
 
 ```go
-spotlight := guard.NewSpotlighter(guard.SpotlightConfig{
-	Delimiter: "<<<UNTRUSTED>>>",
-})
+spotlight := guard.NewSpotlighting("<<<UNTRUSTED>>>")
+
+// Always allowed; the wrapped content is returned in Modified.
+result, err := spotlight.Validate(ctx, guard.GuardInput{Content: retrievedDoc})
+if err != nil {
+	return err
+}
+wrapped := result.Modified
 ```
 
 ## Custom Guards
@@ -325,8 +343,8 @@ pipeline := guard.NewPipeline(
 a := agent.New("safe-assistant",
 	agent.WithLLM(model),
 	agent.WithHooks(agent.Hooks{
-		OnStart: func(ctx context.Context, input any) error {
-			result, err := pipeline.ValidateInput(ctx, input.(string))
+		OnStart: func(ctx context.Context, input string) error {
+			result, err := pipeline.ValidateInput(ctx, input)
 			if err != nil {
 				return err
 			}
@@ -337,6 +355,23 @@ a := agent.New("safe-assistant",
 		},
 	}),
 )
+
+// OnStart can only block input. Output guards (and redaction) run on the
+// result of Invoke, so call ValidateOutput before returning it to the user:
+answer, err := a.Invoke(ctx, userMessage)
+if err != nil {
+	return err
+}
+out, err := pipeline.ValidateOutput(ctx, answer)
+if err != nil {
+	return err
+}
+if !out.Allowed {
+	return fmt.Errorf("output blocked: %s", out.Reason)
+}
+if out.Modified != "" {
+	answer = out.Modified
+}
 ```
 
 ## Integrating HITL with Tool Execution

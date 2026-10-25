@@ -169,19 +169,34 @@ fmt.Println(results) // []any{"POSITIVE", "POSITIVE"}
 
 ## Stream Utilities
 
-Beluga AI provides utility functions for working with streams. These utilities compose with `iter.Seq2` iterators, enabling functional-style data processing without allocating intermediate collections.
+Beluga AI provides utility functions for typed event streams. They operate on `core.Stream[T]`, which is `iter.Seq2[core.Event[T], error]`: each item is a `core.Event` with a `Type`, a typed `Payload`, and optional `Meta`. A `Runnable`'s `Stream` yields raw `any` values, so wrap them in events first; the helpers then compose without allocating intermediate collections.
 
 ```go
-// Collect all stream values into a slice
-stream := analyzer.Stream(ctx, "good day")
-events, err := core.CollectStream(stream)
+// Wrap a Runnable's raw stream as a typed core.Stream
+func asEvents(src iter.Seq2[any, error]) core.Stream[any] {
+    return func(yield func(core.Event[any], error) bool) {
+        for v, err := range src {
+            if !yield(core.Event[any]{Type: core.EventData, Payload: v}, err) {
+                return
+            }
+        }
+    }
+}
 
-// Transform stream values
+stream := asEvents(analyzer.Stream(ctx, "good day"))
+
+// Collect all events into a slice
+events, err := core.CollectStream(stream)
+if err != nil {
+    return err
+}
+
+// Transform event payloads
 mapped := core.MapStream(stream, func(e core.Event[any]) (core.Event[string], error) {
-    return core.Event[string]{Payload: fmt.Sprint(e.Payload)}, nil
+    return core.Event[string]{Type: e.Type, Payload: fmt.Sprint(e.Payload)}, nil
 })
 
-// Filter stream values
+// Filter events
 filtered := core.FilterStream(stream, func(e core.Event[any]) bool {
     return e.Payload != nil
 })

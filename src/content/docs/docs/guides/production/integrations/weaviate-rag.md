@@ -96,15 +96,12 @@ func NewWeaviateRetriever(weaviateURL, className string, embedder embedding.Embe
 
 func (r *WeaviateRetriever) GetRelevantDocuments(ctx context.Context, query string) ([]schema.Document, error) {
 	// Generate query embedding
-	queryEmbedding, err := r.embedder.EmbedQuery(ctx, query)
+	queryEmbedding, err := r.embedder.EmbedSingle(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	vector := make([]float32, len(queryEmbedding))
-	for i, v := range queryEmbedding {
-		vector[i] = float32(v)
-	}
+	vector := queryEmbedding
 
 	// Build GraphQL query with vector similarity
 	builder := r.client.GraphQL().Get().
@@ -114,7 +111,7 @@ func (r *WeaviateRetriever) GetRelevantDocuments(ctx context.Context, query stri
 		}, graphql.Field{
 			Name: "metadata",
 		}).
-		WithNearVector(&graphql.NearVectorArgumentBuilder{}.
+		WithNearVector((&graphql.NearVectorArgumentBuilder{}).
 			WithVector(vector).
 			WithCertainty(0.7))
 
@@ -133,12 +130,12 @@ func (r *WeaviateRetriever) GetRelevantDocuments(ctx context.Context, query stri
 		content, _ := itemMap["content"].(string)
 		metadata, _ := itemMap["metadata"].(map[string]interface{})
 
-		meta := make(map[string]string)
+		meta := make(map[string]any, len(metadata))
 		for k, v := range metadata {
-			meta[k] = fmt.Sprintf("%v", v)
+			meta[k] = v
 		}
 
-		documents = append(documents, schema.NewDocument(content, meta))
+		documents = append(documents, schema.Document{Content: content, Metadata: meta})
 	}
 
 	return documents, nil
@@ -151,15 +148,12 @@ Weaviate supports hybrid search that blends vector similarity with BM25 keyword 
 
 ```go
 func (r *WeaviateRetriever) HybridSearch(ctx context.Context, query string, alpha float32) ([]schema.Document, error) {
-	queryEmbedding, err := r.embedder.EmbedQuery(ctx, query)
+	queryEmbedding, err := r.embedder.EmbedSingle(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	vector := make([]float32, len(queryEmbedding))
-	for i, v := range queryEmbedding {
-		vector[i] = float32(v)
-	}
+	vector := queryEmbedding
 
 	builder := r.client.GraphQL().Get().
 		WithClassName(r.className).
@@ -183,12 +177,12 @@ func (r *WeaviateRetriever) HybridSearch(ctx context.Context, query string, alph
 		content, _ := itemMap["content"].(string)
 		metadata, _ := itemMap["metadata"].(map[string]interface{})
 
-		meta := make(map[string]string)
+		meta := make(map[string]any, len(metadata))
 		for k, v := range metadata {
-			meta[k] = fmt.Sprintf("%v", v)
+			meta[k] = v
 		}
 
-		documents = append(documents, schema.NewDocument(content, meta))
+		documents = append(documents, schema.Document{Content: content, Metadata: meta})
 	}
 
 	return documents, nil
@@ -288,22 +282,19 @@ func (r *ProductionWeaviateRetriever) GetRelevantDocuments(ctx context.Context, 
 	)
 	defer span.End()
 
-	queryEmbedding, err := r.embedder.EmbedQuery(ctx, query)
+	queryEmbedding, err := r.embedder.EmbedSingle(ctx, query)
 	if err != nil {
 		span.RecordError(err)
 		return nil, fmt.Errorf("embedding failed: %w", err)
 	}
 
-	vector := make([]float32, len(queryEmbedding))
-	for i, v := range queryEmbedding {
-		vector[i] = float32(v)
-	}
+	vector := queryEmbedding
 
 	builder := r.client.GraphQL().Get().
 		WithClassName(r.className).
 		WithFields(graphql.Field{Name: "content"}, graphql.Field{Name: "metadata"}).
 		WithLimit(r.defaultK).
-		WithNearVector(&graphql.NearVectorArgumentBuilder{}.
+		WithNearVector((&graphql.NearVectorArgumentBuilder{}).
 			WithVector(vector).
 			WithCertainty(0.7))
 
@@ -322,12 +313,12 @@ func (r *ProductionWeaviateRetriever) GetRelevantDocuments(ctx context.Context, 
 		content, _ := itemMap["content"].(string)
 		metadata, _ := itemMap["metadata"].(map[string]interface{})
 
-		meta := make(map[string]string)
+		meta := make(map[string]any, len(metadata))
 		for k, v := range metadata {
-			meta[k] = fmt.Sprintf("%v", v)
+			meta[k] = v
 		}
 
-		documents = append(documents, schema.NewDocument(content, meta))
+		documents = append(documents, schema.Document{Content: content, Metadata: meta})
 	}
 
 	span.SetAttributes(attribute.Int("documents_retrieved", len(documents)))

@@ -12,7 +12,7 @@ Manual meeting minutes take 1-2 hours to create, miss 20-30% of key points, and 
 
 The delay compounds the problem: by the time minutes circulate, participants have already moved on, and corrections require re-engaging everyone's attention. Incorrect or missing action items lead to dropped work and accountability gaps.
 
-An automated system using Beluga AI's STT pipeline with speaker diarization and LLM-based summarization generates structured minutes in real time with 96% completeness and immediate availability.
+An automated system using Beluga AI's streaming STT and LLM-based summarization produces structured minutes as soon as the meeting ends.
 
 ## Solution Architecture
 
@@ -27,7 +27,7 @@ graph TB
     G --> H[Structured Minutes]
 ```
 
-The STT provider transcribes meeting audio in real time with speaker diarization. The transcript buffer accumulates segments, and at meeting end (or at intervals), the LLM summarizer generates structured minutes with key discussion points, decisions, and action items.
+The STT provider transcribes meeting audio in real time. The transcript buffer accumulates segments, and at meeting end (or at intervals), the LLM summarizer generates structured minutes with key discussion points, decisions, and action items.
 
 The pipeline is split into two distinct phases — transcription and summarization — rather than attempting real-time summarization of partial transcripts. This separation exists because LLM summarization quality degrades significantly on fragmented input. Complete transcript segments with speaker attribution produce dramatically better structured output than incremental updates. The buffered approach also means the STT and LLM components can be optimized independently: STT for latency and accuracy, LLM for output structure and completeness.
 
@@ -35,7 +35,7 @@ The pipeline is split into two distinct phases — transcription and summarizati
 
 ### Real-Time Transcription
 
-The transcription function consumes a streaming audio source (`iter.Seq2[[]byte, error]`) and produces a complete transcript. Deepgram is used here for its strong diarization capabilities (speaker identification), which is essential for meeting minutes — knowing who said what transforms a raw transcript into an attributable record. The `IsFinal` flag filters out interim results, ensuring only confirmed transcriptions enter the buffer.
+The transcription function consumes a streaming audio source (`iter.Seq2[[]byte, error]`) and produces a complete transcript. Deepgram is used here; `stt.WithDiarization(true)` asks it to identify speakers. Note that `stt.TranscriptEvent` does not carry speaker labels, so attribution (who said what) needs a separate step, such as the `voice/diarization` package described in [Multi-Speaker Segmentation](/docs/guides/capabilities/voice/multi-speaker-segmentation), or per-participant audio tracks from your meeting platform. The `IsFinal` flag filters out interim results, ensuring only confirmed transcriptions enter the buffer.
 
 ```go
 package main
@@ -44,8 +44,10 @@ import (
     "context"
     "fmt"
     "iter"
+    "os"
     "strings"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/schema"
     "github.com/lookatitude/beluga-ai/v2/voice/stt"
@@ -55,7 +57,10 @@ import (
 )
 
 func transcribeMeeting(ctx context.Context, audioStream iter.Seq2[[]byte, error]) (string, error) {
-    engine, err := stt.New("deepgram", nil)
+    engine, err := stt.New("deepgram", stt.Config{
+        Model: "nova-2",
+        Extra: map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
+    })
     if err != nil {
         return "", fmt.Errorf("create stt engine: %w", err)
     }
@@ -88,19 +93,18 @@ The summarization step sends the complete transcript to an LLM with a structured
 
 ```go
 func generateMinutes(ctx context.Context, transcript string) (string, error) {
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return "", fmt.Errorf("create model: %w", err)
     }
 
     msgs := []schema.Message{
-        &schema.SystemMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: "Generate structured meeting minutes from this transcript. " +
-                "Include: attendees, key discussion points, decisions made, and action items with owners."},
-        }},
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: transcript},
-        }},
+        schema.NewSystemMessage("Generate structured meeting minutes from this transcript. " +
+            "Include: attendees, key discussion points, decisions made, and action items with owners."),
+        schema.NewHumanMessage(transcript),
     }
 
     resp, err := model.Generate(ctx, msgs)
@@ -108,7 +112,7 @@ func generateMinutes(ctx context.Context, transcript string) (string, error) {
         return "", fmt.Errorf("generate: %w", err)
     }
 
-    return resp.Parts[0].(schema.TextPart).Text, nil
+    return resp.Text(), nil
 }
 ```
 
@@ -134,24 +138,15 @@ func processMeeting(ctx context.Context, audioStream iter.Seq2[[]byte, error]) e
 ## Deployment Considerations
 
 - **Streaming STT**: Use streaming transcription for real-time display during the meeting
-- **Speaker diarization**: Enable diarization to attribute statements to specific speakers
+- **Speaker attribution**: Attribute statements to speakers with per-participant audio tracks or a diarization step
 - **Transcript buffering**: Buffer transcripts before summarization to improve minute quality
 - **Multiple languages**: Configure STT language per meeting for global teams
 - **Parallel tracks**: For multi-speaker meetings, process audio in parallel tracks per speaker
 - **Observability**: Track transcription accuracy, summarization quality, and end-to-end latency
 
-## Results
+## Lessons Learned
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Minute creation time | 1-2 hours | 12 minutes | 90-95% reduction |
-| Completeness | 70-80% | 96% | 20-37% improvement |
-| Time to availability | 4-6 hours | 5 minutes | 98-99% reduction |
-| Quality score | 6.5/10 | 9.1/10 | 40% improvement |
-
-### Lessons Learned
-
-- **Speaker diarization early**: Speaker-agnostic transcripts are significantly less useful for minutes
+- **Speaker attribution early**: Speaker-agnostic transcripts are significantly less useful for minutes
 - **Buffering improves quality**: Processing complete transcript segments produces better summaries than immediate processing
 - **LLM summarization is critical**: Prompt engineering for structured output (attendees, decisions, action items) drives quality
 

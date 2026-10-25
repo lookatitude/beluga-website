@@ -73,7 +73,7 @@ type AssistantsBridge struct {
 func NewAssistantsBridge(apiKey, assistantID string) *AssistantsBridge {
     client := openai.NewClient(option.WithAPIKey(apiKey))
     return &AssistantsBridge{
-        client:      client,
+        client:      &client,
         assistantID: assistantID,
         model:       "gpt-4o",
     }
@@ -95,7 +95,7 @@ func (b *AssistantsBridge) Generate(
     threadMessages := make([]openai.ThreadMessageParam, 0, len(msgs))
     for _, msg := range msgs {
         role := "user"
-        if msg.Role() == schema.RoleAI {
+        if msg.GetRole() == schema.RoleAI {
             role = "assistant"
         }
         threadMessages = append(threadMessages, openai.ThreadMessageParam{
@@ -148,15 +148,13 @@ func (b *AssistantsBridge) Generate(
         if msg.Role == "assistant" {
             for _, content := range msg.Content {
                 if text, ok := content.AsText(); ok {
-                    return schema.NewAIMessage(
-                        schema.WithText(text.Text.Value),
-                    ), nil
+                    return schema.NewAIMessage(text.Text.Value), nil
                 }
             }
         }
     }
 
-    return schema.NewAIMessage(schema.WithText("")), nil
+    return schema.NewAIMessage(""), nil
 }
 ```
 
@@ -309,15 +307,24 @@ assistant, err := client.Assistants.New(ctx, openai.AssistantCreateParams{
 
 ### Combining with Beluga Middleware
 
-Because the bridge implements `ChatModel`, apply Beluga's LLM middleware for observability, caching, or fallback.
+Because the bridge implements `ChatModel`, apply Beluga's LLM middleware (`llm.WithLogging`, `llm.WithTracing`, `llm.WithFallback`, `llm.WithHooks`) for observability or fallback. For retries, wrap calls with `resilience.Retry`.
 
 ```go
 var model llm.ChatModel = NewAssistantsChatModel(apiKey, assistantID)
 
 model = llm.ApplyMiddleware(model,
     llm.WithLogging(logger),
-    llm.WithRetry(3),
+    llm.WithTracing(),
 )
+
+resp, err := resilience.Retry(ctx, resilience.DefaultRetryPolicy(),
+    func(ctx context.Context) (*schema.AIMessage, error) {
+        return model.Generate(ctx, msgs)
+    },
+)
+if err != nil {
+    return err
+}
 ```
 
 ## Configuration Reference

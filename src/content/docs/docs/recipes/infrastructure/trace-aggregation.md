@@ -37,7 +37,6 @@ import (
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/codes"
-    "go.opentelemetry.io/otel/trace"
 )
 
 var tracer = otel.Tracer("beluga.agents.trace_aggregation")

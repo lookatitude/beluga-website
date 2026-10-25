@@ -292,7 +292,7 @@ import (
 )
 
 // Load documents from S3
-docs, err := loader.Load(ctx, "documents/")
+docs, err := s3Loader.Load(ctx, "documents/") // s3Loader is the *S3Loader built above
 if err != nil {
     log.Fatal(err)
 }

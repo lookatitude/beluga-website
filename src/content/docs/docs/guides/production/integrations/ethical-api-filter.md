@@ -370,11 +370,65 @@ func (g *InstrumentedSafetyGuard) Validate(ctx context.Context, input guard.Guar
 For production deployments, wrap external API calls with the `resilience` and `cache` packages to manage throughput and reduce costs.
 
 ```go
-// Use resilience.RateLimiter to throttle external API calls
-// Use cache.ExactCache to avoid re-checking identical content
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"time"
 
-// Example: cache guard results by content hash
-// See the resilience and cache package documentation for details.
+	"github.com/lookatitude/beluga-ai/v2/cache"
+	_ "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
+	"github.com/lookatitude/beluga-ai/v2/guard"
+	"github.com/lookatitude/beluga-ai/v2/resilience"
+)
+
+// CachedRateLimitedGuard caches verdicts by content hash and throttles calls
+// to the wrapped external guard.
+type CachedRateLimitedGuard struct {
+	next    guard.Guard
+	cache   cache.Cache
+	limiter *resilience.RateLimiter
+}
+
+func NewCachedRateLimitedGuard(next guard.Guard) (*CachedRateLimitedGuard, error) {
+	c, err := cache.New("inmemory", cache.Config{TTL: 10 * time.Minute, MaxSize: 10000})
+	if err != nil {
+		return nil, fmt.Errorf("create cache: %w", err)
+	}
+	return &CachedRateLimitedGuard{
+		next:    next,
+		cache:   c,
+		limiter: resilience.NewRateLimiter(resilience.ProviderLimits{RPM: 600, MaxConcurrent: 10}),
+	}, nil
+}
+
+func (g *CachedRateLimitedGuard) Name() string { return g.next.Name() }
+
+func (g *CachedRateLimitedGuard) Validate(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
+	sum := sha256.Sum256([]byte(input.Role + "\x00" + input.Content))
+	key := hex.EncodeToString(sum[:])
+
+	if v, ok, err := g.cache.Get(ctx, key); err == nil && ok {
+		if res, ok := v.(guard.GuardResult); ok {
+			return res, nil
+		}
+	}
+
+	if err := g.limiter.Allow(ctx); err != nil {
+		return guard.GuardResult{}, fmt.Errorf("rate limit: %w", err)
+	}
+	defer g.limiter.Release()
+
+	res, err := g.next.Validate(ctx, input)
+	if err != nil {
+		return guard.GuardResult{}, err
+	}
+	if err := g.cache.Set(ctx, key, res, 0); err != nil {
+		return guard.GuardResult{}, fmt.Errorf("cache verdict: %w", err)
+	}
+	return res, nil
+}
 ```
 
 ## Troubleshooting

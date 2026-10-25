@@ -50,10 +50,9 @@ package main
 
 import (
     "context"
-    "fmt"
     "regexp"
 
-    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/metric"
     "go.opentelemetry.io/otel/trace"
@@ -185,44 +184,50 @@ package main
 import (
     "context"
     "fmt"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/v2/guard"
     "github.com/lookatitude/beluga-ai/v2/config"
-	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/schema"
+
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
-// PIIGuard implements guard.Guard for PII detection
+// PIIGuard implements guard.Guard (Name + Validate) using PIIDetector.
 type PIIGuard struct {
     detector *PIIDetector
 }
 
-func NewPIIGuard(detector *PIIDetector) guard.Guard {
+func NewPIIGuard(detector *PIIDetector) *PIIGuard {
     return &PIIGuard{detector: detector}
 }
 
-func (g *PIIGuard) Check(ctx context.Context, msgs []schema.Message) error {
-    for _, msg := range msgs {
-        // Extract text from message
-        text := extractMessageText(msg)
+func (g *PIIGuard) Name() string { return "pii_detector" }
 
-        // Check for PII
-        detections, err := g.detector.DetectPII(ctx, text, "input")
-        if err != nil {
-            return fmt.Errorf("pii detection failed: %w", err)
-        }
-
-        if len(detections) > 0 {
-            g.detector.blockedCounter.Add(ctx, 1)
-            return fmt.Errorf("PII detected: %d detection(s) found", len(detections))
-        }
+func (g *PIIGuard) Validate(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
+    detections, err := g.detector.DetectPII(ctx, input.Content, input.Role)
+    if err != nil {
+        return guard.GuardResult{}, fmt.Errorf("pii detection failed: %w", err)
     }
-
-    return nil
+    if len(detections) > 0 {
+        g.detector.blockedCounter.Add(ctx, 1)
+        return guard.GuardResult{
+            Allowed: false,
+            Reason:  fmt.Sprintf("PII detected: %d detection(s) found", len(detections)),
+        }, nil
+    }
+    return guard.GuardResult{Allowed: true}, nil
 }
 
-// Use with LLM
-func createGuardedModel(ctx context.Context) (llm.ChatModel, error) {
+// GuardedModel runs the guard pipeline on the prompt and the response
+// around every Generate call.
+type GuardedModel struct {
+    model  llm.ChatModel
+    guards *guard.Pipeline
+}
+
+func createGuardedModel(ctx context.Context) (*GuardedModel, error) {
     detector, err := NewPIIDetector(ctx)
     if err != nil {
         return nil, err
@@ -230,16 +235,53 @@ func createGuardedModel(ctx context.Context) (llm.ChatModel, error) {
 
     model, err := llm.New("openai", config.ProviderConfig{
         APIKey: os.Getenv("OPENAI_API_KEY"),
-        Model:  "gpt-4",
+        Model:  "gpt-4o",
     })
     if err != nil {
         return nil, err
     }
 
-    // Apply PII guard
-    return guard.Apply(model, NewPIIGuard(detector)), nil
+    piiGuard := NewPIIGuard(detector)
+    return &GuardedModel{
+        model:  model,
+        guards: guard.NewPipeline(guard.Input(piiGuard), guard.Output(piiGuard)),
+    }, nil
+}
+
+func (g *GuardedModel) Generate(ctx context.Context, msgs []schema.Message) (string, error) {
+    for _, msg := range msgs {
+        for _, part := range msg.GetContent() {
+            text, ok := part.(schema.TextPart)
+            if !ok {
+                continue
+            }
+            res, err := g.guards.ValidateInput(ctx, text.Text)
+            if err != nil {
+                return "", err
+            }
+            if !res.Allowed {
+                return "", fmt.Errorf("input blocked by %s: %s", res.GuardName, res.Reason)
+            }
+        }
+    }
+
+    resp, err := g.model.Generate(ctx, msgs)
+    if err != nil {
+        return "", err
+    }
+
+    res, err := g.guards.ValidateOutput(ctx, resp.Text())
+    if err != nil {
+        return "", err
+    }
+    if !res.Allowed {
+        return "", fmt.Errorf("output blocked by %s: %s", res.GuardName, res.Reason)
+    }
+    return resp.Text(), nil
 }
 ```
+
+For redaction instead of blocking, the built-in `guard.NewPIIRedactor(guard.DefaultPIIPatterns...)` returns the sanitized text in `GuardResult.Modified`.
 
 ## Production Considerations
 
@@ -248,8 +290,9 @@ func createGuardedModel(ctx context.Context) (llm.ChatModel, error) {
 Reduce false positives by refining regex patterns and implementing context-aware detection:
 
 ```go
-// Avoid matching phone numbers that are part of addresses
-patterns[PIITypePhone] = regexp.MustCompile(`\b(?!\d{5})\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b`)
+// Require a separator after the area code so longer digit runs (zip+4,
+// order numbers) are not matched. Go's regexp (RE2) has no lookahead.
+patterns[PIITypePhone] = regexp.MustCompile(`\b\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b`)
 
 // Avoid matching credit card test numbers
 func isTestCreditCard(number string) bool {

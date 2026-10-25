@@ -44,9 +44,8 @@ import (
     "fmt"
 
     "github.com/lookatitude/beluga-ai/v2/config"
-	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/prompt"
-    "github.com/lookatitude/beluga-ai/v2/schema"
 
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
@@ -72,7 +71,10 @@ func NewCodeGenerator(ctx context.Context) (*CodeGenerator, error) {
         return nil, fmt.Errorf("create model: %w", err)
     }
 
-    template, err := prompt.NewTemplate(`Generate {{.language}} code for: {{.description}}
+    template := &prompt.Template{
+        Name:    "codegen",
+        Version: "1.0.0",
+        Content: `Generate {{.language}} code for: {{.description}}
 
 Pattern: {{.pattern}}
 
@@ -85,9 +87,10 @@ Generate production-ready code with:
 - Comments and documentation
 - Following {{.pattern}} pattern
 - Type safety and validation
-`)
-    if err != nil {
-        return nil, fmt.Errorf("create template: %w", err)
+`,
+    }
+    if err := template.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid template: %w", err)
     }
 
     return &CodeGenerator{
@@ -140,7 +143,7 @@ func (g *CodeGenerator) GenerateCode(ctx context.Context, req CodeRequest) (stri
     }
 
     // Format prompt from template
-    promptText, err := g.template.Format(map[string]interface{}{
+    promptText, err := g.template.Render(map[string]any{
         "description": req.Description,
         "language":    req.Language,
         "pattern":     req.Pattern,
@@ -165,7 +168,7 @@ func (g *CodeGenerator) GenerateCode(ctx context.Context, req CodeRequest) (stri
         return "", fmt.Errorf("generate code: %w", err)
     }
 
-    code := resp.Parts[0].(schema.TextPart).Text
+    code := resp.Text()
 
     // Validate generated code
     if err := g.validateCode(ctx, code, req.Language); err != nil {
@@ -244,7 +247,7 @@ Include:
         return "", fmt.Errorf("generate tests: %w", err)
     }
 
-    return resp.Parts[0].(schema.TextPart).Text, nil
+    return resp.Text(), nil
 }
 
 func (g *CodeGenerator) formatCode(ctx context.Context, code, language string) (string, error) {
@@ -271,7 +274,7 @@ func (g *CodeGenerator) StreamCode(ctx context.Context, req CodeRequest) iter.Se
             return
         }
 
-        promptText, err := g.template.Format(map[string]interface{}{
+        promptText, err := g.template.Render(map[string]any{
             "description": req.Description,
             "language":    req.Language,
             "pattern":     req.Pattern,

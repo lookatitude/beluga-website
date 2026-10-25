@@ -35,7 +35,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
 	"github.com/lookatitude/beluga-ai/v2/llm"
 	"github.com/lookatitude/beluga-ai/v2/schema"
@@ -72,7 +72,7 @@ func (ht *HistoryTrimmer) TrimHistory(ctx context.Context, messages []schema.Mes
 
 	if ht.estimateTokens(messages) <= ht.maxTokens {
 		span.SetAttributes(attribute.Bool("trimming_needed", false))
-		span.SetStatus(trace.StatusOK, "no trimming needed")
+		span.SetStatus(codes.Ok, "no trimming needed")
 		return messages, nil
 	}
 
@@ -107,7 +107,7 @@ func (ht *HistoryTrimmer) TrimHistory(ctx context.Context, messages []schema.Mes
 		attribute.Int("output_message_count", len(trimmed)),
 		attribute.Int("trimmed_count", len(messages)-len(trimmed)),
 	)
-	span.SetStatus(trace.StatusOK, "history trimmed")
+	span.SetStatus(codes.Ok, "history trimmed")
 	return trimmed, nil
 }
 
@@ -164,13 +164,13 @@ func (ht *HistoryTrimmer) summarize(ctx context.Context, messages []schema.Messa
 	response, err := ht.summarizer.Generate(ctx, prompt)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(trace.StatusError, err.Error())
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 
 	// response is *schema.AIMessage; extract text via the Text() method.
 	summaryText := response.Text()
-	span.SetStatus(trace.StatusOK, "summary created")
+	span.SetStatus(codes.Ok, "summary created")
 	return schema.NewSystemMessage("Previous conversation summary: " + summaryText), nil
 }
 

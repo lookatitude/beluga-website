@@ -55,7 +55,7 @@ func main() {
         OutputTokens: 150,
         Duration:     1200 * time.Millisecond,
         Cost:         0.003,
-        Response:     "The capital of France is Paris.",
+        Response:     map[string]any{"role": "assistant", "content": "The capital of France is Paris."},
         Metadata: map[string]any{
             "temperature": 0.7,
         },

@@ -10,377 +10,307 @@ head:
 
 Before documents can be embedded and searched, they need to be loaded from wherever they live -- local filesystems, cloud storage buckets, databases, APIs, or SaaS platforms. Document loaders handle this ingestion step, converting source data into Beluga AI's `schema.Document` type with content and metadata preserved.
 
-This guide covers the available loader integrations and shows how to implement custom loaders for specialized sources.
+This guide covers the loaders that ship with Beluga AI and shows how to implement custom loaders for sources that are not covered.
 
-## Available Loaders
-
-### Filesystem Loaders
-
-#### Directory Loader
-
-Load documents recursively from local filesystem.
+Every loader implements one interface from `rag/loader`:
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders"
-)
-
-fsys := os.DirFS("/path/to/documents")
-loader, err := documentloaders.NewDirectoryLoader(fsys,
-    documentloaders.WithMaxDepth(10),
-    documentloaders.WithExtensions(".md", ".txt", ".pdf"),
-    documentloaders.WithExclusions("**/node_modules/**", "**/.git/**"),
-)
-
-docs, err := loader.Load(ctx)
+type DocumentLoader interface {
+    Load(ctx context.Context, source string) ([]schema.Document, error)
+}
 ```
 
-**Supported formats**: txt, md, html, pdf, docx, csv, json
+The `source` argument is loader-specific: a file path for the built-in loaders, an `s3://` / `gs://` / `az://` URL for cloud storage, a file ID for Google Drive, or a URL for web crawlers.
 
-#### PDF Loader
+## Built-in Loaders
 
-Extract text from PDF files.
+The `rag/loader` package registers four format loaders in `init()`: `text`, `markdown`, `csv`, and `json`. Create them through the registry with `loader.New`, or construct them directly.
 
 ```go
+package main
+
 import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/pdf"
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
 )
 
-loader := pdf.NewLoader("/path/to/file.pdf",
-    pdf.WithExtractImages(false),
-    pdf.WithPreserveFormatting(true),
-    pdf.WithPageSeparator("\n---\n"),
-)
+func main() {
+    ctx := context.Background()
 
-docs, err := loader.Load(ctx)
+    // Registry-based construction.
+    textLoader, err := loader.New("text", config.ProviderConfig{})
+    if err != nil {
+        log.Fatal(err)
+    }
+    docs, err := textLoader.Load(ctx, "/path/to/notes.txt")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("loaded %d text documents\n", len(docs))
+
+    // Direct construction with options.
+    csvLoader := loader.NewCSVLoader(loader.WithContentColumns("title,body"))
+    rows, err := csvLoader.Load(ctx, "/path/to/articles.csv")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("loaded %d CSV rows\n", len(rows))
+
+    jsonLoader := loader.NewJSONLoader(
+        loader.WithJQPath("data.items"), // dot path to the array of items
+        loader.WithContentKey("content"), // key holding each item's text
+    )
+    items, err := jsonLoader.Load(ctx, "/path/to/export.json")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("loaded %d JSON items\n", len(items))
+}
 ```
 
-### Cloud Storage Loaders
+- **text**: the whole file becomes one document.
+- **markdown**: `loader.NewMarkdownLoader()`; the whole file becomes one document.
+- **csv**: one document per row; column headers become metadata keys. `WithContentColumns` (or `Options["content_columns"]`) picks the columns concatenated into `Content`.
+- **json**: an array (top level or at `WithJQPath`) yields one document per element; `WithContentKey` selects the content field, otherwise the whole element is serialized.
 
-#### AWS S3 Loader
+### Pipelines and Transformers
 
-Load documents from S3 buckets.
+`loader.NewPipeline` runs several loaders against the same source and applies transformers to every resulting document:
 
 ```go
+package main
+
 import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/s3"
-    "github.com/aws/aws-sdk-go/aws/session"
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-sess, _ := session.NewSession(&aws.Config{
-    Region: aws.String("us-west-2"),
-})
+func main() {
+    ctx := context.Background()
 
-loader := s3.NewLoader(sess, "my-bucket",
-    s3.WithPrefix("documents/"),
-    s3.WithRecursive(true),
-    s3.WithIncludeExtensions(".txt", ".md", ".pdf"),
-)
+    p := loader.NewPipeline(
+        loader.WithLoader(loader.NewMarkdownLoader()),
+        loader.WithTransformer(loader.TransformerFunc(
+            func(ctx context.Context, doc schema.Document) (schema.Document, error) {
+                if doc.Metadata == nil {
+                    doc.Metadata = map[string]any{}
+                }
+                doc.Metadata["ingested_at"] = time.Now().UTC().Format(time.RFC3339)
+                return doc, nil
+            },
+        )),
+    )
 
-docs, err := loader.Load(ctx)
+    docs, err := p.Load(ctx, "/path/to/README.md")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("loaded %d documents\n", len(docs))
+}
 ```
 
-**Configuration**:
-- Supports IAM roles and access keys
-- Handles large files via multipart downloads
-- Supports S3-compatible storage (MinIO, DigitalOcean Spaces)
+There is no built-in directory walker. To ingest a directory, walk it with `filepath.WalkDir` and call the loader that matches each file's extension.
 
-#### Google Cloud Storage
+## External Loaders
 
-Load from GCS buckets.
+Provider loaders live under `rag/loader/providers/` and register themselves when imported. All of them are created with `loader.New(name, config.ProviderConfig{...})`.
+
+| Name | Import | Source argument | Configuration |
+|------|--------|-----------------|---------------|
+| `cloudstorage` | `rag/loader/providers/cloudstorage` | `s3://bucket/key`, `gs://bucket/key`, `az://container/key` | `APIKey` (access key), `Options["secret_key"]`, `Options["region"]` |
+| `gdrive` | `rag/loader/providers/gdrive` | Drive file ID | `APIKey` (API key or OAuth token) |
+| `firecrawl` | `rag/loader/providers/firecrawl` | URL to crawl | `APIKey` |
+| `docling` | `rag/loader/providers/docling` | file path or URL (PDF, DOCX, images) | `BaseURL` of a Docling server |
+| `unstructured` | `rag/loader/providers/unstructured` | file path | `APIKey`, optional `BaseURL` |
+| `confluence` | `rag/loader/providers/confluence` | page ID | `APIKey`, `BaseURL` (wiki URL), `Options["user"]` |
+| `github` | `rag/loader/providers/github` | `owner/repo/path/to/file` | `APIKey` (personal access token) |
+| `notion` | `rag/loader/providers/notion` | page ID | `APIKey` (integration token) |
+
+### Cloud Storage
 
 ```go
+package main
+
 import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/gcs"
-    "cloud.google.com/go/storage"
+    "context"
+    "fmt"
+    "log"
+    "os"
+
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/cloudstorage"
 )
 
-client, _ := storage.NewClient(ctx)
+func main() {
+    ctx := context.Background()
 
-loader := gcs.NewLoader(client, "my-bucket",
-    gcs.WithPrefix("documents/"),
-    gcs.WithRecursive(true),
-)
+    l, err := loader.New("cloudstorage", config.ProviderConfig{
+        APIKey: os.Getenv("STORAGE_ACCESS_TOKEN"),
+        Options: map[string]any{
+            "region": "us-west-2",
+        },
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
 
-docs, err := loader.Load(ctx)
+    docs, err := l.Load(ctx, "gs://my-bucket/documents/handbook.md")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("loaded %d documents\n", len(docs))
+}
 ```
 
-#### Azure Blob Storage
+The cloud storage loader fetches one object per `Load` call (it does not list prefixes) and sends `APIKey` as a bearer token. It does not perform AWS SigV4 request signing, so for private S3 objects either make the object readable to the request or download it with the AWS SDK and pass the content to a format loader.
 
-Load from Azure containers.
+### Google Drive and Web Crawling
 
 ```go
+package main
+
 import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/azureblob"
+    "context"
+    "fmt"
+    "log"
+    "os"
+
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/firecrawl"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/gdrive"
 )
 
-loader := azureblob.NewLoader(
-    "account-name",
-    "container-name",
-    azureblob.WithAccountKey(os.Getenv("AZURE_STORAGE_KEY")),
-    azureblob.WithPrefix("documents/"),
-)
+func main() {
+    ctx := context.Background()
 
-docs, err := loader.Load(ctx)
+    drive, err := loader.New("gdrive", config.ProviderConfig{
+        APIKey: os.Getenv("GOOGLE_OAUTH_TOKEN"),
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    driveDocs, err := drive.Load(ctx, "your-file-id")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    crawler, err := loader.New("firecrawl", config.ProviderConfig{
+        APIKey: os.Getenv("FIRECRAWL_API_KEY"),
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    webDocs, err := crawler.Load(ctx, "https://example.com/docs")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("drive: %d, web: %d\n", len(driveDocs), len(webDocs))
+}
 ```
 
-### Web Loaders
-
-#### HTML Loader
-
-Scrape and parse HTML content.
-
-```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/html"
-)
-
-loader := html.NewLoader("https://example.com",
-    html.WithRemoveScripts(true),
-    html.WithRemoveStyles(true),
-    html.WithExtractMetadata(true),
-    html.WithFollowLinks(false),
-)
-
-docs, err := loader.Load(ctx)
-```
-
-#### Sitemap Crawler
-
-Crawl entire websites via sitemaps.
-
-```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/sitemap"
-)
-
-loader := sitemap.NewLoader("https://example.com/sitemap.xml",
-    sitemap.WithMaxDepth(3),
-    sitemap.WithConcurrency(5),
-    sitemap.WithRateLimit(10), // requests per second
-)
-
-docs, err := loader.Load(ctx)
-```
-
-### Database Loaders
-
-#### SQL Loader
-
-Load data from SQL databases.
-
-```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/sql"
-    "database/sql"
-    _ "github.com/lib/pq"
-)
-
-db, _ := sql.Open("postgres", "postgres://user:pass@localhost/db")
-
-loader := sql.NewLoader(db,
-    sql.WithQuery("SELECT id, title, content FROM articles"),
-    sql.WithContentColumn("content"),
-    sql.WithMetadataColumns("id", "title"),
-)
-
-docs, err := loader.Load(ctx)
-```
-
-#### MongoDB Loader
-
-Load documents from MongoDB collections.
-
-```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/mongodb"
-    "go.mongodb.org/mongo-driver/mongo"
-)
-
-client, _ := mongo.Connect(ctx)
-
-loader := mongodb.NewLoader(
-    client.Database("mydb").Collection("documents"),
-    mongodb.WithFilter(bson.M{"status": "published"}),
-    mongodb.WithContentField("content"),
-    mongodb.WithMetadataFields("title", "author", "created_at"),
-)
-
-docs, err := loader.Load(ctx)
-```
-
-### API Loaders
-
-#### REST API Loader
-
-Load data from REST APIs.
-
-```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/restapi"
-)
-
-loader := restapi.NewLoader("https://api.example.com/documents",
-    restapi.WithHeaders(map[string]string{
-        "Authorization": "Bearer " + os.Getenv("API_TOKEN"),
-    }),
-    restapi.WithPagination(restapi.PaginationConfig{
-        Type:      "offset",
-        PageSize:  100,
-        PageParam: "offset",
-    }),
-    restapi.WithContentPath("data.content"),
-)
-
-docs, err := loader.Load(ctx)
-```
-
-#### Google Drive Loader
-
-Load documents from Google Drive.
-
-```go
-import (
-    "github.com/lookatitude/beluga-ai/v2/pkg/documentloaders/providers/googledrive"
-    "google.golang.org/api/drive/v3"
-)
-
-service, _ := drive.NewService(ctx)
-
-loader := googledrive.NewLoader(service,
-    googledrive.WithFolderID("folder-id"),
-    googledrive.WithRecursive(true),
-    googledrive.WithMimeTypes("application/pdf", "text/plain"),
-)
-
-docs, err := loader.Load(ctx)
-```
+Google Docs files are exported as plain text; other files are downloaded as-is.
 
 ## Implementing Custom Loaders
 
-Create custom loaders for specialized sources.
+For sources that are not covered (SQL databases, internal APIs, SaaS platforms), implement `loader.DocumentLoader` and optionally register it so it can be created by name.
 
 ```go
 package custom
 
 import (
     "context"
-    "github.com/lookatitude/beluga-ai/v2/pkg/schema"
+    "database/sql"
+    "fmt"
+
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-type CustomLoader struct {
-    source     string
-    apiClient  *APIClient
-    maxResults int
+// SQLLoader turns rows of a query into documents. The source argument is
+// the SQL query to run; it must return id, title and content columns.
+type SQLLoader struct {
+    db *sql.DB
 }
 
-func NewCustomLoader(source string, apiKey string) *CustomLoader {
-    return &CustomLoader{
-        source:     source,
-        apiClient:  NewAPIClient(apiKey),
-        maxResults: 1000,
-    }
+var _ loader.DocumentLoader = (*SQLLoader)(nil)
+
+func NewSQLLoader(db *sql.DB) *SQLLoader {
+    return &SQLLoader{db: db}
 }
 
-func (cl *CustomLoader) Load(ctx context.Context) ([]schema.Document, error) {
-    // Fetch data from custom source
-    items, err := cl.apiClient.FetchItems(ctx, cl.source, cl.maxResults)
+func (l *SQLLoader) Load(ctx context.Context, query string) ([]schema.Document, error) {
+    rows, err := l.db.QueryContext(ctx, query)
     if err != nil {
-        return nil, fmt.Errorf("fetch items: %w", err)
+        return nil, fmt.Errorf("sql loader: query: %w", err)
     }
+    defer rows.Close()
 
-    // Convert to Beluga documents
-    docs := make([]schema.Document, len(items))
-    for i, item := range items {
-        docs[i] = schema.Document{
-            PageContent: item.Content,
-            Metadata: map[string]interface{}{
-                "source":     cl.source,
-                "id":         item.ID,
-                "created_at": item.CreatedAt,
-                "author":     item.Author,
-            },
+    var docs []schema.Document
+    for rows.Next() {
+        var id, title, content string
+        if err := rows.Scan(&id, &title, &content); err != nil {
+            return nil, fmt.Errorf("sql loader: scan: %w", err)
         }
+        docs = append(docs, schema.Document{
+            ID:      id,
+            Content: content,
+            Metadata: map[string]any{
+                "source": "sql",
+                "title":  title,
+            },
+        })
     }
-
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("sql loader: rows: %w", err)
+    }
     return docs, nil
 }
 
-func (cl *CustomLoader) LazyLoad(ctx context.Context) (chan schema.DocumentResult, error) {
-    ch := make(chan schema.DocumentResult, 10)
-
-    go func() {
-        defer close(ch)
-
-        offset := 0
-        pageSize := 100
-
-        for {
-            items, err := cl.apiClient.FetchItemsPaginated(ctx, cl.source, offset, pageSize)
-            if err != nil {
-                ch <- schema.DocumentResult{Error: err}
-                return
-            }
-
-            if len(items) == 0 {
-                return
-            }
-
-            for _, item := range items {
-                doc := schema.Document{
-                    PageContent: item.Content,
-                    Metadata: map[string]interface{}{
-                        "source": cl.source,
-                        "id":     item.ID,
-                    },
-                }
-
-                select {
-                case <-ctx.Done():
-                    ch <- schema.DocumentResult{Error: ctx.Err()}
-                    return
-                case ch <- schema.DocumentResult{Document: doc}:
-                }
-            }
-
-            offset += pageSize
+// Register makes the loader available as loader.New("sql", cfg).
+// The DSN comes from cfg.BaseURL and the driver from Options["driver"].
+func init() {
+    loader.Register("sql", func(cfg config.ProviderConfig) (loader.DocumentLoader, error) {
+        driver, ok := config.GetOption[string](cfg, "driver")
+        if !ok {
+            return nil, fmt.Errorf("sql loader: Options[\"driver\"] is required")
         }
-    }()
-
-    return ch, nil
+        db, err := sql.Open(driver, cfg.BaseURL)
+        if err != nil {
+            return nil, fmt.Errorf("sql loader: open: %w", err)
+        }
+        return NewSQLLoader(db), nil
+    })
 }
 ```
 
+`DocumentLoader` returns a slice. For very large sources, page through the source in your own code and call `Load` once per page (for example, pass the page cursor in `source`), so each batch can be embedded and indexed before the next is fetched.
+
 ## Event-Driven Loading
 
-Load documents reactively based on events.
-
-### S3 Event-Driven Loader
-
-Process new files as they arrive in S3.
+Load documents reactively as they arrive. The excerpt below polls an SQS queue for S3 notifications and hands each object to a loader. `parseS3Event` and `processDocuments` are application code.
 
 ```go
-import (
-    "github.com/aws/aws-sdk-go/service/sqs"
-)
-
 type S3EventLoader struct {
     sqsClient *sqs.SQS
     queueURL  string
-    s3Loader  *s3.Loader
-}
-
-func NewS3EventLoader(sess *session.Session, queueURL string, bucket string) *S3EventLoader {
-    return &S3EventLoader{
-        sqsClient: sqs.New(sess),
-        queueURL:  queueURL,
-        s3Loader:  s3.NewLoader(sess, bucket),
-    }
+    loader    loader.DocumentLoader // e.g. loader.New("cloudstorage", ...)
 }
 
 func (sel *S3EventLoader) ProcessEvents(ctx context.Context) error {
     for {
-        // Poll SQS for S3 events
         result, err := sel.sqsClient.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
             QueueUrl:            aws.String(sel.queueURL),
             MaxNumberOfMessages: aws.Int64(10),
@@ -391,31 +321,29 @@ func (sel *S3EventLoader) ProcessEvents(ctx context.Context) error {
         }
 
         for _, msg := range result.Messages {
-            // Parse S3 event
             event, err := parseS3Event(msg.Body)
             if err != nil {
-                log.Printf("Parse event error: %v", err)
+                log.Printf("parse event: %v", err)
                 continue
             }
 
-            // Load document
-            doc, err := sel.s3Loader.LoadSingleFile(ctx, event.ObjectKey)
+            docs, err := sel.loader.Load(ctx, "s3://"+event.Bucket+"/"+event.ObjectKey)
             if err != nil {
-                log.Printf("Load document error: %v", err)
+                log.Printf("load document: %v", err)
                 continue
             }
 
-            // Process document (e.g., embed and index)
-            if err := processDocument(ctx, doc); err != nil {
-                log.Printf("Process document error: %v", err)
+            if err := processDocuments(ctx, docs); err != nil {
+                log.Printf("process documents: %v", err)
                 continue
             }
 
-            // Delete message from queue
-            sel.sqsClient.DeleteMessage(&sqs.DeleteMessageInput{
+            if _, err := sel.sqsClient.DeleteMessageWithContext(ctx, &sqs.DeleteMessageInput{
                 QueueUrl:      aws.String(sel.queueURL),
                 ReceiptHandle: msg.ReceiptHandle,
-            })
+            }); err != nil {
+                log.Printf("delete message: %v", err)
+            }
         }
 
         select {
@@ -431,7 +359,7 @@ func (sel *S3EventLoader) ProcessEvents(ctx context.Context) error {
 
 When working with document loaders:
 
-1. **Use lazy loading** for large datasets
+1. **Page through large sources** instead of loading everything at once
 2. **Implement retry logic** for network failures
 3. **Add rate limiting** to respect API limits
 4. **Cache credentials** securely

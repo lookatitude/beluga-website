@@ -35,15 +35,17 @@ The feature flag manager builds on Beluga AI's `config/` package for hot-reload 
 
 ## Feature Flag Manager
 
-The flag manager loads feature flags from configuration files and enables hot-reloading for instant updates.
+The flag manager loads feature flags from a JSON configuration file with `config.Load`, then uses `config.NewFileWatcher` to reload the flags whenever the file changes.
 
 ```go
-package main
+package featureflags
 
 import (
     "context"
+    "encoding/json"
     "fmt"
     "sync"
+    "time"
 
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/o11y"
@@ -51,68 +53,77 @@ import (
 
 // FeatureFlag represents a dynamic feature flag.
 type FeatureFlag struct {
-    Name           string            `yaml:"name" validate:"required"`
-    Enabled        bool              `yaml:"enabled"`
-    RolloutPercent int               `yaml:"rollout_percent" validate:"min=0,max=100"`
-    UserSegments   []string          `yaml:"user_segments,omitempty"`
-    Metadata       map[string]string `yaml:"metadata,omitempty"`
+    Name           string            `json:"name"`
+    Enabled        bool              `json:"enabled"`
+    RolloutPercent int               `json:"rollout_percent"`
+    UserSegments   []string          `json:"user_segments,omitempty"`
+    Metadata       map[string]string `json:"metadata,omitempty"`
+}
+
+// FlagsFile is the on-disk shape of the flags configuration.
+type FlagsFile struct {
+    Features []FeatureFlag `json:"features" required:"true"`
 }
 
 // FeatureFlagManager manages dynamic feature flags with hot-reloading.
 type FeatureFlagManager struct {
-    flags  map[string]*FeatureFlag
-    mu     sync.RWMutex
-    loader *config.Loader
+    flags   map[string]*FeatureFlag
+    mu      sync.RWMutex
+    watcher config.Watcher
 }
 
-// NewFeatureFlagManager creates a new feature flag manager.
+// NewFeatureFlagManager loads the flags and starts watching the file.
 func NewFeatureFlagManager(ctx context.Context, configPath string) (*FeatureFlagManager, error) {
-    loader, err := config.New(
-        config.WithPath(configPath),
-        config.WithHotReload(true),
-    )
+    file, err := config.Load[FlagsFile](configPath)
     if err != nil {
-        return nil, fmt.Errorf("create config loader: %w", err)
-    }
-
-    manager := &FeatureFlagManager{
-        flags:  make(map[string]*FeatureFlag),
-        loader: loader,
-    }
-
-    if err := manager.loadFlags(ctx); err != nil {
         return nil, fmt.Errorf("load initial flags: %w", err)
     }
 
-    // Watch for config changes
+    manager := &FeatureFlagManager{
+        flags:   make(map[string]*FeatureFlag),
+        watcher: config.NewFileWatcher(configPath, time.Second),
+    }
+    manager.setFlags(file.Features)
+
+    // Watch for config changes (polls once per second).
     go manager.watchFlags(ctx)
 
     return manager, nil
 }
 
-func (m *FeatureFlagManager) loadFlags(ctx context.Context) error {
-    var flags []FeatureFlag
-    if err := m.loader.Load(ctx, &flags); err != nil {
-        return err
+// Close stops the file watcher.
+func (m *FeatureFlagManager) Close() error {
+    return m.watcher.Close()
+}
+
+func (m *FeatureFlagManager) setFlags(flags []FeatureFlag) {
+    next := make(map[string]*FeatureFlag, len(flags))
+    for i := range flags {
+        next[flags[i].Name] = &flags[i]
     }
 
     m.mu.Lock()
     defer m.mu.Unlock()
-
-    for i := range flags {
-        m.flags[flags[i].Name] = &flags[i]
-    }
-
-    return nil
+    m.flags = next
 }
 
 func (m *FeatureFlagManager) watchFlags(ctx context.Context) {
-    updates := m.loader.Watch(ctx)
-    for range updates {
-        if err := m.loadFlags(ctx); err != nil {
-            // Log error but continue watching
-            continue
+    logger := o11y.FromContext(ctx)
+    err := m.watcher.Watch(ctx, func(raw any) {
+        data, ok := raw.([]byte)
+        if !ok {
+            return
         }
+        var file FlagsFile
+        if err := json.Unmarshal(data, &file); err != nil {
+            // Keep serving the previous flags on a bad update.
+            logger.Error(ctx, "invalid feature flag update", "error", err)
+            return
+        }
+        m.setFlags(file.Features)
+    })
+    if err != nil && ctx.Err() == nil {
+        logger.Error(ctx, "feature flag watcher stopped", "error", err)
     }
 }
 ```
@@ -174,29 +185,31 @@ func hashString(s string) uint32 {
 
 ## Configuration Example
 
-Feature flags are defined in YAML configuration files:
+Feature flags are defined in a JSON configuration file (`config.Load` supports `.json` files):
 
-```yaml
-features:
-  - name: new_dashboard
-    enabled: true
-    rollout_percent: 10
-    metadata:
-      description: "New dashboard redesign"
-
-  - name: experimental_ai_model
-    enabled: true
-    rollout_percent: 100
-    user_segments:
-      - beta_users
-      - internal
-    metadata:
-      description: "Experimental AI model for beta users"
-
-  - name: legacy_api
-    enabled: false
-    metadata:
-      description: "Legacy API endpoint (disabled)"
+```json
+{
+  "features": [
+    {
+      "name": "new_dashboard",
+      "enabled": true,
+      "rollout_percent": 10,
+      "metadata": {"description": "New dashboard redesign"}
+    },
+    {
+      "name": "experimental_ai_model",
+      "enabled": true,
+      "rollout_percent": 100,
+      "user_segments": ["beta_users", "internal"],
+      "metadata": {"description": "Experimental AI model for beta users"}
+    },
+    {
+      "name": "legacy_api",
+      "enabled": false,
+      "metadata": {"description": "Legacy API endpoint (disabled)"}
+    }
+  ]
+}
 ```
 
 ## Observability
@@ -211,10 +224,14 @@ import (
 )
 
 func (m *FeatureFlagManager) IsEnabledWithMetrics(ctx context.Context, flagName string, userID string) bool {
-    meter := otel.Meter("feature-flags")
-    counter, _ := meter.Int64Counter("feature_flag_checks_total")
-
     enabled := m.IsEnabled(ctx, flagName, userID)
+
+    // In production, create the counter once and store it on the manager.
+    meter := otel.Meter("feature-flags")
+    counter, err := meter.Int64Counter("feature_flag_checks_total")
+    if err != nil {
+        return enabled
+    }
 
     counter.Add(ctx, 1,
         metric.WithAttributes(
@@ -231,7 +248,7 @@ func (m *FeatureFlagManager) IsEnabledWithMetrics(ctx context.Context, flagName 
 
 ### Hot Reload Performance
 
-Configuration hot-reloading adds minimal overhead. The watcher uses file system notifications rather than polling, and flag updates complete in under 1 second. In-memory flag cache ensures sub-millisecond evaluation times.
+Configuration hot-reloading adds minimal overhead. `config.FileWatcher` polls the file at the configured interval (one second above) and compares a content hash, so flag updates land within about one interval. In-memory flag cache ensures sub-millisecond evaluation times.
 
 ### Consistency Guarantees
 
@@ -250,15 +267,15 @@ type FlagAudit struct {
     ChangedAt time.Time
 }
 
-func (m *FeatureFlagManager) auditFlagChange(ctx context.Context, audit FlagAudit) error {
+func (m *FeatureFlagManager) auditFlagChange(ctx context.Context, change FlagAudit) error {
     // Log to audit system
-    logger := o11y.LoggerFromContext(ctx)
-    logger.Info("feature flag changed",
-        "flag", audit.FlagName,
-        "old_value", audit.OldValue,
-        "new_value", audit.NewValue,
-        "changed_by", audit.ChangedBy,
-        "changed_at", audit.ChangedAt,
+    logger := o11y.FromContext(ctx)
+    logger.Info(ctx, "feature flag changed",
+        "flag", change.FlagName,
+        "old_value", change.OldValue,
+        "new_value", change.NewValue,
+        "changed_by", change.ChangedBy,
+        "changed_at", change.ChangedAt,
     )
 
     return nil
@@ -267,7 +284,7 @@ func (m *FeatureFlagManager) auditFlagChange(ctx context.Context, audit FlagAudi
 
 ### Emergency Disable
 
-Disable problematic features instantly by updating the configuration file. The change propagates to all instances within 1 second without requiring deployments or application restarts.
+Disable problematic features quickly by updating the configuration file. The change reaches each instance within one polling interval without requiring deployments or application restarts.
 
 ### Scaling
 

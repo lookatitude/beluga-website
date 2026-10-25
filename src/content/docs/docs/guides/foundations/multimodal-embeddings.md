@@ -1,6 +1,6 @@
 ---
 title: Multimodal Embeddings Tutorial
-description: "Generate embeddings for text and images in a shared vector space using Beluga AI's embedding providers — enable cross-modal search and retrieval in Go."
+description: "Build cross-modal search in Go with Beluga AI: embed text with the embedding providers and bring images into the same vector space through vision-LLM descriptions."
 head:
   - tag: meta
     attrs:
@@ -8,29 +8,33 @@ head:
       content: "Beluga AI, Go, tutorial, multimodal embeddings, vector space, cross-modal search, embedding providers"
 ---
 
-Traditional search is limited to text matching. Multimodal embeddings project text, images, and other modalities into the same high-dimensional vector space, enabling cross-modal retrieval — search a product catalog of images using text queries, or find documents that relate to an uploaded photo. This shared representation works because embedding models learn to map semantically similar content to nearby points in vector space, regardless of the original modality.
+Traditional search is limited to text matching. Multimodal embeddings project text, images, and other modalities into the same high-dimensional vector space, enabling cross-modal retrieval: search a product catalog of images using text queries, or find documents that relate to an uploaded photo. This shared representation works because embedding models learn to map semantically similar content to nearby points in vector space, regardless of the original modality.
+
+Beluga AI's `embedding.Embedder` is text-in, vector-out: none of the bundled embedding providers accept image input today. This tutorial builds the text side of a cross-modal pipeline and shows the common way to bring images into the same space: ask a vision-capable LLM to describe each image, then embed the description with the same embedder you use for text.
 
 ## What You Will Build
 
-A multimodal embedding pipeline that embeds both text and images into a shared vector space, then computes similarity scores across modalities.
+An embedding pipeline that embeds text documents and image descriptions into one vector space, then computes similarity scores between a text query and both kinds of content.
 
 ## Prerequisites
 
-- A Google Cloud API key with the Generative Language API enabled (or equivalent multimodal embedding provider)
+- A Google Cloud API key with the Generative Language API enabled (or another embedding provider)
+- A vision-capable chat model (for example OpenAI `gpt-4o`) for the image-description step
 - Understanding of the [RAG pipeline](/docs/guides/rag)
 
 ## The Embedder Interface
 
-Beluga AI's embedding interface in the `rag/embedding` package separates document embedding from query embedding. This split exists because some embedding models use different strategies for documents versus queries — for example, adding a "query: " prefix for retrieval-optimized models. The interface follows the same registry pattern as LLM providers, so embedding providers are created with `embedding.New()` and discovered with `embedding.List()`.
+Beluga AI's embedding interface in the `rag/embedding` package has a batch method, a single-text convenience method, and a way to read the vector size. The interface follows the same registry pattern as LLM providers, so embedding providers are created with `embedding.New()` and discovered with `embedding.List()`.
 
 ```go
 type Embedder interface {
-    EmbedDocuments(ctx context.Context, texts []string) ([][]float32, error)
-    EmbedQuery(ctx context.Context, text string) ([]float32, error)
+    Embed(ctx context.Context, texts []string) ([][]float32, error)
+    EmbedSingle(ctx context.Context, text string) ([]float32, error)
+    Dimensions() int
 }
 ```
 
-For multimodal use cases, embedding providers accept `schema.Document` objects with metadata that specifies the content type.
+The same methods embed documents and queries. If your model expects different prefixes for the two (some retrieval-tuned models want `query: ` and `passage: `), add the prefix to the text before you call `Embed`.
 
 ## Step 1: Initialize the Embedding Provider
 
@@ -66,7 +70,7 @@ func main() {
         "Kubernetes deployment configuration",
     }
 
-    vectors, err := embedder.EmbedDocuments(ctx, texts)
+    vectors, err := embedder.Embed(ctx, texts)
     if err != nil {
         log.Fatalf("embed documents: %v", err)
     }
@@ -79,10 +83,10 @@ func main() {
 
 ## Step 2: Embed Queries
 
-Use `EmbedQuery` for search queries, which may use a different embedding strategy optimized for retrieval. The distinction between `EmbedDocuments` and `EmbedQuery` matters because asymmetric embedding models produce better retrieval results when they can distinguish between the content being indexed and the question being asked about it.
+Use `EmbedSingle` for a search query. Embed queries with the same model you used for the documents, so both land in the same vector space.
 
 ```go
-queryVector, err := embedder.EmbedQuery(ctx, "dog playing outside")
+queryVector, err := embedder.EmbedSingle(ctx, "dog playing outside")
 if err != nil {
     log.Fatalf("embed query: %v", err)
 }
@@ -105,7 +109,7 @@ func batchEmbed(ctx context.Context, embedder embedding.Embedder, texts []string
         }
 
         batch := texts[i:end]
-        vectors, err := embedder.EmbedDocuments(ctx, batch)
+        vectors, err := embedder.Embed(ctx, batch)
         if err != nil {
             return nil, fmt.Errorf("batch %d-%d: %w", i, end, err)
         }
@@ -116,7 +120,28 @@ func batchEmbed(ctx context.Context, embedder embedding.Embedder, texts []string
 }
 ```
 
-## Step 4: Compute Cosine Similarity
+## Step 4: Bring Images into the Same Space
+
+Because the embedder only takes text, describe each image with a vision-capable chat model and embed the description. A `schema.HumanMessage` can carry a `schema.ImagePart` alongside the text instruction.
+
+```go
+func describeImage(ctx context.Context, model llm.ChatModel, img []byte, mimeType string) (string, error) {
+    msg := &schema.HumanMessage{Parts: []schema.ContentPart{
+        schema.TextPart{Text: "Describe this image in one or two sentences for search indexing."},
+        schema.ImagePart{Data: img, MimeType: mimeType},
+    }}
+
+    resp, err := model.Generate(ctx, []schema.Message{msg})
+    if err != nil {
+        return "", fmt.Errorf("describe image: %w", err)
+    }
+    return resp.Text(), nil
+}
+```
+
+Embed the returned description with `embedder.Embed` together with your text documents, and store a reference to the original image in the document metadata so search results can point back to it.
+
+## Step 5: Compute Cosine Similarity
 
 Compare vectors to find semantic matches. Cosine similarity measures the angle between two vectors, producing a value between -1 and 1 where 1 means identical direction (maximum similarity). This metric is preferred over Euclidean distance for embeddings because it is invariant to vector magnitude — two vectors pointing in the same direction are similar regardless of their length.
 
@@ -152,13 +177,13 @@ for i, docVec := range vectors {
 }
 ```
 
-## Step 5: Choosing the Right Model
+## Step 6: Choosing the Right Model
 
 | Model | Dimensions | Best For |
 |:---|:---|:---|
 | OpenAI text-embedding-3-large | 3072 | High accuracy, general purpose |
 | OpenAI text-embedding-3-small | 1536 | Cost-effective, general purpose |
-| Google text-embedding-004 | 768 | Multimodal, cross-language |
+| Google text-embedding-004 | 768 | Cross-language |
 | Ollama nomic-embed-text | 768 | Local, privacy-sensitive, free |
 
 Always use the same model for both document indexing and query embedding. Mixing models produces incompatible vector spaces because each model learns a different mapping from text to vectors.

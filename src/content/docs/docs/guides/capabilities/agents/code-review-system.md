@@ -68,14 +68,14 @@ import (
 
 // GitDiffInput specifies which PR diff to fetch.
 type GitDiffInput struct {
-    Repo     string `json:"repo" jsonschema:"description=Repository in owner/repo format"`
-    PRNumber int    `json:"pr_number" jsonschema:"description=Pull request number"`
+    Repo     string `json:"repo" description:"Repository in owner/repo format"`
+    PRNumber int    `json:"pr_number" description:"Pull request number"`
 }
 
 // LintInput specifies what to lint.
 type LintInput struct {
-    FilePath string `json:"file_path" jsonschema:"description=Path to the file to lint"`
-    Language string `json:"language" jsonschema:"enum=go,python,javascript,typescript"`
+    FilePath string `json:"file_path" description:"Path to the file to lint"`
+    Language string `json:"language" enum:"go,python,javascript,typescript"`
 }
 
 func createReviewAgent(ctx context.Context) (agent.Agent, error) {
@@ -170,7 +170,7 @@ Use structured output to produce machine-readable review comments. The two-step 
 ```go
 type ReviewReport struct {
     Summary    string          `json:"summary"`
-    Score      int             `json:"score" jsonschema:"description=Overall quality score 1-10"`
+    Score      int             `json:"score" description:"Overall quality score 1-10"`
     Issues     []ReviewIssue   `json:"issues"`
     Strengths  []string        `json:"strengths"`
     Suggestion string          `json:"suggestion"`
@@ -179,8 +179,8 @@ type ReviewReport struct {
 type ReviewIssue struct {
     File       string `json:"file"`
     Line       int    `json:"line"`
-    Severity   string `json:"severity" jsonschema:"enum=critical,warning,info"`
-    Category   string `json:"category" jsonschema:"enum=bug,security,performance,style,maintainability"`
+    Severity   string `json:"severity" enum:"critical,warning,info"`
+    Category   string `json:"category" enum:"bug,security,performance,style,maintainability"`
     Message    string `json:"message"`
     Suggestion string `json:"suggestion"`
 }
@@ -308,34 +308,60 @@ Guard the agent's output to ensure reviews are constructive and accurate. Beluga
 ```go
 import "github.com/lookatitude/beluga-ai/v2/guard"
 
-// Guard against overly harsh or personal criticism
-toneGuard := guard.GuardFunc("constructive-tone", func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
-    upper := strings.ToUpper(input.Content)
-    harshPhrases := []string{"TERRIBLE CODE", "INCOMPETENT", "NEVER DO THIS", "AWFUL"}
-    for _, phrase := range harshPhrases {
-        if strings.Contains(upper, phrase) {
-            return guard.GuardResult{
-                Allowed: false,
-                Reason:  "Review comments must be constructive",
-            }, nil
-        }
-    }
-    return guard.GuardResult{Allowed: true}, nil
-})
+// funcGuard adapts a function to the guard.Guard interface (Name + Validate).
+type funcGuard struct {
+    name string
+    fn   func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error)
+}
 
-// Guard against suggesting code changes that could introduce vulnerabilities
-securityGuard := guard.GuardFunc("no-insecure-suggestions", func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
-    insecurePatterns := []string{"eval(", "exec(", "os.system(", "innerHTML ="}
-    for _, pattern := range insecurePatterns {
-        if strings.Contains(input.Content, pattern) {
-            return guard.GuardResult{
-                Allowed: false,
-                Reason:  "Suggestion contains potentially insecure pattern: " + pattern,
-            }, nil
+func (g *funcGuard) Name() string { return g.name }
+
+func (g *funcGuard) Validate(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
+    return g.fn(ctx, input)
+}
+
+// checkReview runs the review text through the output guards before posting.
+func checkReview(ctx context.Context, reviewText string) error {
+    // Guard against overly harsh or personal criticism
+    toneGuard := &funcGuard{name: "constructive-tone", fn: func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
+        upper := strings.ToUpper(input.Content)
+        harshPhrases := []string{"TERRIBLE CODE", "INCOMPETENT", "NEVER DO THIS", "AWFUL"}
+        for _, phrase := range harshPhrases {
+            if strings.Contains(upper, phrase) {
+                return guard.GuardResult{
+                    Allowed: false,
+                    Reason:  "Review comments must be constructive",
+                }, nil
+            }
         }
+        return guard.GuardResult{Allowed: true}, nil
+    }}
+
+    // Guard against suggesting code changes that could introduce vulnerabilities
+    securityGuard := &funcGuard{name: "no-insecure-suggestions", fn: func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
+        insecurePatterns := []string{"eval(", "exec(", "os.system(", "innerHTML ="}
+        for _, pattern := range insecurePatterns {
+            if strings.Contains(input.Content, pattern) {
+                return guard.GuardResult{
+                    Allowed: false,
+                    Reason:  "Suggestion contains potentially insecure pattern: " + pattern,
+                }, nil
+            }
+        }
+        return guard.GuardResult{Allowed: true}, nil
+    }}
+
+    // Run both guards on the review text before posting it.
+    pipeline := guard.NewPipeline(guard.Output(toneGuard, securityGuard))
+    result, err := pipeline.ValidateOutput(ctx, reviewText)
+    if err != nil {
+        return err
     }
-    return guard.GuardResult{Allowed: true}, nil
-})
+    if !result.Allowed {
+        return fmt.Errorf("review blocked by %s: %s", result.GuardName, result.Reason)
+    }
+    return nil
+}
 ```
 
 ## Production Considerations

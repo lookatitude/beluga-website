@@ -8,6 +8,10 @@ head:
       content: "Daily, WebRTC, audio transport, voice pipeline, bidirectional audio, low latency, Go, Beluga AI"
 ---
 
+:::caution[Not yet functional]
+The Daily adapter is registered and validates its configuration, but it does not connect yet: it never dials Daily, `Send` discards frames, `AudioOut` discards audio, and `Recv` never yields a frame. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
+:::
+
 The Daily provider implements bidirectional audio transport through Daily.co rooms. It enables voice pipelines to send and receive audio via Daily's WebRTC infrastructure.
 
 Choose Daily when you want a managed WebRTC service with simple room-based audio transport. Daily handles the WebRTC infrastructure, letting you focus on voice pipeline logic. For self-hosted WebRTC infrastructure, consider [LiveKit](/docs/reference/providers/transport/livekit). For interoperability with Pipecat-based processing systems, consider [Pipecat](/docs/reference/providers/transport/pipecat).
@@ -51,12 +55,10 @@ func main() {
     defer t.Close()
 
     // Receive incoming audio frames
-    frames, err := t.Recv(context.Background())
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    for frame := range frames {
+    for frame, err := range t.Recv(context.Background()) {
+        if err != nil {
+            log.Fatal(err)
+        }
         fmt.Printf("Received %d bytes of audio\n", len(frame.Data))
     }
 }
@@ -109,13 +111,15 @@ if err != nil {
     log.Fatal(err)
 }
 
-frames, err := t.Recv(ctx)
-if err != nil {
-    // Transport may be closed
-    log.Fatal(err)
+for frame, err := range t.Recv(ctx) {
+    if err != nil {
+        // Transport may be closed
+        log.Fatal(err)
+    }
+    handle(frame)
 }
 ```
 
-The transport returns an error from `Recv` and `Send` if `Close` has already been called.
+The transport returns an error from `Send` (and yields one from the `Recv` iterator) if `Close` has already been called.
 
 Refer to the [Daily.co documentation](https://docs.daily.co/) for room setup and token generation.

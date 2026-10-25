@@ -8,7 +8,7 @@ head:
       content: "voice forms, voice data collection, phone intake, voice validation, healthcare voice, Beluga AI, Go, conversational forms"
 ---
 
-Healthcare providers, insurance companies, and government agencies need to collect structured intake data over the phone. The data itself is well-defined (name, date of birth, policy number, symptoms), but the collection process is difficult: callers give fragmented answers, change their mind, provide information out of order, and go off-topic. Traditional touch-tone forms force callers into rigid sequences that do not accommodate these natural behaviors, resulting in 38% abandonment rates on forms longer than 5 fields.
+Healthcare providers, insurance companies, and government agencies need to collect structured intake data over the phone. The data itself is well-defined (name, date of birth, policy number, symptoms), but the collection process is difficult: callers give fragmented answers, change their mind, provide information out of order, and go off-topic. Traditional touch-tone forms force callers into rigid sequences that do not accommodate these natural behaviors, and abandonment climbs with every extra field.
 
 A voice-based form system using Beluga AI's voice pipeline manages form state across turns, validates answers in real time, and supports corrections and resumption. The system uses separate STT and TTS components (not S2S) because the form orchestrator needs to inspect the transcribed text for validation before generating the next prompt — this validation step requires text as an intermediate representation.
 
@@ -30,7 +30,7 @@ graph TB
     Speaker --> User
 ```
 
-The voice pipeline handles audio processing (STT, TTS, VAD, turn detection). The form orchestrator manages form state separately from the session layer, advancing through questions, validating answers, and persisting progress for resumption.
+The voice pipeline handles audio processing (STT, TTS, VAD). The form orchestrator manages form state separately from the session layer, advancing through questions, validating answers, and persisting progress for resumption.
 
 Separating form state from session state is a key architectural decision. Sessions are transient (tied to a WebSocket connection), while form state must survive disconnections so callers can resume where they left off. By decoupling them, the form orchestrator can be tested independently of the voice pipeline, and form state can be persisted to any storage backend.
 
@@ -41,7 +41,7 @@ Separating form state from session state is a key architectural decision. Sessio
 The form is defined as a sequence of `FormField` structs, each with a prompt, validation function, and required flag. The `Run` method drives a one-question-per-turn loop: synthesize the prompt via TTS, listen for a response via streaming STT, validate the answer, and either advance or reprompt. This sequential, field-by-field approach was chosen over free-form collection because it produces higher completion rates — callers know exactly what information is needed at each step.
 
 ```go
-package main
+package voiceform
 
 import (
     "context"
@@ -137,7 +137,12 @@ func (f *VoiceForm) Run(ctx context.Context, audioIn iter.Seq2[[]byte, error]) (
 
     return f.answers, nil
 }
+
+// sendAudio writes synthesized audio to your transport or audio output.
+func sendAudio(audio []byte) {}
 ```
+
+`TranscribeStream` only yields `IsFinal` events as answers here. Which providers also emit interim results is covered in [Real-Time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming).
 
 ### Form State Persistence
 
@@ -164,19 +169,16 @@ func (f *VoiceForm) SaveState(sessionID string) FormState {
 
 ## Deployment Considerations
 
-- **Turn detection**: Use VAD and turn detection to avoid treating partial utterances as final answers
+- **Turn detection**: Use VAD and turn rules (see [Sentence-Boundary Turn Detection](/docs/guides/capabilities/voice/sentence-boundary)) to avoid treating partial utterances as final answers
 - **Interruptions**: Enable interruption support so users can correct themselves mid-prompt
 - **State persistence**: Persist form state by session ID from day one for resumption after dropped calls
 - **Navigation**: Add "repeat", "go back", and "skip" intents for user control
 - **Confirmation turns**: For critical fields, add optional "Did you say X?" confirmation turns
 - **PII handling**: Encrypt form state at rest when collecting sensitive data
 
-## Results
+## What to Measure
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Form completion rate | 62% | 88% | +42% |
-| User correction rate | N/A | 12% | Under 15% target |
+Track form completion rate, per-field reprompt rate, and how often callers correct an answer, so you can find the fields that need clearer prompts or looser validation.
 
 ### Lessons Learned
 

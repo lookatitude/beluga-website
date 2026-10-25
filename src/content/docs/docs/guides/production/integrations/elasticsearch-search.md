@@ -20,7 +20,7 @@ This integration provides:
 - Document indexing with metadata support
 - Configurable result limits and field boosting
 - OpenTelemetry tracing for production observability
-- Compatibility with Beluga AI's `schema.Document` type
+- Implements Beluga AI's `retriever.Retriever` interface, so it can be combined with vector retrievers (for example in `retriever.NewEnsembleRetriever`)
 
 ## Prerequisites
 
@@ -48,7 +48,7 @@ docker run -p 9200:9200 -e "discovery.type=single-node" \
 
 ### Creating the Elasticsearch Retriever
 
-Define a retriever that wraps the Elasticsearch client and returns `schema.Document` results:
+Define a retriever that wraps the Elasticsearch client, implements Beluga's `retriever.Retriever` interface, and returns `schema.Document` results:
 
 ```go
 package main
@@ -57,15 +57,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
+	"github.com/lookatitude/beluga-ai/v2/rag/retriever"
 	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-// ElasticsearchRetriever performs keyword-based document retrieval.
+// ElasticsearchRetriever performs keyword-based document retrieval and
+// implements retriever.Retriever.
 type ElasticsearchRetriever struct {
 	client    *elasticsearch.Client
 	indexName string
@@ -94,7 +95,11 @@ func NewElasticsearchRetriever(esURL, indexName string, defaultK int) (*Elastics
 	}, nil
 }
 
-func (r *ElasticsearchRetriever) GetRelevantDocuments(ctx context.Context, query string) ([]schema.Document, error) {
+var _ retriever.Retriever = (*ElasticsearchRetriever)(nil)
+
+func (r *ElasticsearchRetriever) Retrieve(ctx context.Context, query string, opts ...retriever.Option) ([]schema.Document, error) {
+	cfg := retriever.ApplyOptions(append([]retriever.Option{retriever.WithTopK(r.defaultK)}, opts...)...)
+
 	searchQuery := map[string]interface{}{
 		"query": map[string]interface{}{
 			"multi_match": map[string]interface{}{
@@ -103,7 +108,7 @@ func (r *ElasticsearchRetriever) GetRelevantDocuments(ctx context.Context, query
 				"type":   "best_fields",
 			},
 		},
-		"size": r.defaultK,
+		"size": cfg.TopK,
 	}
 
 	queryJSON, err := json.Marshal(searchQuery)
@@ -140,13 +145,15 @@ func (r *ElasticsearchRetriever) GetRelevantDocuments(ctx context.Context, query
 
 		content, _ := source["content"].(string)
 		metadata, _ := source["metadata"].(map[string]interface{})
+		id, _ := hitMap["_id"].(string)
+		score, _ := hitMap["_score"].(float64)
 
-		meta := make(map[string]string)
-		for k, v := range metadata {
-			meta[k] = fmt.Sprintf("%v", v)
-		}
-
-		documents = append(documents, schema.NewDocument(content, meta))
+		documents = append(documents, schema.Document{
+			ID:       id,
+			Content:  content,
+			Metadata: metadata,
+			Score:    score,
+		})
 	}
 
 	return documents, nil
@@ -160,7 +167,7 @@ Store documents in Elasticsearch for later retrieval:
 ```go
 func (r *ElasticsearchRetriever) IndexDocument(ctx context.Context, doc schema.Document, docID string) error {
 	esDoc := ElasticsearchDocument{
-		Content:  doc.PageContent,
+		Content:  doc.Content,
 		Metadata: make(map[string]interface{}),
 	}
 
@@ -199,27 +206,29 @@ func (r *ElasticsearchRetriever) IndexDocument(ctx context.Context, doc schema.D
 func main() {
 	ctx := context.Background()
 
-	retriever, err := NewElasticsearchRetriever("http://localhost:9200", "documents", 5)
+	esRetriever, err := NewElasticsearchRetriever("http://localhost:9200", "documents", 5)
 	if err != nil {
 		log.Fatalf("Failed to create retriever: %v", err)
 	}
 
 	// Index a document
-	doc := schema.NewDocument("Machine learning is a subset of AI.",
-		map[string]string{"topic": "ml"})
-	if err := retriever.IndexDocument(ctx, doc, "doc1"); err != nil {
+	doc := schema.Document{
+		Content:  "Machine learning is a subset of AI.",
+		Metadata: map[string]any{"topic": "ml"},
+	}
+	if err := esRetriever.IndexDocument(ctx, doc, "doc1"); err != nil {
 		log.Fatalf("Failed to index: %v", err)
 	}
 
 	// Retrieve documents
-	docs, err := retriever.GetRelevantDocuments(ctx, "artificial intelligence")
+	docs, err := esRetriever.Retrieve(ctx, "artificial intelligence")
 	if err != nil {
 		log.Fatalf("Retrieval failed: %v", err)
 	}
 
 	fmt.Printf("Retrieved %d documents\n", len(docs))
 	for i, d := range docs {
-		fmt.Printf("%d. %s\n", i+1, d.PageContent)
+		fmt.Printf("%d. %s\n", i+1, d.Content)
 	}
 }
 ```
@@ -242,6 +251,7 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
+	"github.com/lookatitude/beluga-ai/v2/rag/retriever"
 	"github.com/lookatitude/beluga-ai/v2/schema"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -273,12 +283,14 @@ func NewProductionElasticsearchRetriever(esURL, indexName string, defaultK int) 
 	}, nil
 }
 
-func (r *ProductionElasticsearchRetriever) GetRelevantDocuments(ctx context.Context, query string) ([]schema.Document, error) {
+func (r *ProductionElasticsearchRetriever) Retrieve(ctx context.Context, query string, opts ...retriever.Option) ([]schema.Document, error) {
+	cfg := retriever.ApplyOptions(append([]retriever.Option{retriever.WithTopK(r.defaultK)}, opts...)...)
+
 	ctx, span := r.tracer.Start(ctx, "elasticsearch.search",
 		trace.WithAttributes(
 			attribute.String("index", r.indexName),
 			attribute.String("query", query),
-			attribute.Int("k", r.defaultK),
+			attribute.Int("k", cfg.TopK),
 		),
 	)
 	defer span.End()
@@ -291,7 +303,7 @@ func (r *ProductionElasticsearchRetriever) GetRelevantDocuments(ctx context.Cont
 				"type":   "best_fields",
 			},
 		},
-		"size": r.defaultK,
+		"size": cfg.TopK,
 	}
 
 	queryJSON, err := json.Marshal(searchQuery)
@@ -333,13 +345,15 @@ func (r *ProductionElasticsearchRetriever) GetRelevantDocuments(ctx context.Cont
 
 		content, _ := source["content"].(string)
 		metadata, _ := source["metadata"].(map[string]interface{})
+		id, _ := hitMap["_id"].(string)
+		score, _ := hitMap["_score"].(float64)
 
-		meta := make(map[string]string)
-		for k, v := range metadata {
-			meta[k] = fmt.Sprintf("%v", v)
-		}
-
-		documents = append(documents, schema.NewDocument(content, meta))
+		documents = append(documents, schema.Document{
+			ID:       id,
+			Content:  content,
+			Metadata: metadata,
+			Score:    score,
+		})
 	}
 
 	span.SetAttributes(attribute.Int("documents_retrieved", len(documents)))
@@ -349,12 +363,12 @@ func (r *ProductionElasticsearchRetriever) GetRelevantDocuments(ctx context.Cont
 func main() {
 	ctx := context.Background()
 
-	retriever, err := NewProductionElasticsearchRetriever("http://localhost:9200", "documents", 5)
+	esRetriever, err := NewProductionElasticsearchRetriever("http://localhost:9200", "documents", 5)
 	if err != nil {
 		log.Fatalf("Failed: %v", err)
 	}
 
-	docs, err := retriever.GetRelevantDocuments(ctx, "machine learning")
+	docs, err := esRetriever.Retrieve(ctx, "machine learning", retriever.WithTopK(3))
 	if err != nil {
 		log.Fatalf("Failed: %v", err)
 	}

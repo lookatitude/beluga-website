@@ -159,7 +159,7 @@ func (f *ABTestingFramework) RunExperiment(ctx context.Context, experimentID str
         Duration: duration,
     }
 
-    if err == nil && resp.Usage != nil {
+    if err == nil {
         metrics.TokensUsed = resp.Usage.TotalTokens
         metrics.Cost = calculateCost(experiment, variant, resp.Usage.TotalTokens)
         metrics.Quality = assessQuality(resp)

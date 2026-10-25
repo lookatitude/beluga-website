@@ -8,6 +8,10 @@ head:
       content: "Pipecat, audio transport, voice pipeline, frame-based, pipeline integration, protocol bridge, Go, Beluga AI"
 ---
 
+:::caution[Not yet functional]
+The Pipecat adapter is registered and validates its configuration, but it does not connect yet: it never dials Pipecat, `Send` discards frames, `AudioOut` discards audio, and `Recv` never yields a frame. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
+:::
+
 The Pipecat provider implements bidirectional audio transport through a Pipecat server over WebSocket. It enables Beluga's voice pipeline to interoperate with Pipecat-based audio processing systems.
 
 Choose Pipecat when you need to bridge Beluga's voice pipeline with an existing Pipecat-based processing system over WebSocket. This is useful for hybrid architectures where some audio processing happens in a Pipecat server while Beluga handles the agent logic. For WebRTC-based transport, consider [LiveKit](/docs/reference/providers/transport/livekit) or [Daily](/docs/reference/providers/transport/daily).
@@ -49,12 +53,10 @@ func main() {
     defer t.Close()
 
     // Receive incoming audio frames
-    frames, err := t.Recv(context.Background())
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    for frame := range frames {
+    for frame, err := range t.Recv(context.Background()) {
+        if err != nil {
+            log.Fatal(err)
+        }
         fmt.Printf("Received %d bytes of audio\n", len(frame.Data))
     }
 }
@@ -106,13 +108,15 @@ if err != nil {
     log.Fatal(err)
 }
 
-frames, err := t.Recv(ctx)
-if err != nil {
-    // Transport may be closed
-    log.Fatal(err)
+for frame, err := range t.Recv(ctx) {
+    if err != nil {
+        // Transport may be closed
+        log.Fatal(err)
+    }
+    handle(frame)
 }
 ```
 
-The transport returns errors from `Recv` and `Send` if `Close` has already been called.
+The transport returns an error from `Send` (and yields one from the `Recv` iterator) if `Close` has already been called.
 
 Refer to the [Pipecat documentation](https://docs.pipecat.ai/) for server setup and configuration.

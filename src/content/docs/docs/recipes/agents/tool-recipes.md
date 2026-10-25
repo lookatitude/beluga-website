@@ -26,9 +26,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"time"
 
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
@@ -54,9 +53,13 @@ func main() {
 	)
 
 	// Inspect the auto-generated schema.
-	schema, _ := json.MarshalIndent(weather.InputSchema(), "", "  ")
+	inputSchema, err := json.MarshalIndent(weather.InputSchema(), "", "  ")
+	if err != nil {
+		slog.Error("marshal schema failed", "error", err)
+		return
+	}
 	fmt.Printf("Tool: %s\nDescription: %s\nSchema:\n%s\n\n",
-		weather.Name(), weather.Description(), schema)
+		weather.Name(), weather.Description(), inputSchema)
 
 	// Execute the tool directly.
 	result, err := weather.Execute(context.Background(), map[string]any{
@@ -360,7 +363,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sync"
 
 	"github.com/lookatitude/beluga-ai/v2/tool"

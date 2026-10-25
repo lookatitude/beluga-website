@@ -39,7 +39,7 @@ The architecture has three stages: context analysis (what kind of task is this?)
 
 ## Tool Injection Implementation
 
-The tool injector analyzes task context, selects relevant tools, filters by permissions, and dynamically injects tool instructions into agent prompts. It uses Beluga AI's prompt template system (`prompt.NewPromptTemplate`) for structured prompt generation and the tool registry (`tool.Registry`) for tool discovery. The permission checker runs between selection and injection, acting as a security boundary that ensures no unauthorized tool instructions reach the agent.
+The tool injector analyzes task context, selects relevant tools, filters by permissions, and dynamically injects tool instructions into agent prompts. It uses Beluga AI's prompt template type (`prompt.Template`, Go `text/template` syntax) for structured prompt generation and the tool registry (`tool.Registry`) for tool discovery. The permission checker runs between selection and injection, acting as a security boundary that ensures no unauthorized tool instructions reach the agent.
 
 ```go
 package main
@@ -48,37 +48,37 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/v2/agent"
     "github.com/lookatitude/beluga-ai/v2/prompt"
     "github.com/lookatitude/beluga-ai/v2/tool"
-
-    _ "github.com/lookatitude/beluga-ai/v2/tool/providers/http"
 )
 
 // ToolInstructionInjector dynamically injects tool instructions into prompts.
 type ToolInstructionInjector struct {
-    toolRegistry      tool.Registry
-    promptTemplate    *prompt.PromptTemplate
+    toolRegistry      *tool.Registry
+    promptTemplate    *prompt.Template
     permissionChecker *PermissionChecker
 }
 
-func NewToolInstructionInjector(ctx context.Context) (*ToolInstructionInjector, error) {
-    template, err := prompt.NewPromptTemplate(`
+func NewToolInstructionInjector(registry *tool.Registry) (*ToolInstructionInjector, error) {
+    template := &prompt.Template{
+        Name:    "tool-instructions",
+        Version: "1.0.0",
+        Content: `
 You are an AI agent with access to the following tools:
 
 {{range .tools}}
 - {{.Name}}: {{.Description}}
-  Usage: {{.Usage}}
 {{end}}
 
 Use these tools to complete the task: {{.task}}
-`)
-    if err != nil {
-        return nil, fmt.Errorf("create prompt template: %w", err)
+`,
+    }
+    if err := template.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid prompt template: %w", err)
     }
 
     return &ToolInstructionInjector{
-        toolRegistry:      tool.DefaultRegistry,
+        toolRegistry:      registry,
         promptTemplate:    template,
         permissionChecker: NewPermissionChecker(),
     }, nil
@@ -104,7 +104,7 @@ func (t *ToolInstructionInjector) InjectToolInstructions(
     }
 
     // Generate tool instructions
-    toolInstructions, err := t.promptTemplate.Format(map[string]any{
+    toolInstructions, err := t.promptTemplate.Render(map[string]any{
         "tools": authorizedTools,
         "task":  taskContext["task"],
     })
@@ -149,9 +149,12 @@ import (
     "context"
     "fmt"
 
+    "os"
+
     "github.com/lookatitude/beluga-ai/v2/agent"
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
@@ -163,8 +166,11 @@ type ContextAwareAgent struct {
     userID    string
 }
 
-func NewContextAwareAgent(ctx context.Context, userID string) (*ContextAwareAgent, error) {
-    model, err := llm.New("openai", config.ProviderConfig{Model: "gpt-4o"})
+func NewContextAwareAgent(ctx context.Context, userID string, registry *tool.Registry) (*ContextAwareAgent, error) {
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -173,7 +179,7 @@ func NewContextAwareAgent(ctx context.Context, userID string) (*ContextAwareAgen
         agent.WithLLM(model),
     )
 
-    injector, err := NewToolInstructionInjector(ctx)
+    injector, err := NewToolInstructionInjector(registry)
     if err != nil {
         return nil, fmt.Errorf("create injector: %w", err)
     }

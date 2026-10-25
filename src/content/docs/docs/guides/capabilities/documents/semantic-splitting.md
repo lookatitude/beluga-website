@@ -140,7 +140,7 @@ func cosineSimilarity(a, b []float32) float64 {
 
 ## Step 4: Build the Semantic Splitter
 
-Combine embedding and similarity to detect topic boundaries. The splitter embeds all sentences in a single batch call (`EmbedStrings`) rather than one at a time, which is more efficient because embedding APIs support batch input and amortize the network round-trip cost. The loop compares each consecutive pair of sentence embeddings, and when similarity drops below the threshold, a new chunk begins. This linear scan is O(n) in the number of sentences, making it efficient even for long documents.
+Combine embedding and similarity to detect topic boundaries. The splitter embeds all sentences in a single batch call (`Embed`) rather than one at a time, which is more efficient because embedding APIs support batch input and amortize the network round-trip cost. The loop compares each consecutive pair of sentence embeddings, and when similarity drops below the threshold, a new chunk begins. This linear scan is O(n) in the number of sentences, making it efficient even for long documents.
 
 ```go
 // SemanticSplitter splits text based on embedding similarity between sentences.
@@ -163,7 +163,7 @@ func (s *SemanticSplitter) Split(ctx context.Context, text string) ([]string, er
     }
 
     // Embed all sentences.
-    embeddings, err := s.embedder.EmbedStrings(ctx, sentences)
+    embeddings, err := s.embedder.Embed(ctx, sentences)
     if err != nil {
         return nil, fmt.Errorf("embed sentences: %w", err)
     }

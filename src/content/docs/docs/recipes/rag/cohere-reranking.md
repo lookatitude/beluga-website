@@ -20,6 +20,10 @@ Standard vector search uses bi-encoders that embed queries and documents indepen
 
 Implement a two-stage retrieval pipeline: first retrieve a broad candidate set using fast vector search, then rerank those candidates with a cross-encoder for better relevance ordering. The reranker wraps the base retriever, making reranking transparent to callers. If the rerank service is unavailable, the pipeline falls back to the original results, ensuring availability is not sacrificed for quality.
 
+:::tip
+The example below is self-contained and defines its own small `Retriever` interface. To plug a Cohere reranker into Beluga's retrievers, implement `retriever.Reranker` (`Rerank(ctx, query string, docs []schema.Document) ([]schema.Document, error)`) and wrap any `retriever.Retriever` with `retriever.NewRerankRetriever(inner, reranker, retriever.WithRerankTopN(5))`.
+:::
+
 ## Code Example
 
 ```go
@@ -32,7 +36,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
     "github.com/lookatitude/beluga-ai/v2/schema"
 )
@@ -90,7 +94,7 @@ func (cr *CohereReranker) RerankDocuments(ctx context.Context, query string, doc
     results, err := cr.client.Rerank(ctx, query, texts, cr.topN)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, nil, fmt.Errorf("rerank failed: %w", err)
     }
 
@@ -107,7 +111,7 @@ func (cr *CohereReranker) RerankDocuments(ctx context.Context, query string, doc
         attribute.Int("reranked_count", len(rerankedDocs)),
         attribute.Float64("top_score", scores[0]),
     )
-    span.SetStatus(trace.StatusOK, "reranking completed")
+    span.SetStatus(codes.Ok, "reranking completed")
 
     return rerankedDocs, scores, nil
 }
@@ -142,7 +146,7 @@ func (rr *RerankedRetriever) GetRelevantDocuments(ctx context.Context, query str
     docs, err := rr.retriever.GetRelevantDocuments(ctx, query)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
 
@@ -162,7 +166,7 @@ func (rr *RerankedRetriever) GetRelevantDocuments(ctx context.Context, query str
     }
 
     span.SetAttributes(attribute.Int("final_count", len(reranked)))
-    span.SetStatus(trace.StatusOK, "retrieved and reranked")
+    span.SetStatus(codes.Ok, "retrieved and reranked")
 
     return reranked, nil
 }

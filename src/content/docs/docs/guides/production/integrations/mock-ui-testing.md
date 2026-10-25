@@ -99,8 +99,8 @@ func (m *SimpleMock) Generate(
     // Find the last user message
     var userInput string
     for i := len(msgs) - 1; i >= 0; i-- {
-        if msgs[i].Role() == schema.RoleHuman {
-            userInput = msgs[i].(schema.HasText).Text()
+        if hm, ok := msgs[i].(*schema.HumanMessage); ok {
+            userInput = hm.Text()
             break
         }
     }
@@ -113,7 +113,7 @@ func (m *SimpleMock) Generate(
         response = "This is a mock response."
     }
 
-    return schema.NewAIMessage(schema.WithText(response)), nil
+    return schema.NewAIMessage(response), nil
 }
 
 func (m *SimpleMock) Stream(
@@ -215,10 +215,10 @@ func (m *ScenarioMock) Generate(
         if s.Err != nil {
             return nil, s.Err
         }
-        return schema.NewAIMessage(schema.WithText(s.Response)), nil
+        return schema.NewAIMessage(s.Response), nil
     }
 
-    return schema.NewAIMessage(schema.WithText("Default mock response")), nil
+    return schema.NewAIMessage("Default mock response"), nil
 }
 
 func (m *ScenarioMock) Stream(
@@ -284,7 +284,7 @@ func (m *StreamingMock) Generate(
     for _, chunk := range m.chunks {
         full += chunk
     }
-    return schema.NewAIMessage(schema.WithText(full)), nil
+    return schema.NewAIMessage(full), nil
 }
 
 func (m *StreamingMock) Stream(

@@ -16,7 +16,7 @@ The challenge is integrating LLM calls into ETL without sacrificing throughput. 
 
 ## Solution Architecture
 
-Beluga AI's `orchestration/` package coordinates multi-stage ETL workflows using sequential workflows for dependent stages and parallel execution within stages. Each stage is a `core.Runnable` — extract, transform, enrich (LLM), quality check, load — making the pipeline testable and composable. The AI enrichment stage uses `llm.WithResponseFormat("json_object")` for structured output, ensuring LLM responses parse reliably into enrichment records.
+Beluga AI's `orchestration/` package composes multi-stage ETL workflows: `orchestration.Chain` runs dependent stages in order, and `core.Parallel` can fan out independent work within a stage. Each stage is a `core.Runnable` — extract, transform, enrich (LLM), quality check, load — making the pipeline testable and composable. The AI enrichment stage uses `llm.WithResponseFormat(llm.ResponseFormat{Type: "json_object"})` for structured output, ensuring LLM responses parse reliably into enrichment records.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -47,19 +47,37 @@ package main
 import (
     "context"
     "fmt"
+    "iter"
+    "os"
 
     "github.com/lookatitude/beluga-ai/v2/core"
     "github.com/lookatitude/beluga-ai/v2/config"
-	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/orchestration"
     "github.com/lookatitude/beluga-ai/v2/schema"
 
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
+// step adapts a plain function to core.Runnable so stages can be chained
+// with orchestration.Chain.
+type step func(ctx context.Context, input any) (any, error)
+
+func (f step) Invoke(ctx context.Context, input any, _ ...core.Option) (any, error) {
+    return f(ctx, input)
+}
+
+func (f step) Stream(ctx context.Context, input any, _ ...core.Option) iter.Seq2[any, error] {
+    return func(yield func(any, error) bool) {
+        out, err := f(ctx, input)
+        yield(out, err)
+    }
+}
+
 // ETLPipeline orchestrates multi-stage ETL
 type ETLPipeline struct {
-    workflow orchestration.Workflow
+    workflow core.Runnable   // the chained stages
+    stages   []core.Runnable // kept for per-stage inspection
     model    llm.ChatModel
 }
 
@@ -74,19 +92,18 @@ func NewETLPipeline(ctx context.Context) (*ETLPipeline, error) {
     }
 
     // Create workflow with stages
-    workflow := orchestration.NewSequentialWorkflow(
-        "etl-pipeline",
-        []core.Runnable{
-            NewExtractStage(),
-            NewTransformStage(),
-            NewEnrichmentStage(model),
-            NewQualityCheckStage(model),
-            NewLoadStage(),
-        },
-    )
+    stages := []core.Runnable{
+        NewExtractStage(),
+        NewTransformStage(),
+        NewEnrichmentStage(model),
+        NewQualityCheckStage(model),
+        NewLoadStage(),
+    }
+    workflow := orchestration.Chain(stages...)
 
     return &ETLPipeline{
         workflow: workflow,
+        stages:   stages,
         model:    model,
     }, nil
 }
@@ -117,10 +134,11 @@ type EnrichmentStage struct {
 }
 
 func NewEnrichmentStage(model llm.ChatModel) core.Runnable {
-    return &EnrichmentStage{model: model}
+    s := &EnrichmentStage{model: model}
+    return step(s.Run)
 }
 
-func (s *EnrichmentStage) Invoke(ctx context.Context, input interface{}) (interface{}, error) {
+func (s *EnrichmentStage) Run(ctx context.Context, input any) (any, error) {
     data := input.(map[string]interface{})
     records := data["transformed_records"].([]Record)
 
@@ -162,7 +180,7 @@ Respond in JSON format.`, record.ToJSON())
     }
 
     resp, err := s.model.Generate(ctx, msgs,
-        llm.WithResponseFormat("json_object"),
+        llm.WithResponseFormat(llm.ResponseFormat{Type: "json_object"}),
     )
     if err != nil {
         return record, err
@@ -170,7 +188,7 @@ Respond in JSON format.`, record.ToJSON())
 
     // Parse enrichment
     var enrichment Enrichment
-    if err := json.Unmarshal([]byte(resp.Parts[0].(schema.TextPart).Text), &enrichment); err != nil {
+    if err := json.Unmarshal([]byte(resp.Text()), &enrichment); err != nil {
         return record, err
     }
 
@@ -194,10 +212,11 @@ type QualityCheckStage struct {
 }
 
 func NewQualityCheckStage(model llm.ChatModel) core.Runnable {
-    return &QualityCheckStage{model: model}
+    s := &QualityCheckStage{model: model}
+    return step(s.Run)
 }
 
-func (s *QualityCheckStage) Invoke(ctx context.Context, input interface{}) (interface{}, error) {
+func (s *QualityCheckStage) Run(ctx context.Context, input any) (any, error) {
     data := input.(map[string]interface{})
     records := data["enriched_records"].([]Record)
 

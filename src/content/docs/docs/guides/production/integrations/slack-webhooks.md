@@ -132,7 +132,7 @@ func (h *SlackWebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Reque
 			attribute.String("slack.user", event.Event.User),
 		)
 
-		response, err := h.agent.Run(ctx, event.Event.Text)
+		response, err := h.agent.Invoke(ctx, event.Event.Text)
 		if err != nil {
 			span.RecordError(err)
 			log.Printf("agent error: %v", err)
@@ -202,17 +202,25 @@ func (h *SlackWebhookHandler) sendMessage(ctx context.Context, channel, text str
 
 ### Wire It Together
 
+This uses `github.com/lookatitude/beluga-ai/v2/config`, `github.com/lookatitude/beluga-ai/v2/llm`, and a blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/openai` in addition to the imports above.
+
 ```go
 func main() {
-	ctx := context.Background()
-
-	a, err := agent.NewAgent(ctx, agent.Config{
-		LLMProvider:  "openai",
-		SystemPrompt: "You are a helpful Slack assistant.",
+	model, err := llm.New("openai", config.ProviderConfig{
+		APIKey: os.Getenv("OPENAI_API_KEY"),
+		Model:  "gpt-4o",
 	})
 	if err != nil {
-		log.Fatalf("failed to create agent: %v", err)
+		log.Fatalf("failed to create model: %v", err)
 	}
+
+	a := agent.New("slack-assistant",
+		agent.WithLLM(model),
+		agent.WithPersona(agent.Persona{
+			Role: "helpful Slack assistant",
+			Goal: "answer questions posted in Slack channels",
+		}),
+	)
 
 	handler := NewSlackWebhookHandler(os.Getenv("SLACK_BOT_TOKEN"), a)
 

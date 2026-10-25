@@ -47,7 +47,9 @@ import (
     "context"
     "encoding/json"
     "fmt"
+    "os"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/schema"
 
@@ -61,7 +63,10 @@ type EntityExtractor struct {
 }
 
 func NewEntityExtractor(ctx context.Context) (*EntityExtractor, error) {
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -94,12 +99,8 @@ Return entities as a JSON array.`, documentText)
 
     // Extract entities using LLM
     msgs := []schema.Message{
-        &schema.SystemMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: "You are a legal entity extraction expert. Extract entities accurately in JSON format."},
-        }},
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: promptText},
-        }},
+        schema.NewSystemMessage("You are a legal entity extraction expert. Extract entities accurately in JSON format."),
+        schema.NewHumanMessage(promptText),
     }
 
     resp, err := e.model.Generate(ctx, msgs)
@@ -108,7 +109,7 @@ Return entities as a JSON array.`, documentText)
     }
 
     // Parse and validate entities
-    entities, err := e.parseAndValidateEntities(ctx, resp.Parts[0].(schema.TextPart).Text, docID)
+    entities, err := e.parseAndValidateEntities(ctx, resp.Text(), docID)
     if err != nil {
         return nil, fmt.Errorf("validation failed: %w", err)
     }

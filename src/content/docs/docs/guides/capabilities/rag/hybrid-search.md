@@ -33,9 +33,9 @@ A hybrid retriever that queries both vector and keyword backends in parallel, fu
 
 The `Retriever` interface is intentionally minimal -- a single method that takes a query string and returns ranked documents. Both vector search and keyword search backends implement this interface, allowing the hybrid retriever to treat them uniformly. This follows the same interface-first design pattern used across Beluga AI.
 
-```go
-package main
+The snippets in Steps 1-5 are parts of one file that hand-builds hybrid retrieval so you can see how it works. Beluga AI ships the same strategy ready-made as `retriever.NewHybridRetriever`; Step 6 shows that version.
 
+```go
 import (
     "context"
     "sort"
@@ -222,6 +222,102 @@ func main() {
         return
     }
     fmt.Println(resp.Text())
+}
+```
+
+## Step 6: Use the Built-in Hybrid Retriever
+
+The `rag/retriever` package ships hybrid retrieval out of the box. `retriever.NewHybridRetriever` takes a `vectorstore.VectorStore`, an `embedding.Embedder` and a `retriever.BM25Searcher`, runs the dense and keyword searches, and fuses them with RRF (`k = 60` by default; change it with `retriever.WithHybridRRFK`). Beluga AI does not bundle a BM25 index, so you supply one that satisfies the one-method `BM25Searcher` interface, typically backed by Elasticsearch, OpenSearch or Typesense. The example below uses a naive term-count searcher and the in-memory embedder and store so that it runs without external services.
+
+To fuse any set of retrievers (not only vector + BM25), use `retriever.NewEnsembleRetriever(retrievers, retriever.NewRRFStrategy(60))`.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "sort"
+    "strings"
+
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/inmemory"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
+)
+
+// termSearcher is a toy keyword index that satisfies retriever.BM25Searcher.
+// Replace it with a real BM25 engine in production.
+type termSearcher struct {
+    docs []schema.Document
+}
+
+func (t *termSearcher) Search(_ context.Context, query string, k int) ([]schema.Document, error) {
+    terms := strings.Fields(strings.ToLower(query))
+    var hits []schema.Document
+    for _, d := range t.docs {
+        content := strings.ToLower(d.Content)
+        score := 0
+        for _, term := range terms {
+            score += strings.Count(content, term)
+        }
+        if score > 0 {
+            d.Score = float64(score)
+            hits = append(hits, d)
+        }
+    }
+    sort.Slice(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
+    if len(hits) > k {
+        hits = hits[:k]
+    }
+    return hits, nil
+}
+
+func main() {
+    ctx := context.Background()
+
+    emb, err := embedding.New("inmemory", config.ProviderConfig{})
+    if err != nil {
+        log.Fatalf("embedder: %v", err)
+    }
+    store, err := vectorstore.New("inmemory", config.ProviderConfig{})
+    if err != nil {
+        log.Fatalf("vector store: %v", err)
+    }
+
+    docs := []schema.Document{
+        {ID: "1", Content: "ERR_CONNECTION_REFUSED means nothing is listening on the target port."},
+        {ID: "2", Content: "Check that the service is running and the firewall allows the port."},
+        {ID: "3", Content: "Printers need fresh toner every few months."},
+    }
+    texts := make([]string, len(docs))
+    for i, d := range docs {
+        texts[i] = d.Content
+    }
+    vecs, err := emb.Embed(ctx, texts)
+    if err != nil {
+        log.Fatalf("embed: %v", err)
+    }
+    if err := store.Add(ctx, docs, vecs); err != nil {
+        log.Fatalf("add: %v", err)
+    }
+
+    hybrid := retriever.NewHybridRetriever(store, emb, &termSearcher{docs: docs},
+        retriever.WithHybridRRFK(60),
+    )
+
+    results, err := hybrid.Retrieve(ctx, "ERR_CONNECTION_REFUSED", retriever.WithTopK(2))
+    if err != nil {
+        log.Fatalf("retrieve: %v", err)
+    }
+    for _, d := range results {
+        fmt.Printf("%.4f  %s\n", d.Score, d.Content)
+    }
 }
 ```
 

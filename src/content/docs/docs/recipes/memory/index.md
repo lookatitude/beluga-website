@@ -119,12 +119,16 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	inner, _ := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	inner, err := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	if err != nil {
+		slog.Error("memory creation failed", "error", err)
+		return
+	}
 	mem := NewMemoryWithTTL(inner, 24*time.Hour)
 	mem.StartCleanup(ctx, 1*time.Hour)
 
 	// Use mem as a normal Memory — old entries expire automatically.
-	err := mem.Save(ctx,
+	err = mem.Save(ctx,
 		schema.NewHumanMessage("Hello"),
 		schema.NewAIMessage("Hi there!"),
 	)
@@ -210,7 +214,11 @@ func (w *WindowMemory) Clear(ctx context.Context) error {
 func main() {
 	ctx := context.Background()
 
-	inner, _ := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	inner, err := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	if err != nil {
+		slog.Error("memory creation failed", "error", err)
+		return
+	}
 	mem := NewWindowMemory(inner, 10) // Keep last 10 turns.
 
 	// Simulate a long conversation.
@@ -324,7 +332,7 @@ func main() {
 
 Flat recall memory stores messages but does not understand the relationships between entities mentioned in those messages. When a user says "Alice manages Bob" and later asks "Who is Bob's manager?", a simple keyword search may not connect these facts. Graph memory stores entity-relationship triples (subject-predicate-object) that can be traversed to answer relationship queries directly. This is part of Beluga AI's archival memory tier.
 
-**Solution:** Use the graph memory tier to store entity-relationship triples. The composite memory configuration enables the graph tier alongside core, recall, and archival tiers. The graph tier extracts entities and relationships from conversation turns automatically.
+**Solution:** Use a `memory.GraphStore` to store entities and relationships, and attach it to composite memory with `memory.WithGraph`. The in-memory store (`memory/stores/inmemory`) is good for development; `memory/stores/neo4j` and `memory/stores/memgraph` back it with a graph database. Entities and relations are written explicitly: `CompositeMemory.Save` does not extract them from conversation turns, so run your own extraction step (for example, an LLM call with structured output) and write the results.
 
 ```go
 package main
@@ -335,57 +343,55 @@ import (
 	"log/slog"
 
 	"github.com/lookatitude/beluga-ai/v2/memory"
-	"github.com/lookatitude/beluga-ai/v2/schema"
+	"github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
 )
 
-// GraphMemoryUsage demonstrates entity-relationship storage.
 func main() {
 	ctx := context.Background()
 
-	// Create a composite memory with graph tier enabled.
-	// config.ProviderConfig.Options holds provider-specific settings.
-	mem, err := memory.New("composite", config.ProviderConfig{
-		Provider: "composite",
-		Options: map[string]any{
-			"core":     "recall",
-			"recall":   "recall",
-			"archival": "archival",
-		},
-	})
-	if err != nil {
-		slog.Error("memory creation failed", "error", err)
-		return
-	}
+	graph := inmemory.NewGraphStore()
 
-	// Save conversation turns — the graph tier extracts entities.
-	turns := []struct {
-		input, output string
-	}{
-		{"Alice works at Acme Corp as a senior engineer", "Got it, I'll remember that."},
-		{"Alice's manager is Bob", "Noted, Bob manages Alice."},
-		{"Acme Corp is building a new AI platform", "Interesting project!"},
-		{"Bob also leads the data team", "Bob leads both teams then."},
-	}
+	// Attach the graph tier alongside core and recall memory.
+	mem := memory.NewComposite(
+		memory.WithCore(memory.NewCore(memory.CoreConfig{SelfEditable: true})),
+		memory.WithRecall(memory.NewRecall(inmemory.NewMessageStore())),
+		memory.WithGraph(graph),
+	)
 
-	for _, turn := range turns {
-		err := mem.Save(ctx,
-			schema.NewHumanMessage(turn.input),
-			schema.NewAIMessage(turn.output),
-		)
-		if err != nil {
-			slog.Error("save failed", "error", err)
+	// Write entities and relations extracted from the conversation.
+	entities := []memory.Entity{
+		{ID: "alice", Type: "person", Properties: map[string]any{"title": "senior engineer"}},
+		{ID: "bob", Type: "person"},
+		{ID: "acme", Type: "company"},
+		{ID: "data-team", Type: "team"},
+	}
+	for _, e := range entities {
+		if err := mem.Graph().AddEntity(ctx, e); err != nil {
+			slog.Error("add entity failed", "error", err)
+			return
 		}
 	}
 
-	// Search for relationship context.
-	docs, err := mem.Search(ctx, "Who is Alice's manager?", 5)
-	if err != nil {
-		slog.Error("search failed", "error", err)
-		return
+	relations := []struct{ from, to, rel string }{
+		{"alice", "acme", "WORKS_AT"},
+		{"bob", "alice", "MANAGES"},
+		{"bob", "data-team", "LEADS"},
+	}
+	for _, r := range relations {
+		if err := mem.Graph().AddRelation(ctx, r.from, r.to, r.rel, nil); err != nil {
+			slog.Error("add relation failed", "error", err)
+			return
+		}
 	}
 
-	for _, doc := range docs {
-		fmt.Printf("Found: %s\n", doc.Content)
+	// Traverse one hop out from Bob to answer "who does Bob manage or lead?".
+	_, rels, err := mem.Graph().Neighbors(ctx, "bob", 1)
+	if err != nil {
+		slog.Error("neighbors failed", "error", err)
+		return
+	}
+	for _, r := range rels {
+		fmt.Printf("%s -[%s]-> %s\n", r.From, r.Type, r.To)
 	}
 }
 ```
@@ -409,6 +415,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/lookatitude/beluga-ai/v2/config"
 	"github.com/lookatitude/beluga-ai/v2/llm"
 	"github.com/lookatitude/beluga-ai/v2/memory"
 	"github.com/lookatitude/beluga-ai/v2/schema"
@@ -508,7 +515,11 @@ func (c *CompressingMemory) Clear(ctx context.Context) error {
 func main() {
 	ctx := context.Background()
 
-	inner, _ := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	inner, err := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	if err != nil {
+		slog.Error("memory creation failed", "error", err)
+		return
+	}
 
 	// Compress when history exceeds 20 messages, keep last 10 intact.
 	mem := NewCompressingMemory(inner, nil /* model */, 20)
@@ -709,7 +720,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
-	"time"
 
 	"github.com/lookatitude/beluga-ai/v2/config"
 	"github.com/lookatitude/beluga-ai/v2/memory"
@@ -823,7 +833,11 @@ func (pm *PriorityMemory) Clear(ctx context.Context) error {
 func main() {
 	ctx := context.Background()
 
-	inner, _ := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	inner, err := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+	if err != nil {
+		slog.Error("memory creation failed", "error", err)
+		return
+	}
 	mem := NewPriorityMemory(inner, DefaultPriority(), 10)
 
 	// System/core memories will be weighted 3x over archival.

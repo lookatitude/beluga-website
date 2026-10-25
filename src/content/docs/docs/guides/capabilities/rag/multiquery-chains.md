@@ -34,9 +34,9 @@ Each variation searches a different part of the semantic space, capturing more r
 
 The LLM generates diverse search queries by rephrasing the original question from different angles. A temperature of 0.7 encourages variety in the generated queries -- too low and the queries will be near-duplicates, too high and they may drift off-topic. The `maxTokens` limit keeps the response focused since we only need short query strings, not full paragraphs.
 
-```go
-package main
+Steps 1-5 build the retriever by hand so you can see each part; together they form one file. Beluga AI also ships this pattern as `retriever.NewMultiQueryRetriever`, shown in Step 6.
 
+```go
 import (
     "context"
     "fmt"
@@ -239,6 +239,64 @@ func main() {
         return
     }
     fmt.Println(resp.Text())
+}
+```
+
+## Step 6: Use the Built-in Multi-query Retriever
+
+`retriever.NewMultiQueryRetriever(inner, model, opts...)` wraps any `retriever.Retriever` with the same expand-retrieve-deduplicate logic. It always includes the original query, and `retriever.WithMultiQueryCount` sets how many variations the model generates (default 3). Per-call options such as `retriever.WithTopK` are passed through to the inner retriever.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "os"
+
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
+)
+
+func main() {
+    ctx := context.Background()
+
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o-mini",
+    })
+    if err != nil {
+        log.Fatalf("llm: %v", err)
+    }
+    emb, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
+    if err != nil {
+        log.Fatalf("embedder: %v", err)
+    }
+    store, err := vectorstore.New("inmemory", config.ProviderConfig{})
+    if err != nil {
+        log.Fatalf("vector store: %v", err)
+    }
+    // Index your documents into store here (embed with emb, then store.Add).
+
+    base := retriever.NewVectorStoreRetriever(store, emb)
+    mq := retriever.NewMultiQueryRetriever(base, model, retriever.WithMultiQueryCount(3))
+
+    docs, err := mq.Retrieve(ctx, "How do I add a helper?", retriever.WithTopK(5))
+    if err != nil {
+        log.Fatalf("retrieve: %v", err)
+    }
+    fmt.Printf("Retrieved %d documents\n", len(docs))
 }
 ```
 

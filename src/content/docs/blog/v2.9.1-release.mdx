@@ -23,7 +23,7 @@ Beluga AI v2.9.1 shipped on 2026-04-19 as a housekeeping patch on top of v2.9.0 
 
 Every framework that ships code examples eventually faces the same failure mode: the examples compile against the version they were written for and silently break against newer ones. Maintainers notice the drift only after a user files an issue or, worse, after a tutorial starts producing confusing errors in production onboarding.
 
-Beluga has maintained [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) as a companion repository of runnable programs since early in the project. Those examples are linked from guides, blog posts, and the quickstart. Until now, keeping them current required a manual step: someone had to remember to open a PR against `beluga-examples` after every framework release. That step was easy to skip under deadline pressure.
+Beluga has maintained [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples) as a companion repository of runnable programs since early in the project. Those examples are linked from blog posts and release notes. Until now, keeping them current required a manual step: someone had to remember to open a PR against `beluga-examples` after every framework release. That step was easy to skip under deadline pressure.
 
 ## What shipped in v2.9.0
 
@@ -70,6 +70,7 @@ import (
 	"os"
 
 	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/eval"
 	"github.com/lookatitude/beluga-ai/v2/eval/judge"
 	"github.com/lookatitude/beluga-ai/v2/llm"
 	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
@@ -87,27 +88,43 @@ func main() {
 		os.Exit(1)
 	}
 
-	rubric := judge.Rubric{
+	levels := []judge.ScoreLevel{
+		{Label: "poor", Score: 0.0, Description: "wrong or unclear"},
+		{Label: "good", Score: 0.5, Description: "mostly right"},
+		{Label: "excellent", Score: 1.0, Description: "fully right and clear"},
+	}
+	rubric := &judge.Rubric{
+		Name: "answer-quality",
 		Criteria: []judge.Criterion{
-			{Name: "accuracy", Weight: 0.6, Description: "factual correctness"},
-			{Name: "clarity",  Weight: 0.4, Description: "clear and concise language"},
+			{Name: "accuracy", Weight: 0.6, Description: "factual correctness", Levels: levels},
+			{Name: "clarity", Weight: 0.4, Description: "clear and concise language", Levels: levels},
 		},
 	}
 
-	verdict, err := judge.Evaluate(ctx, model, rubric, judge.Sample{
-		Input:    "What is the capital of France?",
-		Response: "Paris is the capital of France.",
+	metric, err := judge.NewJudgeMetric(judge.WithModel(model), judge.WithRubric(rubric))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	score, err := metric.Score(ctx, eval.EvalSample{
+		Input:  "What is the capital of France?",
+		Output: "Paris is the capital of France.",
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("score: %.2f — %s\n", verdict.Score, verdict.Reasoning)
+	fmt.Printf("score: %.2f\n", score)
 }
 ```
 
-Set `OPENAI_API_KEY` in your environment before running. The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/openai` registers the OpenAI provider with the LLM registry; `llm.New("openai", ...)` then looks it up by name. The rubric weights must sum to 1.0 — `judge.Evaluate` returns an error if they don't.
+Set `OPENAI_API_KEY` in your environment before running. The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/openai` registers the OpenAI provider with the LLM registry; `llm.New("openai", ...)` then looks it up by name. `judge.NewJudgeMetric` validates the rubric: every criterion needs a positive weight and at least one score level in [0, 1]. `Score` returns the weighted average of the judge's per-criterion scores.
+
+:::note[Correction]
+An earlier version of this post called `judge.Evaluate` and `judge.Sample`, which don't exist, and used the pre-v2.10.1 import path. The example above uses the real `judge.NewJudgeMetric` API and the `/v2` module path. Examples written for v2.9.x need the `/v2` suffix after upgrading; see the [v2.11.0 post](/blog/v2110-release/).
+:::
 
 A runnable version of this example lives in [`lookatitude/beluga-examples`](https://github.com/lookatitude/beluga-examples). Starting with v2.9.0, that copy is tested automatically against every new release.
 

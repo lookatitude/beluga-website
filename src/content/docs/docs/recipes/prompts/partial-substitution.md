@@ -39,7 +39,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.prompts.partial_substitution")
@@ -90,7 +90,7 @@ func (ppt *PartialPromptTemplate) Substitute(ctx context.Context, varName string
     if !ppt.hasVariable(varName) {
         err := fmt.Errorf("variable %s not found in template", varName)
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return err
     }
 
@@ -105,7 +105,7 @@ func (ppt *PartialPromptTemplate) Substitute(ctx context.Context, varName string
         }
     }
 
-    span.SetStatus(trace.StatusOK, "variable substituted")
+    span.SetStatus(codes.Ok, "variable substituted")
     return nil
 }
 
@@ -151,7 +151,7 @@ func (ppt *PartialPromptTemplate) Complete(ctx context.Context, defaults map[str
         if !exists {
             err := fmt.Errorf("no value or default for variable %s", varName)
             span.RecordError(err)
-            span.SetStatus(trace.StatusError, err.Error())
+            span.SetStatus(codes.Error, err.Error())
             return "", err
         }
 
@@ -161,7 +161,7 @@ func (ppt *PartialPromptTemplate) Complete(ctx context.Context, defaults map[str
     }
 
     result := ppt.GetCurrentPrompt(ctx)
-    span.SetStatus(trace.StatusOK, "template completed")
+    span.SetStatus(codes.Ok, "template completed")
 
     return result, nil
 }

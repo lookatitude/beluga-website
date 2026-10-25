@@ -67,25 +67,31 @@ import (
     "net/http"
     "time"
 
+    "os"
+
     "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
-    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
     // Create a Beluga AI agent for order lookups.
-    model, err := llm.New("openai", llm.WithModel("gpt-4o"))
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         log.Fatalf("Failed to create model: %v", err)
     }
 
-    orderAgent, err := agent.New("order-lookup",
-        agent.WithModel(model),
-        agent.WithSystemPrompt("You are an order lookup assistant. Given an order ID, return the order status and details."),
+    orderAgent := agent.New("order-lookup",
+        agent.WithLLM(model),
+        agent.WithPersona(agent.Persona{
+            Role: "order lookup assistant",
+            Goal: "given an order ID, return the order status and details",
+        }),
     )
-    if err != nil {
-        log.Fatalf("Failed to create agent: %v", err)
-    }
 
     mux := http.NewServeMux()
     mux.HandleFunc("/vapi/tools/lookup_order", vapiToolHandler(orderAgent))
@@ -108,7 +114,7 @@ type vapiToolRequest struct {
     } `json:"message"`
 }
 
-func vapiToolHandler(a *agent.Agent) http.HandlerFunc {
+func vapiToolHandler(a agent.Agent) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         if r.Method != http.MethodPost {
             http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -133,9 +139,7 @@ func vapiToolHandler(a *agent.Agent) http.HandlerFunc {
         ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
         defer cancel()
 
-        result, err := a.Run(ctx, []schema.Message{
-            schema.NewHumanMessage(args),
-        })
+        result, err := a.Invoke(ctx, args)
         if err != nil {
             writeToolError(w, err)
             return

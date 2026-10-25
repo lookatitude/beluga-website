@@ -61,8 +61,16 @@ func main() {
     }
 
     text := "Kubernetes pod scheduling and resource allocation"
-    vec1, _ := openaiEmb.EmbedQuery(ctx, text)
-    vec2, _ := ollamaEmb.EmbedQuery(ctx, text)
+    vec1, err := openaiEmb.EmbedSingle(ctx, text)
+    if err != nil {
+        fmt.Printf("OpenAI embed error: %v\n", err)
+        return
+    }
+    vec2, err := ollamaEmb.EmbedSingle(ctx, text)
+    if err != nil {
+        fmt.Printf("Ollama embed error: %v\n", err)
+        return
+    }
 
     fmt.Printf("OpenAI dimensions: %d\n", len(vec1))
     fmt.Printf("Ollama dimensions: %d\n", len(vec2))
@@ -91,7 +99,7 @@ func batchEmbed(ctx context.Context, embedder embedding.Embedder, texts []string
             end = len(texts)
         }
 
-        vectors, err := embedder.EmbedDocuments(ctx, texts[i:end])
+        vectors, err := embedder.Embed(ctx, texts[i:end])
         if err != nil {
             return nil, fmt.Errorf("batch %d-%d: %w", i, end, err)
         }

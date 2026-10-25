@@ -18,7 +18,7 @@ By persisting session-scoped state keyed by session ID, multi-turn voice flows s
 
 - Go 1.26 or later
 - A persistence store (Redis, PostgreSQL, or similar)
-- Beluga AI voice session configured
+- A Beluga AI voice pipeline using `voice.VoiceSession` (`voice.NewSession`)
 
 ## Installation
 
@@ -58,13 +58,16 @@ type Store interface {
 
 ### Save State on Each Turn
 
-After processing a user turn (in your form orchestrator or agent callback), update and persist state:
+After processing a user turn (in your form orchestrator or agent callback), update and persist state. `voice.VoiceSession` exposes the session `ID` and its `Turns`:
 
 ```go
-func saveState(ctx context.Context, sess session.VoiceSession, store Store, state *SessionState) error {
-    state.SessionID = sess.GetSessionID()
-    state.UpdatedAt = time.Now()
-    return store.Set(ctx, state)
+func saveState(ctx context.Context, sess *voice.VoiceSession, store Store, st *SessionState) error {
+    st.SessionID = sess.ID
+    if last := sess.LastTurn(); last != nil {
+        st.LastTurn = last.UserText
+    }
+    st.UpdatedAt = time.Now()
+    return store.Set(ctx, st)
 }
 ```
 
@@ -77,7 +80,10 @@ When a client reconnects with the same session ID, load state and resume:
 ```go
 func restoreOrCreate(ctx context.Context, store Store, sessionID string) (*SessionState, error) {
     st, err := store.Get(ctx, sessionID)
-    if err != nil || st == nil {
+    if err != nil {
+        return nil, fmt.Errorf("load session %s: %w", sessionID, err)
+    }
+    if st == nil {
         return &SessionState{
             SessionID:   sessionID,
             FormAnswers: make(map[string]string),
@@ -115,7 +121,7 @@ Use the `UpdatedAt` field with a configurable maximum age. Clear or warn-and-res
 
 ### Session ID mismatch
 
-Transport or load balancer may assign different IDs on reconnect. Use a stable identifier (phone number, user ID + call ID) as the persistence key and map it to `GetSessionID()`.
+Transport or load balancer may assign different IDs on reconnect. Use a stable identifier (phone number, user ID + call ID) as the persistence key and map it to the `voice.VoiceSession` `ID`.
 
 ## Advanced Topics
 

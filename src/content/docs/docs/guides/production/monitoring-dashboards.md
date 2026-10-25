@@ -53,6 +53,7 @@ import (
     "log"
     "net/http"
 
+    "github.com/prometheus/client_golang/prometheus/promhttp"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/exporters/prometheus"
     "go.opentelemetry.io/otel/sdk/metric"
@@ -73,7 +74,8 @@ func initMetrics() (*metric.MeterProvider, http.Handler, error) {
     // Set as global
     otel.SetMeterProvider(provider)
 
-    return provider, exporter, nil
+    // The exporter registers with the default Prometheus registry.
+    return provider, promhttp.Handler(), nil
 }
 
 func main() {

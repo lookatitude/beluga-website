@@ -163,7 +163,7 @@ if err != nil {
 
 ### Adding Resilience
 
-Wrap the enterprise model with Beluga's resilience middleware for production use:
+Wrap the enterprise model with Beluga's resilience retry helper for production use:
 
 ```go
 import "github.com/lookatitude/beluga-ai/v2/resilience"
@@ -176,12 +176,10 @@ policy := resilience.RetryPolicy{
 	Jitter:         true,
 }
 
-// Use resilience.Do to wrap calls with retry logic.
-var resp *schema.AIMessage
-err := resilience.Do(ctx, policy, func(ctx context.Context) error {
-	var genErr error
-	resp, genErr = model.Generate(ctx, msgs)
-	return genErr
+// Use resilience.Retry to wrap calls with retry logic. Only errors that
+// core.IsRetryable reports as retryable (rate limits, timeouts, 5xx) are retried.
+resp, err := resilience.Retry(ctx, policy, func(ctx context.Context) (*schema.AIMessage, error) {
+	return model.Generate(ctx, msgs)
 })
 if err != nil {
 	log.Fatalf("Generate failed after retries: %v", err)

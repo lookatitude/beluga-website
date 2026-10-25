@@ -8,6 +8,10 @@ head:
       content: "MongoDB Atlas, vector search, Atlas Vector Search, document database, metadata filtering, Go, Beluga AI"
 ---
 
+:::caution[Atlas Data API retired]
+This provider calls the MongoDB Atlas Data API (`/action/insertMany`, `/action/aggregate`) with the data source fixed to `Cluster0`. MongoDB retired the Data API on 30 September 2025, so the provider cannot reach Atlas today. The framework tracks a rewrite on the official Go driver; until then, choose another vector store such as [pgvector](/docs/reference/providers/vectorstore/pgvector/) or [Qdrant](/docs/reference/providers/vectorstore/qdrant/).
+:::
+
 The MongoDB Atlas provider implements the `vectorstore.VectorStore` interface using MongoDB Atlas Vector Search via the HTTP Data API. It supports cosine similarity search with metadata filtering through the `$vectorSearch` aggregation stage.
 
 Choose MongoDB Atlas when your application already uses MongoDB and you want to add vector search alongside your existing document data. Atlas Vector Search integrates with MongoDB's aggregation pipeline, allowing you to combine vector similarity with traditional document queries without managing a separate vector database.

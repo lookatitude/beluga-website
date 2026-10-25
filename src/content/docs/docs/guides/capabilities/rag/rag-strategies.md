@@ -70,20 +70,39 @@ package main
 import (
     "context"
     "fmt"
+    "log"
+    "os"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/retriever"
     "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
     _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
     _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
-func similarityRAG(ctx context.Context, query string) ([]retriever.Result, error) {
-    ret, err := retriever.New("similarity", nil)
+// newComponents creates the embedder and vector store shared by every strategy.
+func newComponents() (embedding.Embedder, vectorstore.VectorStore, error) {
+    emb, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
     if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
+        return nil, nil, fmt.Errorf("create embedder: %w", err)
     }
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("DATABASE_URL"),
+    })
+    if err != nil {
+        return nil, nil, fmt.Errorf("create vector store: %w", err)
+    }
+    return emb, store, nil
+}
+
+func similarityRAG(ctx context.Context, emb embedding.Embedder, store vectorstore.VectorStore, query string) ([]schema.Document, error) {
+    ret := retriever.NewVectorStoreRetriever(store, emb)
 
     docs, err := ret.Retrieve(ctx, query,
         retriever.WithTopK(10),
@@ -94,6 +113,19 @@ func similarityRAG(ctx context.Context, query string) ([]retriever.Result, error
     }
 
     return docs, nil
+}
+
+func main() {
+    ctx := context.Background()
+    emb, store, err := newComponents()
+    if err != nil {
+        log.Fatal(err)
+    }
+    docs, err := similarityRAG(ctx, emb, store, "What is our refund policy?")
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("found %d documents\n", len(docs))
 }
 ```
 
@@ -117,16 +149,22 @@ Best suited for technical documentation with specific terminology, code search, 
 ### Implementation
 
 ```go
-func keywordRAG(ctx context.Context, query string) ([]retriever.Result, error) {
-    ret, err := retriever.New("keyword", nil)
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
+// keywordRetriever adapts a BM25 backend (Elasticsearch, OpenSearch,
+// Typesense, ...) to the retriever.Retriever interface. Beluga AI defines
+// the retriever.BM25Searcher interface but does not bundle a BM25 engine.
+type keywordRetriever struct {
+    bm25 retriever.BM25Searcher
+}
 
-    docs, err := ret.Retrieve(ctx, query,
-        retriever.WithTopK(10),
-        retriever.WithThreshold(0.5),
-    )
+func (k *keywordRetriever) Retrieve(ctx context.Context, query string, opts ...retriever.Option) ([]schema.Document, error) {
+    cfg := retriever.ApplyOptions(opts...)
+    return k.bm25.Search(ctx, query, cfg.TopK)
+}
+
+func keywordRAG(ctx context.Context, bm25 retriever.BM25Searcher, query string) ([]schema.Document, error) {
+    var ret retriever.Retriever = &keywordRetriever{bm25: bm25}
+
+    docs, err := ret.Retrieve(ctx, query, retriever.WithTopK(10))
     if err != nil {
         return nil, fmt.Errorf("retrieve: %w", err)
     }
@@ -156,54 +194,40 @@ Beluga AI's default retrieval strategy combines vector similarity search with BM
 ### Implementation
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
+    "strings"
 
     "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
     "github.com/lookatitude/beluga-ai/v2/schema"
-
-    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
-func hybridRAG(ctx context.Context, question string) (string, error) {
-    // Hybrid retriever: vector + BM25 + RRF fusion
-    ret, err := retriever.New("hybrid", nil)
-    if err != nil {
-        return "", fmt.Errorf("create retriever: %w", err)
-    }
+func hybridRAG(ctx context.Context, model llm.ChatModel, emb embedding.Embedder,
+    store vectorstore.VectorStore, bm25 retriever.BM25Searcher, question string) (string, error) {
+    // Hybrid retriever: vector + BM25, fused with Reciprocal Rank Fusion
+    ret := retriever.NewHybridRetriever(store, emb, bm25)
 
-    docs, err := ret.Retrieve(ctx, question,
-        retriever.WithTopK(5),
-        retriever.WithThreshold(0.7),
-    )
+    docs, err := ret.Retrieve(ctx, question, retriever.WithTopK(5))
     if err != nil {
         return "", fmt.Errorf("retrieve: %w", err)
     }
 
     // Build context from retrieved documents
-    var docContext string
+    var docContext strings.Builder
     for _, doc := range docs {
-        docContext += doc.Content + "\n\n"
+        docContext.WriteString(doc.Content)
+        docContext.WriteString("\n\n")
     }
 
     // Generate answer grounded in retrieved context
-    model, err := llm.New("openai", nil)
-    if err != nil {
-        return "", fmt.Errorf("create model: %w", err)
-    }
-
     msgs := []schema.Message{
-        &schema.SystemMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: "Answer the question using only the provided context. " +
-                "If the context doesn't contain the answer, say so."},
-        }},
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: fmt.Sprintf("Context:\n%s\n\nQuestion: %s", docContext, question)},
-        }},
+        schema.NewSystemMessage("Answer the question using only the provided context. " +
+            "If the context doesn't contain the answer, say so."),
+        schema.NewHumanMessage(fmt.Sprintf("Context:\n%s\n\nQuestion: %s", docContext.String(), question)),
     }
 
     resp, err := model.Generate(ctx, msgs)
@@ -211,92 +235,83 @@ func hybridRAG(ctx context.Context, question string) (string, error) {
         return "", fmt.Errorf("generate: %w", err)
     }
 
-    return resp.Parts[0].(schema.TextPart).Text, nil
+    return resp.Text(), nil
 }
 ```
 
-### Tuning Alpha (Similarity Weight)
+### Tuning the Fusion
 
-The hybrid retriever supports an alpha parameter that controls the balance between semantic similarity and keyword matching:
+`NewHybridRetriever` fuses the two result lists with Reciprocal Rank Fusion, which uses only rank positions, so vector and BM25 scores never need to be calibrated against each other. The RRF constant (default 60) is set with `retriever.WithHybridRRFK`; lower values give more weight to top-ranked results.
 
-- **Alpha = 0.5**: Balanced (default)
-- **Alpha = 0.7**: More weight on semantic similarity
-- **Alpha = 0.3**: More weight on keyword matching
+If you want an explicit balance between semantic and keyword results instead, combine two retrievers with `retriever.NewEnsembleRetriever` and a `retriever.NewWeightedStrategy`. Weighted fusion multiplies each retriever's raw scores, so it only makes sense when both retrievers return scores on a comparable scale:
+
+```go
+ensemble := retriever.NewEnsembleRetriever(
+    []retriever.Retriever{vectorRetriever, keywordRetriever},
+    retriever.NewWeightedStrategy([]float64{0.7, 0.3}), // 70% semantic, 30% keyword
+)
+```
 
 | Pros | Cons |
 |------|------|
 | Best of both worlds | Higher latency |
 | Robust to query types | More complex |
 | Good default choice | Harder to debug |
-| Handles edge cases | Requires tuning alpha |
+| Handles edge cases | Needs a BM25 backend |
 
 ## Strategy 4: Multi-Strategy RAG
 
 For complex enterprise applications where query types are diverse and predictable, a multi-strategy approach classifies queries first and routes them to the most appropriate retrieval strategy.
 
 ```go
-func multiStrategyRAG(ctx context.Context, query string) ([]retriever.Result, error) {
-    // Classify query type
-    queryType := classifyQuery(query)
+// Build each retriever once at startup and route per query.
+type strategyRouter struct {
+    similarity retriever.Retriever
+    keyword    retriever.Retriever
+    hybrid     retriever.Retriever
+}
 
-    var strategyName string
-    switch queryType {
+func (r *strategyRouter) multiStrategyRAG(ctx context.Context, query string) ([]schema.Document, error) {
+    // Classify query type (classifyQuery is your own classifier)
+    var ret retriever.Retriever
+    switch classifyQuery(query) {
     case "definition":
-        strategyName = "similarity"
+        ret = r.similarity
     case "code":
-        strategyName = "keyword"
-    case "troubleshooting":
-        strategyName = "hybrid"
+        ret = r.keyword
     default:
-        strategyName = "hybrid"
+        ret = r.hybrid
     }
 
-    ret, err := retriever.New(strategyName, nil)
-    if err != nil {
-        // Fallback to hybrid on error
-        ret, err = retriever.New("hybrid", nil)
-        if err != nil {
-            return nil, fmt.Errorf("create fallback retriever: %w", err)
-        }
+    docs, err := ret.Retrieve(ctx, query, retriever.WithTopK(10))
+    if err != nil && ret != r.hybrid {
+        // Fall back to hybrid on error
+        return r.hybrid.Retrieve(ctx, query, retriever.WithTopK(10))
     }
-
-    return ret.Retrieve(ctx, query, retriever.WithTopK(10))
+    return docs, err
 }
 ```
 
 ## Strategy 5: RAG with Reranking
 
-When precision at the top positions is critical, a two-stage retrieval pipeline retrieves more candidates than needed, then reranks them with a cross-encoder model for higher accuracy.
+When precision at the top positions is critical, a two-stage retrieval pipeline retrieves more candidates than needed, then reranks them with a cross-encoder model for higher accuracy. `retriever.NewRerankRetriever` wraps any retriever with a `retriever.Reranker`; Beluga AI defines the interface, and you plug in the reranking model.
 
 ```go
-func rerankingRAG(ctx context.Context, query string) ([]retriever.Result, error) {
-    // Stage 1: Retrieve more candidates than needed
-    ret, err := retriever.New("hybrid", nil)
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
-
-    candidates, err := ret.Retrieve(ctx, query,
-        retriever.WithTopK(30), // Retrieve 3x more for reranking
+// crossEncoder is your reranking model client (Cohere Rerank, a hosted
+// cross-encoder, ...). It only has to satisfy retriever.Reranker:
+//   Rerank(ctx context.Context, query string, docs []schema.Document) ([]schema.Document, error)
+func rerankingRAG(ctx context.Context, base retriever.Retriever, crossEncoder retriever.Reranker, query string) ([]schema.Document, error) {
+    // Stage 1 retrieves 30 candidates from the base retriever;
+    // stage 2 reranks them and keeps the best 10.
+    ret := retriever.NewRerankRetriever(base, crossEncoder,
+        retriever.WithRerankTopN(10),
     )
+
+    docs, err := ret.Retrieve(ctx, query, retriever.WithTopK(30))
     if err != nil {
-        return nil, fmt.Errorf("retrieve: %w", err)
+        return nil, fmt.Errorf("rerank retrieve: %w", err)
     }
-
-    // Stage 2: Rerank with cross-encoder
-    reranked, err := rerank(ctx, query, candidates)
-    if err != nil {
-        // Fall back to original ranking
-        reranked = candidates
-    }
-
-    // Take top K after reranking
-    topK := 10
-    if len(reranked) < topK {
-        topK = len(reranked)
-    }
-
-    return reranked[:topK], nil
+    return docs, nil
 }
 ```
 
@@ -325,7 +340,7 @@ flowchart TB
     end
 
     subgraph Step3["3. Optimize Based on Data"]
-        C1[Tune alpha based on evaluation results]
+        C1[Tune fusion weights based on evaluation results]
         C2[Add reranking if top-K precision matters]
         C3[Consider query classification for diverse workloads]
     end
@@ -357,7 +372,7 @@ flowchart TB
 
 1. **Over-engineering early**: Do not add reranking until you need it
 2. **Ignoring exact matches**: Technical users need keyword search
-3. **Not tuning alpha**: Default 0.5 may not be optimal for your domain
+3. **Not tuning fusion**: The default RRF constant or equal weights may not be optimal for your domain
 4. **Skipping evaluation**: Build eval datasets early
 
 ### Performance Tips

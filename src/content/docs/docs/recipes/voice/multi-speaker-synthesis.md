@@ -30,7 +30,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.voice.tts.multi_speaker")
@@ -94,7 +94,7 @@ func (mstts *MultiSpeakerTTS) SynthesizeDialogue(ctx context.Context, turns []Di
 		}
 	}
 
-	span.SetStatus(trace.StatusOK, "dialogue synthesized")
+	span.SetStatus(codes.Ok, "dialogue synthesized")
 	return audioSegments, nil
 }
 

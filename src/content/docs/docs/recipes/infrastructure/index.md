@@ -45,7 +45,8 @@ type AppConfig struct {
 type ConfigManager struct {
 	mu      sync.RWMutex
 	current AppConfig
-	watcher *config.FileWatcher
+	path    string
+	watcher config.Watcher
 }
 
 func NewConfigManager(path string) (*ConfigManager, error) {
@@ -55,35 +56,28 @@ func NewConfigManager(path string) (*ConfigManager, error) {
 		return nil, fmt.Errorf("initial config load: %w", err)
 	}
 
-	cm := &ConfigManager{current: cfg}
+	cm := &ConfigManager{current: cfg, path: path}
 
-	// Set up file watcher for hot reload.
-	cm.watcher = config.NewFileWatcher(config.WatchConfig{
-		Path:     path,
-		Interval: 5 * time.Second,
-	})
+	// Poll the file every 5 seconds; the callback fires when its contents change.
+	cm.watcher = config.NewFileWatcher(path, 5*time.Second)
 
 	return cm, nil
 }
 
 // Start begins watching for configuration changes.
 func (cm *ConfigManager) Start(ctx context.Context) error {
-	return cm.watcher.Watch(ctx, func(newConfig any) {
-		cfg, ok := newConfig.(*AppConfig)
-		if !ok {
-			slog.Error("invalid config type on reload")
-			return
-		}
-
-		// Validate before applying.
-		if err := config.Validate(cfg); err != nil {
-			slog.Error("config validation failed", "error", err)
+	// FileWatcher passes the raw file bytes to the callback. Re-load through
+	// config.Load so defaults and min/max validation run before applying.
+	return cm.watcher.Watch(ctx, func(_ any) {
+		cfg, err := config.Load[AppConfig](cm.path)
+		if err != nil {
+			slog.Error("config reload rejected; keeping previous config", "error", err)
 			return
 		}
 
 		cm.mu.Lock()
 		old := cm.current
-		cm.current = *cfg
+		cm.current = cfg
 		cm.mu.Unlock()
 
 		slog.Info("config reloaded",
@@ -364,8 +358,8 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// Create an injection detector with built-in patterns.
-	detector := guard.NewInjectionDetector(
+	// Create an injection detector: built-in patterns plus custom ones.
+	detector := guard.NewPromptInjectionDetector(
 		guard.WithPattern("ignore_instructions", `(?i)ignore\s+(all\s+)?(previous|above)\s+instructions`),
 		guard.WithPattern("role_override", `(?i)you\s+are\s+now\s+a`),
 		guard.WithPattern("system_prompt_leak", `(?i)(show|reveal|print|output)\s+(your\s+)?(system\s+)?(prompt|instructions)`),
@@ -451,12 +445,12 @@ func main() {
 redactor := guard.NewPIIRedactor(
 	guard.PIIPattern{
 		Name:        "employee_id",
-		Pattern:     `EMP-[0-9]{6}`,
+		Pattern:     regexp.MustCompile(`EMP-[0-9]{6}`),
 		Placeholder: "[EMPLOYEE_ID]",
 	},
 	guard.PIIPattern{
 		Name:        "internal_ip",
-		Pattern:     `10\.\d{1,3}\.\d{1,3}\.\d{1,3}`,
+		Pattern:     regexp.MustCompile(`10\.\d{1,3}\.\d{1,3}\.\d{1,3}`),
 		Placeholder: "[INTERNAL_IP]",
 	},
 )
@@ -485,14 +479,14 @@ func main() {
 	ctx := context.Background()
 
 	// Create guards for each stage.
-	injectionGuard := guard.NewInjectionDetector()
+	injectionGuard := guard.NewPromptInjectionDetector()
 	piiRedactor := guard.NewPIIRedactor(guard.DefaultPIIPatterns...)
 
 	// Build the pipeline: input guards → output guards → tool guards.
 	pipeline := guard.NewPipeline(
-		guard.WithInputGuards(injectionGuard),
-		guard.WithOutputGuards(piiRedactor),
-		guard.WithToolGuards(injectionGuard), // Also check tool inputs.
+		guard.Input(injectionGuard),
+		guard.Output(piiRedactor),
+		guard.Tool(injectionGuard), // Also check tool inputs.
 	)
 
 	// Validate user input.
@@ -529,7 +523,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/lookatitude/beluga-ai/v2/o11y"
 )
@@ -890,7 +883,7 @@ func extractText(msg schema.Message) string {
 
 **Problem:** You need to send multiple images to a vision-capable LLM for comparison, analysis, or document processing.
 
-**Solution:** Use `schema.ImagePart` content parts in messages. Beluga AI's `schema.ContentPart` interface supports mixed-content messages where text and images coexist in a single message. This is essential for tasks like comparing two versions of a document, analyzing multiple screenshots, or processing multi-page forms. The `Detail` field controls resolution: "high" for detailed analysis (architecture diagrams, text-heavy images) and "low" for quick classification tasks, trading accuracy for token cost.
+**Solution:** Use `schema.ImagePart` content parts in messages. Beluga AI's `schema.ContentPart` interface supports mixed-content messages where text and images coexist in a single message. This is essential for tasks like comparing two versions of a document, analyzing multiple screenshots, or processing multi-page forms. Each `ImagePart` carries either a `URL` or inline `Data` bytes plus a `MimeType`.
 
 ```go
 package main
@@ -925,13 +918,11 @@ func main() {
 			schema.TextPart{Text: "Compare these two architecture diagrams and identify differences:"},
 			schema.ImagePart{
 				URL:      "https://example.com/diagram-v1.png",
-				MIMEType: "image/png",
-				Detail:   "high",
+				MimeType: "image/png",
 			},
 			schema.ImagePart{
 				URL:      "https://example.com/diagram-v2.png",
-				MIMEType: "image/png",
-				Detail:   "high",
+				MimeType: "image/png",
 			},
 		},
 	}
@@ -1030,8 +1021,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/lookatitude/beluga-ai/v2/resilience"
 )
@@ -1040,10 +1033,7 @@ func main() {
 	ctx := context.Background()
 
 	// Circuit breaker trips after 5 failures, resets after 30 seconds.
-	cb := resilience.NewCircuitBreaker(
-		resilience.WithFailureThreshold(5),
-		resilience.WithResetTimeout(30),
-	)
+	cb := resilience.NewCircuitBreaker(5, 30*time.Second)
 
 	// Wrap your operations with the circuit breaker.
 	result, err := cb.Execute(ctx, func(ctx context.Context) (any, error) {
@@ -1052,7 +1042,7 @@ func main() {
 	})
 
 	if err != nil {
-		if err == resilience.ErrCircuitOpen {
+		if errors.Is(err, resilience.ErrCircuitOpen) {
 			slog.Warn("circuit is open — provider is down, using fallback")
 			// Use cached response, fallback provider, or return degraded response.
 		} else {

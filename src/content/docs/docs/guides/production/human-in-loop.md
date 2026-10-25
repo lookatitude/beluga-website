@@ -79,7 +79,6 @@ The manager is configured with functional options (`WithTimeout`, `WithNotifier`
 package main
 
 import (
-    "context"
     "fmt"
     "log/slog"
     "time"
@@ -88,8 +87,6 @@ import (
 )
 
 func main() {
-    ctx := context.Background()
-
     // Create a manager with logging and timeout.
     mgr := hitl.NewManager(
         hitl.WithTimeout(30 * time.Second),

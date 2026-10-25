@@ -67,7 +67,11 @@ session, err := engine.Start(ctx)
 defer session.Close()
 
 session.SendAudio(ctx, audioChunk)
-for event := range session.Recv() {
+for event, err := range session.Recv(ctx) {
+    if err != nil {
+        log.Printf("session: %v", err)
+        break
+    }
     switch event.Type {
     case s2s.EventAudioOutput:
         playAudio(event.Audio)

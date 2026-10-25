@@ -101,7 +101,7 @@ Wrap interfaces to add cross-cutting behavior:
 ```go
 model = llm.ApplyMiddleware(model,
     llm.WithLogging(logger),
-    llm.WithRetry(3),
+    llm.WithProviderLimits(llm.ProviderLimits{RPM: 60}),
 )
 ```
 

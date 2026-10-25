@@ -65,13 +65,11 @@ Create a vision-capable model via the registry pattern. GPT-4o is used here beca
 package main
 
 import (
-    "context"
     "fmt"
     "os"
 
     "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
-    "github.com/lookatitude/beluga-ai/v2/schema"
 
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
@@ -86,11 +84,8 @@ func main() {
         return
     }
 
-    ctx := context.Background()
-
-    // Continue with visual reasoning examples...
-    _ = model
-    _ = ctx
+    // The functions in the following steps take this model and a context.Context.
+    fmt.Println("model ready:", model.ModelID())
 }
 ```
 

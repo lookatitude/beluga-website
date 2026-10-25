@@ -48,7 +48,9 @@ audio, err := engine.Synthesize(ctx, "Hello, world!")
 // Streaming:
 for chunk, err := range engine.SynthesizeStream(ctx, textStream) {
     if err != nil { break }
-    transport.Send(chunk)
+    if _, err := audioOut.Write(chunk); err != nil { // e.g. an AudioTransport's AudioOut()
+        break
+    }
 }
 ```
 

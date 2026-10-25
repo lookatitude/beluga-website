@@ -87,64 +87,74 @@ return &tool.Result{
 
 ## Tool Registry
 
-As the number of tools grows, you need a way to organize, discover, and manage them. The tool registry groups tools into named collections that can be passed to agents, exposed via MCP servers, or composed from multiple sources. Registries support listing, lookup by name, and bulk middleware application.
+As the number of tools grows, you need a way to organize, discover, and manage them. The tool registry groups tools into named collections that can be passed to agents, exposed via MCP servers, or composed from multiple sources. Registries support adding, listing, lookup by name, and removal.
 
 ```go
 reg := tool.NewRegistry()
-reg.Add(weather)
-reg.Add(calculator)
-reg.Add(searchTool)
+for _, t := range []tool.Tool{weather, calculator, searchTool} {
+	if err := reg.Add(t); err != nil { // fails on duplicate names
+		log.Fatal(err)
+	}
+}
 
-// List all tools
-for _, t := range reg.List() {
+// List all tools (reg.List() returns just the names)
+for _, t := range reg.All() {
 	fmt.Printf("Tool: %s - %s\n", t.Name(), t.Description())
 }
 
 // Get a specific tool
-t, ok := reg.Get("get_weather")
+weatherTool, err := reg.Get("get_weather")
+if err != nil {
+	log.Fatal(err)
+}
+fmt.Println("found:", weatherTool.Name())
 
 // Use with an agent
 a := agent.New("assistant",
 	agent.WithLLM(model),
-	agent.WithTools(reg.List()),
+	agent.WithTools(reg.All()),
 )
 ```
 
 ## Tool Middleware
 
-Tool middleware follows the same `func(T) T` composable pattern used for LLM middleware and memory middleware throughout Beluga AI. This consistency means you already know the pattern: each middleware wraps a `Tool`, intercepts `Execute` calls, and delegates to the next layer. Common use cases include logging, timeout enforcement, rate limiting, and metrics collection. Middleware can be applied to individual tools or to all tools in a registry at once.
+Tool middleware follows the same `func(T) T` composable pattern used for LLM middleware and memory middleware throughout Beluga AI. This consistency means you already know the pattern: each middleware wraps a `Tool`, intercepts `Execute` calls, and delegates to the next layer. Common use cases include timeout enforcement, retries, rate limiting, and metrics collection. The package ships `tool.WithTimeout`, `tool.WithRetry`, and `tool.WithTracing`; middleware is applied per tool, so loop over a registry's tools to wrap them all.
 
 ```go
-// Logging middleware
-loggingMiddleware := tool.LoggingMiddleware(logger)
-
-// Timeout middleware
-timeoutMiddleware := tool.TimeoutMiddleware(5 * time.Second)
-
-// Apply middleware to a tool
+// Apply built-in middleware to a tool
 wrappedTool := tool.ApplyMiddleware(weather,
-	loggingMiddleware,
-	timeoutMiddleware,
+	tool.WithTimeout(5*time.Second),
+	tool.WithRetry(3),
 )
 
-// Apply middleware to all tools in a registry
-reg.ApplyMiddleware(loggingMiddleware)
+// Wrap every tool in a registry
+var wrapped []tool.Tool
+for _, t := range reg.All() {
+	wrapped = append(wrapped, tool.ApplyMiddleware(t, tool.WithTimeout(5*time.Second)))
+}
 ```
 
 ### Writing Custom Middleware
 
-Custom middleware follows a closure pattern: the outer function captures configuration, and the inner function wraps the tool. The `MiddlewareFunc` helper creates a tool that delegates `Name`, `Description`, and `InputSchema` to the wrapped tool while intercepting `Execute`. This example demonstrates a rate limiter that uses Go's `rate.Limiter` to throttle tool calls.
+Custom middleware follows a closure pattern: the outer function captures configuration, and the inner function wraps the tool. The wrapper type delegates `Name`, `Description`, and `InputSchema` to the wrapped tool while intercepting `Execute`. This example demonstrates a rate limiter that uses Go's `rate.Limiter` to throttle tool calls.
 
 ```go
+type rateLimitedTool struct {
+	tool.Tool // delegates Name, Description, InputSchema
+	limiter   *rate.Limiter
+}
+
+func (t *rateLimitedTool) Execute(ctx context.Context, input map[string]any) (*tool.Result, error) {
+	if err := t.limiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("rate limited: %w", err)
+	}
+	return t.Tool.Execute(ctx, input)
+}
+
 func RateLimitMiddleware(rps int) tool.Middleware {
 	limiter := rate.NewLimiter(rate.Limit(rps), rps)
 	return func(next tool.Tool) tool.Tool {
-		return tool.MiddlewareFunc(next, func(ctx context.Context, input map[string]any) (*tool.Result, error) {
-			if err := limiter.Wait(ctx); err != nil {
-				return nil, fmt.Errorf("rate limited: %w", err)
-			}
-			return next.Execute(ctx, input)
-		})
+		return &rateLimitedTool{Tool: next, limiter: limiter}
 	}
 }
 ```
@@ -167,6 +177,9 @@ hooks := tool.Hooks{
 		return err
 	},
 }
+
+// Attach the hooks to a tool
+observed := tool.WithHooks(weather, hooks)
 ```
 
 ## MCP Client
@@ -249,17 +262,13 @@ You can also expose your Go tools as an MCP server, making them available to any
 ```go
 import "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
 
-server := mcp.NewServer(mcp.ServerConfig{
-	Name:    "my-tools",
-	Version: "1.0.0",
-})
+server := mcp.NewServer("my-tools", "1.0.0")
 
-// Register tools
-server.AddTool(weather)
-server.AddTool(calculator)
+// Register tools (AddTool returns the server, so calls can be chained)
+server.AddTool(weather).AddTool(calculator)
 
-// Start the server with Streamable HTTP transport
-if err := server.ListenAndServe(":3001"); err != nil {
+// Serve MCP over HTTP until ctx is canceled
+if err := server.Serve(ctx, ":3001"); err != nil {
 	log.Fatal(err)
 }
 ```

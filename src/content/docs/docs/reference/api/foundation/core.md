@@ -132,9 +132,9 @@ func main() {
 | Field | Type | Description |
 |---|---|---|
 | `MaxConcurrency` | `int` | Max concurrent executions. 0 = unlimited. |
-| `BatchSize` | `int` | Informational; BatchInvoke calls fn once per item. |
+| `BatchSize` | `int` | Reserved: currently ignored; `BatchInvoke` calls fn once per item. |
 | `Timeout` | `time.Duration` | Per-item timeout. 0 = no per-item timeout. |
-| `RetryPolicy` | `*RetryPolicy` | Optional retry configuration per item. |
+| `RetryPolicy` | `*RetryPolicy` | Reserved: currently ignored by `BatchInvoke`. Wrap `fn` with `resilience.Retry` for per-item retries. |
 
 `BatchResult[O]` carries `Value O` and `Err error` for each input.
 

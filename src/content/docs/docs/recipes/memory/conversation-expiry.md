@@ -32,7 +32,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.messaging.conversation_expiry")
@@ -90,7 +90,7 @@ func (cem *ConversationExpiryManager) RegisterConversation(ctx context.Context, 
         attribute.String("conversation_id", conversationID),
         attribute.String("expires_at", cem.conversations[conversationID].ExpiresAt.Format(time.RFC3339)),
     )
-    span.SetStatus(trace.StatusOK, "conversation registered")
+    span.SetStatus(codes.Ok, "conversation registered")
 
     return nil
 }
@@ -117,7 +117,7 @@ func (cem *ConversationExpiryManager) UpdateActivity(ctx context.Context, conver
         attribute.String("conversation_id", conversationID),
         attribute.String("new_expires_at", state.ExpiresAt.Format(time.RFC3339)),
     )
-    span.SetStatus(trace.StatusOK, "activity updated")
+    span.SetStatus(codes.Ok, "activity updated")
 
     return nil
 }

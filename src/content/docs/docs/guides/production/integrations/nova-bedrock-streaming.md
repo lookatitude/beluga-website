@@ -12,7 +12,11 @@ For teams already running infrastructure on AWS, Amazon Nova provides end-to-end
 
 ## Overview
 
-The Amazon Nova integration uses the `voice/s2s` package to enable bidirectional audio streaming via AWS Bedrock. Nova 2 Sonic supports natural voice conversations with configurable models and regions.
+The Amazon Nova integration is the `voice/s2s/providers/nova` package. It registers itself as `"nova"` with the `s2s` registry and implements the standard `s2s.S2S` / `s2s.Session` interfaces, so the code you write against it is the same as for the OpenAI Realtime and Gemini Live providers.
+
+:::caution[Current limitation]
+The `nova` provider opens a plain WebSocket to `wss://bedrock-runtime.<region>.amazonaws.com/model/<model>/converse-stream` and does **not** sign the request with AWS SigV4 or read your AWS credentials. Bedrock exposes Nova Sonic through the `InvokeModelWithBidirectionalStream` API and rejects unsigned requests, so the provider does not work directly against AWS today. You can set `Extra["base_url"]` to point it at your own gateway that handles authentication. Treat the code on this page as the target shape of the integration, not a production-ready path.
+:::
 
 ## Prerequisites
 
@@ -39,7 +43,7 @@ Enable the Nova 2 Sonic model in the AWS Bedrock console before proceeding.
 
 ## Configuration
 
-Create an Amazon Nova S2S provider with the desired region and model:
+Create a Nova engine through the registry and start a session. Instructions and tools go on `s2s.Config` (or as `s2s.Option`s to `Start`); the region goes in `Extra`:
 
 ```go
 package main
@@ -51,31 +55,28 @@ import (
     "os"
 
     "github.com/lookatitude/beluga-ai/v2/voice/s2s"
-    "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/amazon_nova"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/nova"
 )
 
 func main() {
     ctx := context.Background()
 
-    config := amazon_nova.Config{
-        Region: os.Getenv("AWS_REGION"),
-        Model:  "amazon.nova-pro-v1:0",
-    }
-
-    provider, err := amazon_nova.NewAmazonNovaS2S(ctx, config)
+    engine, err := s2s.New("nova", s2s.Config{
+        Model:        "amazon.nova-sonic-v1:0",
+        Instructions: "You are a helpful assistant.",
+        Extra:        map[string]any{"region": os.Getenv("AWS_REGION")},
+    })
     if err != nil {
         log.Fatalf("Failed to create Nova provider: %v", err)
     }
 
-    stream, err := provider.StartStreaming(ctx, &s2s.ConversationContext{
-        SystemPrompt: "You are a helpful assistant.",
-    })
+    session, err := engine.Start(ctx)
     if err != nil {
-        log.Fatalf("Failed to start streaming: %v", err)
+        log.Fatalf("Failed to start session: %v", err)
     }
-    defer stream.Close()
+    defer session.Close()
 
-    fmt.Println("Nova streaming started")
+    fmt.Println("Nova session started")
 }
 ```
 
@@ -83,34 +84,41 @@ func main() {
 
 ### Bidirectional Audio Streaming
 
-Handle sending and receiving audio concurrently:
+Send audio with `SendAudio` and consume `s2s.SessionEvent` values from `Recv`:
 
 ```go
-func handleNovaStream(ctx context.Context, stream s2s.Stream) error {
-    audioIn := make(chan []byte)
+func handleNovaSession(ctx context.Context, session s2s.Session, audioIn <-chan []byte, play func([]byte)) error {
     go func() {
         for audio := range audioIn {
-            if err := stream.SendAudio(ctx, audio); err != nil {
+            if err := session.SendAudio(ctx, audio); err != nil {
                 log.Printf("Send error: %v", err)
                 return
             }
         }
     }()
 
-    for chunk := range stream.ReceiveAudio() {
-        if chunk.Error != nil {
-            return chunk.Error
+    for event, err := range session.Recv(ctx) {
+        if err != nil {
+            return err
         }
-        processAudio(chunk.Audio)
+        switch event.Type {
+        case s2s.EventAudioOutput:
+            play(event.Audio)
+        case s2s.EventTranscript, s2s.EventTextOutput:
+            log.Printf("text: %s", event.Text)
+        case s2s.EventError:
+            return event.Error
+        }
     }
-
     return nil
 }
 ```
 
+To use the engine inside a voice pipeline, wrap it with `s2s.AsFrameProcessor(engine)`.
+
 ### Observability
 
-Add OpenTelemetry tracing to monitor Nova streaming sessions:
+Add OpenTelemetry tracing to monitor Nova sessions:
 
 ```go
 import (
@@ -119,11 +127,11 @@ import (
     "go.opentelemetry.io/otel/trace"
 )
 
-tracer := otel.Tracer("beluga.voice.s2s.amazon_nova")
-ctx, span := tracer.Start(ctx, "amazon_nova.start",
+tracer := otel.Tracer("beluga.voice.s2s.nova")
+ctx, span := tracer.Start(ctx, "nova.start",
     trace.WithAttributes(
-        attribute.String("model", config.Model),
-        attribute.String("region", config.Region),
+        attribute.String("model", "amazon.nova-sonic-v1:0"),
+        attribute.String("region", os.Getenv("AWS_REGION")),
     ),
 )
 defer span.End()
@@ -131,11 +139,13 @@ defer span.End()
 
 ## Configuration Reference
 
-| Option   | Description       | Default                | Required |
-|----------|-------------------|------------------------|----------|
-| `Region` | AWS region        | `us-east-1`           | No       |
-| `Model`  | Nova model ID     | `amazon.nova-pro-v1:0`| No       |
-| `Voice`  | Voice selection   | -                      | No       |
+| Field               | Description                | Default                  | Required |
+|---------------------|----------------------------|--------------------------|----------|
+| `Extra["region"]`   | AWS region                 | `us-east-1`              | No       |
+| `Extra["base_url"]` | Custom WebSocket endpoint  | Bedrock Runtime URL      | No       |
+| `Model`             | Nova model ID              | `amazon.nova-sonic-v1:0` | No       |
+| `Voice`             | Voice selection            | -                        | No       |
+| `Instructions`      | System instructions        | -                        | No       |
 
 ## Troubleshooting
 

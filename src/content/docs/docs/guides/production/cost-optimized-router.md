@@ -423,12 +423,18 @@ func (r *CostOptimizedRouter) TestStrategy(ctx context.Context, newStrategy Rout
 
         // Control: current strategy
         controlModel := r.selectModel(complexity)
-        controlResp, _ := r.models[controlModel].Generate(ctx, msgs)
+        controlResp, err := r.models[controlModel].Generate(ctx, msgs)
+        if err != nil {
+            return nil, fmt.Errorf("control request %d: %w", i, err)
+        }
         controlCosts = append(controlCosts, r.estimateCost(controlModel, controlResp))
 
         // Treatment: new strategy
         treatmentModel := newStrategy.SelectModel(complexity)
-        treatmentResp, _ := r.models[treatmentModel].Generate(ctx, msgs)
+        treatmentResp, err := r.models[treatmentModel].Generate(ctx, msgs)
+        if err != nil {
+            return nil, fmt.Errorf("treatment request %d: %w", i, err)
+        }
         treatmentCosts = append(treatmentCosts, r.estimateCost(treatmentModel, treatmentResp))
     }
 

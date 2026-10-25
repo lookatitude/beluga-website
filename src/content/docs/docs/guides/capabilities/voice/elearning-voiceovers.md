@@ -12,7 +12,7 @@ E-learning platforms serving global audiences face three compounding constraints
 
 The production pipeline itself is the problem. Human voiceover requires voice talent scheduling, studio booking, recording, editing, and quality review — for every language, for every course update. When course content changes, the entire recording pipeline restarts.
 
-Using Beluga AI's TTS pipeline with multi-language support and SSML processing, voiceovers can be generated for 22+ languages at 91% lower cost with consistent quality. The key is treating voiceover generation as a batch data processing problem rather than a creative production workflow.
+With Beluga AI's TTS engines, voiceovers can be generated in batch for every language your TTS provider supports. The key is treating voiceover generation as a batch data processing problem rather than a creative production workflow.
 
 ## Solution Architecture
 
@@ -30,26 +30,25 @@ graph TB
 
 Course content is parsed into sections, preprocessed with SSML markup for pronunciation accuracy, and synthesized using language-appropriate voices. Batch processing generates voiceovers for multiple courses and languages in parallel.
 
-The pipeline is structured as a linear flow (parse, detect language, preprocess, apply SSML, synthesize) because each stage has a single clear dependency on the previous stage's output. SSML preprocessing is critical for educational content — technical terms, acronyms, and proper nouns require explicit pronunciation guidance that the TTS model cannot reliably infer from text alone.
+The pipeline is structured as a linear flow (parse, detect language, preprocess, apply SSML, synthesize) because each stage has a single clear dependency on the previous stage's output. SSML preprocessing helps with educational content — technical terms, acronyms, and proper nouns often need explicit pronunciation guidance. Beluga passes text to the provider unchanged, so SSML only works with providers whose API interprets it; see [SSML Tuning](/docs/guides/capabilities/voice/ssml-tuning).
 
 ## Implementation
 
 ### Multi-Language TTS Setup
 
-The generator wraps a single TTS engine instance and selects voices per language. Using a single engine with per-request voice selection (via functional options) avoids the overhead of maintaining separate engine instances for each language. The `selectVoice` function maps language codes to appropriate voices, providing a centralized place to manage voice assignments across all supported languages.
+The generator wraps a single TTS engine instance and selects voices per language. This example uses the `lmnt` provider, which honors `tts.WithSpeed`; any registered provider works the same way, but speed and format options are only applied by providers that support them. Using a single engine with per-request voice selection (via functional options) avoids the overhead of maintaining separate engine instances for each language. The `selectVoice` function maps language codes to appropriate voices, providing a centralized place to manage voice assignments across all supported languages.
 
 ```go
-package main
+package voiceover
 
 import (
     "context"
     "fmt"
-    "sync"
+    "os"
 
     "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
-    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/lmnt"
 )
 
 // VoiceoverGenerator generates localized voiceovers for course content.
@@ -57,8 +56,10 @@ type VoiceoverGenerator struct {
     engine tts.TTS
 }
 
-func NewVoiceoverGenerator(ctx context.Context) (*VoiceoverGenerator, error) {
-    engine, err := tts.New("openai", nil)
+func NewVoiceoverGenerator() (*VoiceoverGenerator, error) {
+    engine, err := tts.New("lmnt", tts.Config{
+        Extra: map[string]any{"api_key": os.Getenv("LMNT_API_KEY")},
+    })
     if err != nil {
         return nil, fmt.Errorf("create tts engine: %w", err)
     }
@@ -67,44 +68,43 @@ func NewVoiceoverGenerator(ctx context.Context) (*VoiceoverGenerator, error) {
 }
 
 func (g *VoiceoverGenerator) GenerateVoiceover(ctx context.Context, text string, language string) ([]byte, error) {
-    voice := selectVoice(language)
-
     audio, err := g.engine.Synthesize(ctx, text,
-        tts.WithVoice(voice),
+        tts.WithVoice(selectVoice(language)),
         tts.WithSpeed(0.95), // Slightly slower for educational content
     )
     if err != nil {
-        return nil, fmt.Errorf("synthesize: %w", err)
+        return nil, fmt.Errorf("synthesize %s: %w", language, err)
     }
 
     return audio, nil
 }
 
+// selectVoice maps a language code to a voice ID from your provider's voice
+// library. Replace the IDs with voices you have chosen for each language.
 func selectVoice(language string) string {
     voices := map[string]string{
-        "en": "nova",
-        "es": "nova",
-        "fr": "nova",
-        "de": "nova",
-        "zh": "nova",
-        "ja": "nova",
+        "en": "lily",
+        "es": "your-spanish-voice-id",
+        "fr": "your-french-voice-id",
+        "de": "your-german-voice-id",
     }
 
     if voice, ok := voices[language]; ok {
         return voice
     }
-    return "nova" // default
+    return "lily" // default
 }
 ```
 
 ### Batch Processing
 
-Batch processing generates voiceovers for all sections across all languages concurrently. The implementation uses a semaphore pattern (buffered channel) to limit concurrency to 10 simultaneous TTS calls, staying within provider rate limits while maximizing throughput. A mutex protects the shared results slice since goroutines append to it concurrently.
+Batch processing generates voiceovers for all sections across all languages concurrently. Add `"errors"` and `"sync"` to the imports above for this method. The implementation uses a semaphore pattern (buffered channel) to limit concurrency to 10 simultaneous TTS calls, staying within provider rate limits while maximizing throughput. A mutex protects the shared results and errors slices since goroutines append to them concurrently. Failures are collected and returned with `errors.Join`, so one failed section does not silently disappear from the batch.
 
 ```go
 func (g *VoiceoverGenerator) GenerateBatch(ctx context.Context, sections []CourseSection, languages []string) ([]Voiceover, error) {
     var (
         results []Voiceover
+        errs    []error
         mu      sync.Mutex
         wg      sync.WaitGroup
     )
@@ -116,27 +116,31 @@ func (g *VoiceoverGenerator) GenerateBatch(ctx context.Context, sections []Cours
             wg.Add(1)
             go func(s CourseSection, l string) {
                 defer wg.Done()
-                sem <- struct{}{}
+                select {
+                case sem <- struct{}{}:
+                case <-ctx.Done():
+                    return
+                }
                 defer func() { <-sem }()
 
                 audio, err := g.GenerateVoiceover(ctx, s.Text, l)
-                if err != nil {
-                    return
-                }
 
                 mu.Lock()
-                results = append(results, Voiceover{
-                    SectionID: s.ID,
-                    Language:  l,
-                    Audio:     audio,
-                })
-                mu.Unlock()
+                defer mu.Unlock()
+                if err != nil {
+                    errs = append(errs, fmt.Errorf("section %s: %w", s.ID, err))
+                    return
+                }
+                results = append(results, Voiceover{SectionID: s.ID, Language: l, Audio: audio})
             }(section, lang)
         }
     }
 
     wg.Wait()
-    return results, nil
+    if err := ctx.Err(); err != nil {
+        return results, err
+    }
+    return results, errors.Join(errs...) // partial results plus every failure
 }
 
 type CourseSection struct {
@@ -161,17 +165,7 @@ type Voiceover struct {
 - **Cost management**: Track per-language generation costs and optimize batch sizes
 - **Caching**: Cache generated audio segments to avoid regeneration when content does not change
 
-## Results
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Cost per course | $500-800 | $65 | 91% reduction |
-| Production time | 2-3 weeks | 2 days | 90-95% reduction |
-| Languages supported | 3-4 | 22 | 450-633% increase |
-| Student reach | 30-40% | 92% | 130-207% increase |
-| Quality score | 7/10 | 9.1/10 | 30% improvement |
-
-### Lessons Learned
+## Lessons Learned
 
 - **SSML is critical**: Educational terminology requires explicit pronunciation guidance for accuracy
 - **Voice selection matters**: Language-appropriate, consistent voices significantly impact learning quality

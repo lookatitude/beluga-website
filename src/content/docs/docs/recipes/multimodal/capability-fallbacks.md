@@ -33,7 +33,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.multimodal.capabilities")
@@ -87,7 +87,7 @@ func (cr *CapabilityRouter) RouteRequest(ctx context.Context, requestType string
                 attribute.String("selected_model", modelID),
                 attribute.String("selection_reason", "capability_match"),
             )
-            span.SetStatus(trace.StatusOK, "model selected")
+            span.SetStatus(codes.Ok, "model selected")
             return modelID, nil
         }
     }
@@ -99,13 +99,13 @@ func (cr *CapabilityRouter) RouteRequest(ctx context.Context, requestType string
             attribute.String("selected_model", fallbackModel),
             attribute.String("selection_reason", "fallback"),
         )
-        span.SetStatus(trace.StatusOK, "fallback model selected")
+        span.SetStatus(codes.Ok, "fallback model selected")
         return fallbackModel, nil
     }
 
     err := fmt.Errorf("no model supports %s/%s", requestType, mediaType)
     span.RecordError(err)
-    span.SetStatus(trace.StatusError, err.Error())
+    span.SetStatus(codes.Error, err.Error())
     return "", err
 }
 
@@ -166,7 +166,7 @@ func (camm *CapabilityAwareMultimodal) Process(ctx context.Context, requestType 
     modelID, err := camm.router.RouteRequest(ctx, requestType, mediaType)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
 
@@ -175,7 +175,7 @@ func (camm *CapabilityAwareMultimodal) Process(ctx context.Context, requestType 
     if model == nil {
         err := fmt.Errorf("model %s not found", modelID)
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
 
@@ -183,7 +183,7 @@ func (camm *CapabilityAwareMultimodal) Process(ctx context.Context, requestType 
     // result := model.Process(ctx, data)
 
     span.SetAttributes(attribute.String("model_used", modelID))
-    span.SetStatus(trace.StatusOK, "processed with capability-aware routing")
+    span.SetStatus(codes.Ok, "processed with capability-aware routing")
 
     return nil, nil
 }

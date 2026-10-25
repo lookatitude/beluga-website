@@ -14,12 +14,12 @@ A semantic image search system uses multimodal embeddings to understand both ima
 
 ## Solution Architecture
 
-Beluga AI provides multimodal embedding support that handles both text and image inputs, vector stores for fast similarity search, and semantic retrieval strategies. The system indexes product images as vectors, processes natural language queries into the same embedding space, and returns visually similar products ranked by relevance.
+Beluga AI's `embedding.Embedder` interface is text-only, so this design bridges images into text space with a vision-capable chat model: each product photo is sent to the model as a `schema.ImagePart`, the model writes a search-oriented description, and that description is embedded and stored in a vector store. Natural language queries are embedded with the same embedder and matched against the descriptions. If you run a true multimodal encoder (for example a CLIP service), you can store its vectors with the same `VectorStore.Add` / `Search` calls instead.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│   Product    │───▶│    Image     │───▶│  Multimodal  │
-│   Images     │    │   Encoder    │    │  Embeddings  │
+│   Product    │───▶│  Vision LLM  │───▶│ Description  │
+│   Images     │    │  (describe)  │    │  Embeddings  │
 └──────────────┘    └──────────────┘    └──────┬───────┘
                                                │
                                                ▼
@@ -39,7 +39,7 @@ Beluga AI provides multimodal embedding support that handles both text and image
 
 ### Image Indexing Pipeline
 
-The indexing pipeline generates embeddings for product images and stores them in a vector database with metadata:
+The indexing pipeline describes each product image with a vision model, embeds the description, and stores it in a vector database with metadata:
 
 ```go
 package main
@@ -48,52 +48,84 @@ import (
     "context"
     "fmt"
     "log"
+    "os"
 
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
     "github.com/lookatitude/beluga-ai/v2/rag/embedding"
     "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
     "github.com/lookatitude/beluga-ai/v2/schema"
 
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
     _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
     _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type ImageSearchSystem struct {
-    embedder embedding.Embedder
+    vision   llm.ChatModel      // describes images
+    embedder embedding.Embedder // embeds descriptions and queries
     store    vectorstore.VectorStore
 }
 
 func NewImageSearchSystem(ctx context.Context) (*ImageSearchSystem, error) {
-    embedder, err := embedding.New("openai", embedding.ProviderConfig{
-        Model: "text-embedding-3-large", // Supports multimodal
+    vision, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o", // vision-capable model
+    })
+    if err != nil {
+        return nil, fmt.Errorf("create vision model: %w", err)
+    }
+
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-large",
     })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", vectorstore.ProviderConfig{
-        ConnectionString: "postgresql://localhost/images",
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: "postgresql://localhost/images",
+        Options: map[string]any{
+            "table":     "product_images",
+            "dimension": float64(3072), // text-embedding-3-large
+        },
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
     }
 
-    return &ImageSearchSystem{
-        embedder: embedder,
-        store:    store,
-    }, nil
+    return &ImageSearchSystem{vision: vision, embedder: embedder, store: store}, nil
 }
 
-func (s *ImageSearchSystem) IndexImage(ctx context.Context, productID string, imageData []byte, metadata map[string]interface{}) error {
-    // Generate embedding for image
-    embeddings, err := s.embedder.Embed(ctx, []string{string(imageData)})
+// describeImage asks a vision model for a search-oriented description.
+func (s *ImageSearchSystem) describeImage(ctx context.Context, imageData []byte, mimeType string) (string, error) {
+    msg := &schema.HumanMessage{Parts: []schema.ContentPart{
+        schema.TextPart{Text: "Describe this product photo for a search index: color, material, style, shape. One paragraph."},
+        schema.ImagePart{Data: imageData, MimeType: mimeType},
+    }}
+    resp, err := s.vision.Generate(ctx, []schema.Message{msg})
     if err != nil {
-        return fmt.Errorf("embed image: %w", err)
+        return "", err
+    }
+    return resp.Text(), nil
+}
+
+func (s *ImageSearchSystem) IndexImage(ctx context.Context, productID string, imageData []byte, mimeType string, metadata map[string]any) error {
+    description, err := s.describeImage(ctx, imageData, mimeType)
+    if err != nil {
+        return fmt.Errorf("describe image: %w", err)
     }
 
-    // Create document with metadata
+    vec, err := s.embedder.EmbedSingle(ctx, description)
+    if err != nil {
+        return fmt.Errorf("embed description: %w", err)
+    }
+
     doc := schema.Document{
-        Content: fmt.Sprintf("Product %s", productID),
-        Metadata: map[string]interface{}{
+        ID:      productID,
+        Content: description,
+        Metadata: map[string]any{
             "product_id": productID,
             "type":       "image",
         },
@@ -102,42 +134,53 @@ func (s *ImageSearchSystem) IndexImage(ctx context.Context, productID string, im
         doc.Metadata[k] = v
     }
 
-    // Store in vector database
-    if err := s.store.Add(ctx, []schema.Document{doc}, [][]float64{embeddings[0]}); err != nil {
+    if err := s.store.Add(ctx, []schema.Document{doc}, [][]float32{vec}); err != nil {
         return fmt.Errorf("store image: %w", err)
     }
 
     log.Printf("Indexed image for product %s", productID)
     return nil
 }
+
+func main() {
+    ctx := context.Background()
+    sys, err := NewImageSearchSystem(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    img, err := os.ReadFile("couch.jpg")
+    if err != nil {
+        log.Fatal(err)
+    }
+    if err := sys.IndexImage(ctx, "sku-123", img, "image/jpeg", nil); err != nil {
+        log.Fatal(err)
+    }
+}
 ```
 
 ### Semantic Search
 
-Text queries are embedded and matched against image embeddings using vector similarity:
+Text queries are embedded and matched against the image-description embeddings using vector similarity:
 
 ```go
 func (s *ImageSearchSystem) Search(ctx context.Context, query string, topK int) ([]SearchResult, error) {
-    // Generate embedding for text query
-    queryEmbeddings, err := s.embedder.Embed(ctx, []string{query})
+    // Embed the text query into the same space as the image descriptions
+    queryVec, err := s.embedder.EmbedSingle(ctx, query)
     if err != nil {
         return nil, fmt.Errorf("embed query: %w", err)
     }
 
-    // Search vector store
-    results, err := s.store.SimilaritySearch(ctx, queryEmbeddings[0],
-        vectorstore.WithTopK(topK),
+    results, err := s.store.Search(ctx, queryVec, topK,
         vectorstore.WithThreshold(0.7),
     )
     if err != nil {
         return nil, fmt.Errorf("similarity search: %w", err)
     }
 
-    // Convert to search results
     searchResults := make([]SearchResult, len(results))
     for i, result := range results {
         searchResults[i] = SearchResult{
-            ProductID: result.Metadata["product_id"].(string),
+            ProductID: result.ID,
             Score:     result.Score,
             Metadata:  result.Metadata,
         }
@@ -149,7 +192,7 @@ func (s *ImageSearchSystem) Search(ctx context.Context, query string, topK int) 
 type SearchResult struct {
     ProductID string
     Score     float64
-    Metadata  map[string]interface{}
+    Metadata  map[string]any
 }
 ```
 
@@ -197,7 +240,7 @@ func rankResults(results []SearchResult, query string) []SearchResult {
 
 ### Batch Indexing
 
-Process large image collections efficiently with batched embedding:
+Process large image collections efficiently by describing each image and embedding the descriptions in batches:
 
 ```go
 func (s *ImageSearchSystem) IndexBatch(ctx context.Context, images []ImageData) error {
@@ -206,12 +249,17 @@ func (s *ImageSearchSystem) IndexBatch(ctx context.Context, images []ImageData) 
         end := min(i+batchSize, len(images))
         batch := images[i:end]
 
-        texts := make([]string, len(batch))
+        descriptions := make([]string, len(batch))
         for j, img := range batch {
-            texts[j] = string(img.Data)
+            d, err := s.describeImage(ctx, img.Data, img.MimeType)
+            if err != nil {
+                return fmt.Errorf("describe %s: %w", img.ProductID, err)
+            }
+            descriptions[j] = d
         }
 
-        embeddings, err := s.embedder.Embed(ctx, texts)
+        // One embedding call per batch
+        embeddings, err := s.embedder.Embed(ctx, descriptions)
         if err != nil {
             return fmt.Errorf("embed batch %d: %w", i/batchSize, err)
         }
@@ -219,8 +267,9 @@ func (s *ImageSearchSystem) IndexBatch(ctx context.Context, images []ImageData) 
         docs := make([]schema.Document, len(batch))
         for j, img := range batch {
             docs[j] = schema.Document{
-                Content: fmt.Sprintf("Product %s", img.ProductID),
-                Metadata: map[string]interface{}{
+                ID:      img.ProductID,
+                Content: descriptions[j],
+                Metadata: map[string]any{
                     "product_id": img.ProductID,
                     "type":       "image",
                 },
@@ -237,7 +286,8 @@ func (s *ImageSearchSystem) IndexBatch(ctx context.Context, images []ImageData) 
 type ImageData struct {
     ProductID string
     Data      []byte
-    Metadata  map[string]interface{}
+    MimeType  string
+    Metadata  map[string]any
 }
 ```
 
@@ -247,7 +297,6 @@ Track search performance and relevance metrics:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )

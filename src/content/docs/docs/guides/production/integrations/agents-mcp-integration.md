@@ -182,18 +182,34 @@ package main
 import (
     "context"
     "log"
+    "strings"
 
     "github.com/lookatitude/beluga-ai/v2/agent"
     "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
     "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
+type TextInput struct {
+    Text string `json:"text" description:"Input text" required:"true"`
+}
+
 func main() {
     ctx := context.Background()
 
+    upper := tool.NewFuncTool("upper", "Uppercases text",
+        func(ctx context.Context, in TextInput) (*tool.Result, error) {
+            return tool.TextResult(strings.ToUpper(in.Text)), nil
+        },
+    )
+    lower := tool.NewFuncTool("lower", "Lowercases text",
+        func(ctx context.Context, in TextInput) (*tool.Result, error) {
+            return tool.TextResult(strings.ToLower(in.Text)), nil
+        },
+    )
+
     // Build agent with tools
     a := agent.New("assistant",
-        agent.WithTools([]tool.Tool{myTool1, myTool2}),
+        agent.WithTools([]tool.Tool{upper, lower}),
         // ... other agent options
     )
 
@@ -267,13 +283,7 @@ if err != nil {
 allTools = append(allTools, remoteTools...)
 
 // Registry tools
-for _, name := range reg.List() {
-    t, err := reg.Get(name)
-    if err != nil {
-        log.Fatalf("get tool %s: %v", name, err)
-    }
-    allTools = append(allTools, t)
-}
+allTools = append(allTools, reg.All()...)
 
 a := agent.New("multi-source-agent",
     agent.WithLLM(model),

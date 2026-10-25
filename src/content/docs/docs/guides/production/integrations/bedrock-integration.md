@@ -252,16 +252,22 @@ model, err := llm.New("bedrock", config.ProviderConfig{
 
 ### LLM Router with Bedrock
 
-Use Beluga's LLM Router to route between Bedrock models based on cost, latency, or capability:
+Use Beluga's LLM router to spread load across Bedrock models, or fail over from one model to another. `llm.NewRouter` picks a model per request with a `llm.ModelSelector` (built-ins: `RoundRobin` and `FailoverChain`; implement `Select` yourself for cost- or capability-based routing). `llm.NewFailoverRouter` tries each model in order until one succeeds:
 
 ```go
 import "github.com/lookatitude/beluga-ai/v2/llm"
 
+// Round-robin between two Bedrock models.
 router := llm.NewRouter(
-	llm.Route("complex", complexModel),
-	llm.Route("simple", simpleModel),
+	llm.WithModels(sonnetModel, haikuModel),
+	llm.WithStrategy(&llm.RoundRobin{}),
 )
+
+// Or: primary model with automatic failover to a cheaper one.
+failover := llm.NewFailoverRouter(sonnetModel, haikuModel)
 ```
+
+Both routers implement `llm.ChatModel`, so they can be passed anywhere a model is expected.
 
 ## Configuration Reference
 

@@ -30,7 +30,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
 	"github.com/lookatitude/beluga-ai/v2/schema"
 )
@@ -86,7 +86,7 @@ func (gv *GraphValidator) ValidateGraph(ctx context.Context, startID string) err
 
 	if err := gv.validateNode(ctx, startID, 0); err != nil {
 		span.RecordError(err)
-		span.SetStatus(trace.StatusError, err.Error())
+		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("graph validation failed: %w", err)
 	}
 
@@ -96,7 +96,7 @@ func (gv *GraphValidator) ValidateGraph(ctx context.Context, startID string) err
 		log.Printf("Warning: %d unreachable nodes found", len(unreachable))
 	}
 
-	span.SetStatus(trace.StatusOK, "graph validation passed")
+	span.SetStatus(codes.Ok, "graph validation passed")
 	return nil
 }
 

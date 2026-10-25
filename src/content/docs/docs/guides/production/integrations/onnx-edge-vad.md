@@ -1,6 +1,6 @@
 ---
-title: ONNX Edge VAD (Silero)
-description: "Run Silero VAD with ONNX Runtime on edge devices for offline, low-latency voice activity detection in Beluga AI pipelines."
+title: Edge VAD (Silero Provider)
+description: "Run voice activity detection on edge devices with the Beluga AI Silero and WebRTC VAD providers, and plug in your own ONNX model."
 head:
   - tag: meta
     attrs:
@@ -8,17 +8,20 @@ head:
       content: "ONNX VAD, Silero VAD, edge computing, voice activity detection, Beluga AI, offline VAD, Go voice pipeline"
 ---
 
-Running VAD on the edge eliminates the network round-trip for speech detection, which reduces latency and keeps audio data local for privacy-sensitive deployments. Silero VAD with ONNX Runtime enables voice activity detection on resource-constrained devices such as Raspberry Pi, embedded gateways, and kiosk hardware. Choose this approach when you need offline-capable VAD or when sending raw audio to a cloud service is not acceptable. This guide covers configuring the Silero VAD provider for low-resource environments.
+Running VAD on the edge eliminates the network round-trip for speech detection, which reduces latency and keeps audio data local for privacy-sensitive deployments. Beluga's VAD providers are pure computation on PCM samples with no network calls, so they run fine on resource-constrained devices such as Raspberry Pi, embedded gateways, and kiosk hardware. This guide covers configuring the `silero` provider for low-resource environments, and what to do if you need real ONNX model inference.
 
 ## Overview
 
-The `voice/vad` package's Silero provider loads an ONNX model to detect speech in audio frames. By tuning `Threshold`, `FrameSize`, and `SampleRate`, you can balance detection accuracy against CPU and memory usage on edge hardware.
+The `voice/vad/providers/silero` package registers a `"silero"` detector with the voice VAD registry (`voice.NewVAD`). It implements `voice.ActivityDetector`: each call to `DetectActivity` takes a chunk of 16-bit PCM audio and returns a `voice.ActivityResult` with `IsSpeech`, an event type (`VADSpeechStart`, `VADSpeechEnd`, `VADSilence`), and a confidence.
+
+:::caution[No ONNX inference today]
+Despite its name, the `silero` provider does **not** load or run the Silero ONNX model. It accepts a `model_path` setting but ignores it, and scores speech with an energy-based approximation of Silero's behavior. The package is also compiled only when cgo is enabled (`//go:build cgo`). If you need real Silero model inference, implement `voice.ActivityDetector` yourself on top of an ONNX Runtime binding and register it with `voice.RegisterVAD`, as shown below.
+:::
 
 ## Prerequisites
 
-- Go 1.26 or later
-- Silero VAD ONNX model file (`silero_vad.onnx`)
-- ONNX Runtime libraries available on target platform
+- Go 1.26 or later, with cgo enabled for the `silero` package (`CGO_ENABLED=1`)
+- 16-bit little-endian mono PCM audio at 8 kHz or 16 kHz
 
 ## Installation
 
@@ -26,11 +29,9 @@ The `voice/vad` package's Silero provider loads an ONNX model to detect speech i
 go get github.com/lookatitude/beluga-ai/v2
 ```
 
-Ensure the ONNX model is available on the edge device (bundled in the binary, downloaded at startup, or placed in read-only storage).
-
 ## Configuration
 
-Create a Silero VAD provider optimized for edge deployment:
+Create the detector through the registry:
 
 ```go
 package main
@@ -39,110 +40,121 @@ import (
     "context"
     "fmt"
     "log"
-    "os"
-    "path/filepath"
-    "time"
 
-    "github.com/lookatitude/beluga-ai/v2/voice/vad"
+    "github.com/lookatitude/beluga-ai/v2/voice"
     _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {
     ctx := context.Background()
 
-    modelPath := os.Getenv("SILERO_VAD_MODEL_PATH")
-    if modelPath == "" {
-        modelPath = filepath.Join("/opt/vad", "silero_vad.onnx")
-    }
-
-    cfg := vad.DefaultConfig()
-    provider, err := vad.NewProvider(ctx, "silero", cfg,
-        vad.WithModelPath(modelPath),
-        vad.WithThreshold(0.5),
-        vad.WithSampleRate(16000),
-        vad.WithFrameSize(512),
-        vad.WithMinSpeechDuration(200*time.Millisecond),
-        vad.WithMaxSilenceDuration(500*time.Millisecond),
-    )
+    detector, err := voice.NewVAD("silero", map[string]any{
+        "threshold":   0.5,
+        "sample_rate": 16000,
+    })
     if err != nil {
         log.Fatalf("Failed to create VAD provider: %v", err)
     }
 
-    audio := make([]byte, 1024)
-    speech, err := provider.Process(ctx, audio)
+    chunk := make([]byte, 1024) // 512 samples of 16-bit audio
+    result, err := detector.DetectActivity(ctx, chunk)
     if err != nil {
         log.Fatalf("Processing failed: %v", err)
     }
-    fmt.Printf("Speech detected: %v\n", speech)
+    fmt.Printf("Speech detected: %v (%s)\n", result.IsSpeech, result.EventType)
 }
 ```
+
+If your edge toolchain builds with `CGO_ENABLED=0`, use the pure-Go `webrtc` provider instead (`voice.NewVAD("webrtc", map[string]any{"threshold": 1000.0})`) or the built-in `voice.NewEnergyVAD`.
 
 ## Usage
 
-### ProcessStream for Real-Time Pipelines
+### Real-Time Capture Loop
 
-Use `ProcessStream` when processing a live microphone stream on the edge. Feed audio chunks from a capture loop and consume `VADResult` values for downstream logic:
+Call `DetectActivity` for each chunk from your capture loop and forward only speech:
 
 ```go
-audioCh := make(chan []byte, 16)
-resultCh, err := provider.ProcessStream(ctx, audioCh)
-if err != nil {
-    log.Fatalf("Stream setup failed: %v", err)
-}
-
-go func() {
-    for result := range resultCh {
-        if result.Speech {
-            // Forward speech frames to STT or processing pipeline
+func captureLoop(ctx context.Context, detector voice.ActivityDetector, chunks <-chan []byte, forward func([]byte)) error {
+    for chunk := range chunks {
+        result, err := detector.DetectActivity(ctx, chunk)
+        if err != nil {
+            return fmt.Errorf("vad: %w", err)
+        }
+        if result.IsSpeech {
+            forward(chunk) // to STT or the rest of the pipeline
         }
     }
-}()
-
-// Feed audioCh from microphone capture loop
+    return nil
+}
 ```
 
-### Model Loading and Startup
+Inside a `voice.VoicePipeline`, pass the detector with `voice.WithVAD(detector)`; the pipeline then emits start and end-of-utterance control frames for you.
 
-The Silero provider loads the ONNX model on first use (lazy loading). To avoid first-request latency, warm up with a dummy `Process` call during initialization:
+### Plugging in a Real ONNX Model
+
+The registry accepts any `voice.ActivityDetector`. Wrap your ONNX Runtime session in a type with a `DetectActivity` method and register a factory:
 
 ```go
-// Warm up model during init
-_, _ = provider.Process(ctx, make([]byte, 1024))
+type onnxVAD struct {
+    infer     func(samples []float32) (float32, error) // your ONNX Runtime call
+    threshold float32
+    speaking  bool
+}
+
+func (v *onnxVAD) DetectActivity(ctx context.Context, audio []byte) (voice.ActivityResult, error) {
+    samples := make([]float32, len(audio)/2)
+    for i := range samples {
+        samples[i] = float32(int16(binary.LittleEndian.Uint16(audio[2*i:]))) / 32768
+    }
+    p, err := v.infer(samples)
+    if err != nil {
+        return voice.ActivityResult{}, err
+    }
+    isSpeech := p >= v.threshold
+    event := voice.VADSilence
+    switch {
+    case isSpeech && !v.speaking:
+        event = voice.VADSpeechStart
+    case !isSpeech && v.speaking:
+        event = voice.VADSpeechEnd
+    }
+    v.speaking = isSpeech
+    return voice.ActivityResult{IsSpeech: isSpeech, EventType: event, Confidence: float64(p)}, nil
+}
+
+func init() {
+    voice.RegisterVAD("silero-onnx", func(cfg map[string]any) (voice.ActivityDetector, error) {
+        path, _ := cfg["model_path"].(string)
+        infer, err := loadSileroModel(path) // your loader
+        if err != nil {
+            return nil, err
+        }
+        return &onnxVAD{infer: infer, threshold: 0.5}, nil
+    })
+}
 ```
 
 ## Configuration Reference
 
-| Option              | Description         | Default  | Edge Notes                     |
-|---------------------|---------------------|----------|--------------------------------|
-| `ModelPath`         | Path to ONNX model  | -        | Use local storage or /tmp      |
-| `Threshold`         | Detection threshold  | 0.5      | 0.5-0.6 typical                |
-| `FrameSize`         | Frame size (samples) | 512      | Smaller = less CPU, coarser    |
-| `SampleRate`        | Sample rate (Hz)     | 16000    | Match input audio              |
-| `MinSpeechDuration` | Min speech duration  | 250 ms   | Tune to reduce false triggers  |
-| `MaxSilenceDuration`| Max silence duration | 500 ms   | Tune for turn-taking behavior  |
+| Key           | Description                         | Default | Edge Notes                 |
+|---------------|-------------------------------------|---------|----------------------------|
+| `threshold`   | Speech probability threshold (0-1)  | 0.5     | 0.5-0.6 typical            |
+| `sample_rate` | Audio sample rate (Hz)              | 16000   | 8000 or 16000; match input |
+| `model_path`  | Accepted but currently ignored      | -       | See the caution above      |
 
 ## Troubleshooting
 
-### Model load failed or file not found
+### "build constraints exclude all Go files" for the silero package
 
-Verify the path, file permissions, and that the model file exists on the device. Use absolute paths. Check available disk space and memory.
+The package builds only with cgo. Enable cgo (`CGO_ENABLED=1` and a C toolchain for the target), or switch to the `webrtc` provider.
 
 ### High CPU usage on edge
 
-Reduce the effective frame rate (process every second frame), increase `FrameSize` slightly, or use a smaller Silero variant if available. Profile with `pprof` to identify bottlenecks.
+Process larger chunks (fewer calls), or skip every other chunk during long silences. Profile with `pprof` to identify bottlenecks.
 
-### ONNX Runtime not found
+### Too many false triggers
 
-Ensure ONNX Runtime libraries are installed or bundled for your target OS/architecture. Build with appropriate CGO tags.
-
-## Advanced Topics
-
-### Production Deployment
-
-- Warm up the model during initialization to avoid first-request latency
-- Monitor model load time, `Process` latency, and memory usage
-- Plan for model updates (file replacement + restart) without breaking active sessions
-- Use absolute model paths to avoid working directory issues on embedded systems
+Raise `threshold`, and smooth decisions over time with a wrapper detector; see [Heuristic Turn Detection Tuning](/docs/guides/production/integrations/turn-heuristic-tuning).
 
 ## Related Resources
 

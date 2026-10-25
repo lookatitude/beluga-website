@@ -5,44 +5,52 @@ import CodeProof from "@/components/marketing/CodeProof.astro";
 import LayerStack from "@/components/marketing/LayerStack.astro";
 
 const heroCode = `import (
-    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "fmt"
+
+    "github.com/lookatitude/beluga-ai/v2/config"
     "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-model, _ := llm.New("anthropic", llm.Config{Model: "claude-sonnet-4-6"})
+model, err := llm.New("anthropic", config.ProviderConfig{Model: "claude-sonnet-4-6"})
+if err != nil {
+    return err
+}
 
-stream, _ := model.Stream(ctx, []schema.Message{
-    {Role: schema.RoleUser, Content: "explain iter.Seq2 in one sentence"},
-})
-
-for chunk, err := range stream.Range {
-    if err != nil { break }
-    fmt.Print(chunk.Content)
+msgs := []schema.Message{schema.NewHumanMessage("explain iter.Seq2 in one sentence")}
+for chunk, err := range model.Stream(ctx, msgs) {
+    if err != nil {
+        return err
+    }
+    fmt.Print(chunk.Delta)
 }`;
 
-const middlewareCode = `base, _ := llm.New("anthropic", llm.Config{})
+const middlewareCode = `// Middleware is func(ChatModel) ChatModel. Guard checks, tracing,
+// rate limiting and fallback compose around the same model instance.
+guards := guard.NewPipeline(guard.Input(guard.NewPromptInjectionDetector()))
 
-// Four lines compose guardrails, tracing, rate limiting, and retry
-// around the same Model instance. Middleware is func(T) T — nothing
-// more, nothing less.
 model := llm.ApplyMiddleware(base,
-    llm.WithGuardrails(guardPipeline),
+    llm.WithHooks(llm.Hooks{BeforeGenerate: func(ctx context.Context, msgs []schema.Message) error {
+        _, err := guards.ValidateInput(ctx, lastUserText(msgs))
+        return err
+    }}),
     llm.WithTracing(),
-    llm.WithRateLimit(rpm, tpm),
-    llm.WithRetry(3),
+    llm.WithProviderLimits(llm.ProviderLimits{RPM: 60, MaxConcurrent: 8}),
+    llm.WithFallback(backup),
 )`;
 
 const plannerCode = `// Swap reasoning strategies with one line.
 // Eight planners share the same interface, from ReAct to LATS.
-agent, _ := agent.New(ctx,
+researcher := agent.New("researcher",
     agent.WithLLM(model),
-    agent.WithPlanner("lats"),   // was "react"
-    agent.WithTools(tools...),
+    agent.WithPlannerName("lats"), // was "react"
+    agent.WithTools(tools),
 )`;
 
 const providerCode = `// 110 providers across 19 categories. Every provider
 // registers itself in init(). Import for side-effect, and
-// call <pkg>.New — middleware, hooks, and tracing attach.
+// call <pkg>.New, then compose middleware and hooks.
 import (
     _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
     _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
@@ -55,13 +63,23 @@ const workflowCode = `import (
     _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )
 
-store, _ := workflow.New("temporal", workflow.Config{
-    Endpoint: "temporal:7233",
+executor, err := workflow.New("temporal", workflow.Config{
+    Extra: map[string]any{"client": temporalClient, "task_queue": "agents"},
 })
+if err != nil {
+    return err
+}
 
-// Agents survive restarts. The workflow store replays from
-// an event log — no application-level checkpointing.
-wf, _ := store.Resume(ctx, runID)`;
+// Agents survive restarts. Temporal replays the workflow from its
+// event history — no application-level checkpointing.
+handle, err := executor.Execute(ctx, researchWorkflow, workflow.WorkflowOptions{
+    ID:    runID,
+    Input: question,
+})
+if err != nil {
+    return err
+}
+result, err := handle.Result(ctx)`;
 
 const providerRows = [
   ["LLM", "22 providers", "anthropic · openai · bedrock · google · groq · cohere · mistral · deepseek · xai · openrouter · ollama · fireworks · together · perplexity · azure · cerebras · huggingface · qwen · llama · sambanova · bifrost · litellm"],
@@ -233,7 +251,7 @@ const jsonLd = JSON.stringify({
   <EditorialSection
     eyebrow="110 PROVIDERS · 19 CATEGORIES"
     headline="One import. Fully wired."
-    deck="Every provider registers itself in init(). Import for side-effect, call llm.New or vectorstore.New — middleware, hooks, and metrics attach without a line of wiring."
+    deck="Every provider registers itself in init(). Import for side-effect, call llm.New or vectorstore.New, and compose middleware, hooks, and tracing on the result with one ApplyMiddleware call."
     layout="split"
   >
     <CodeProof
@@ -286,7 +304,7 @@ const jsonLd = JSON.stringify({
     <CodeProof
       code={workflowCode}
       lang="go"
-      title="workflow/resume.go"
+      title="workflow/durable.go"
       cite={{ label: "Workflow durability guide", href: "/docs/guides/production/workflow-durability/" }}
     />
   </EditorialSection>

@@ -78,7 +78,7 @@ func reportActivity(ctx context.Context, input any) (any, error) {
 
 A `WorkflowFunc` receives a `WorkflowContext` for deterministic execution. The `WorkflowContext` provides methods for executing activities, waiting for signals, and sleeping -- all of which are recorded in the event log for durability. The workflow itself must be deterministic: given the same inputs and signals, it must produce the same sequence of activity calls. This is why you use `ctx.ExecuteActivity()` rather than calling functions directly -- the context tracks which activities have already completed during replay.
 
-The `WaitForSignal` call pauses the workflow until an external signal arrives or the timeout expires. This is how human-in-the-loop approval works: the workflow suspends, a human reviews the research findings, and sends an approval or rejection signal. During the wait, the workflow's state is persisted, so a process restart will resume the wait where it left off.
+`ReceiveSignal` returns an iterator over payloads delivered to the named signal; taking the first payload pauses the workflow until an external signal arrives. Iteration ends when the workflow context is canceled, so the wait is bounded by the workflow's `Timeout` (set in Step 3). This is how human-in-the-loop approval works: the workflow suspends, a human reviews the research findings, and sends an approval or rejection signal. During the wait, the workflow's state is persisted, so a process restart will resume the wait where it left off.
 
 ```go
 func researchWorkflow(ctx workflow.WorkflowContext, input any) (any, error) {
@@ -87,8 +87,8 @@ func researchWorkflow(ctx workflow.WorkflowContext, input any) (any, error) {
     // Step 1: Execute the research activity with retry.
     findings, err := ctx.ExecuteActivity(researchActivity, topic,
         workflow.WithActivityRetry(workflow.RetryPolicy{
-            MaxAttempts:  3,
-            InitialDelay: 5 * time.Second,
+            MaxAttempts:     3,
+            InitialInterval: 5 * time.Second,
         }),
         workflow.WithActivityTimeout(10 * time.Minute),
     )
@@ -97,13 +97,19 @@ func researchWorkflow(ctx workflow.WorkflowContext, input any) (any, error) {
     }
 
     // Step 2: Wait for human approval signal.
-    signal, err := ctx.WaitForSignal("approval", 24*time.Hour)
-    if err != nil {
-        return nil, fmt.Errorf("approval timed out: %w", err)
+    received, approved := false, false
+    for payload, err := range ctx.ReceiveSignal("approval") {
+        if err != nil {
+            return nil, fmt.Errorf("waiting for approval: %w", err)
+        }
+        received = true
+        approved, _ = payload.(bool)
+        break
     }
-
-    approved, ok := signal.Payload.(bool)
-    if !ok || !approved {
+    if !received {
+        return nil, fmt.Errorf("approval not received: %w", ctx.Err())
+    }
+    if !approved {
         return "Workflow rejected by reviewer.", nil
     }
 
@@ -151,7 +157,7 @@ func main() {
 
 ## Step 4: Send Signals
 
-External systems or humans send signals to running workflows to provide data, approve actions, or trigger transitions. The signal name ("approval") must match what the workflow is waiting for in its `WaitForSignal` call. In a production system, this would be called from an API handler when a human clicks "Approve" in a review dashboard.
+External systems or humans send signals to running workflows to provide data, approve actions, or trigger transitions. The signal name ("approval") must match what the workflow is waiting for in its `ReceiveSignal` call. In a production system, this would be called from an API handler when a human clicks "Approve" in a review dashboard.
 
 ```go
 func approveWorkflow(ctx context.Context, executor workflow.DurableExecutor, workflowID string) error {
@@ -184,15 +190,32 @@ func waitForResult(ctx context.Context, handle workflow.WorkflowHandle) {
 For production deployments requiring distributed execution across multiple workers, persistent storage with a database backend, and advanced features like visibility queries and workflow versioning, use the Temporal provider. The provider wraps your `WorkflowFunc` and `ActivityFunc` types into native Temporal workflows and activities, handling serialization, retries, and signal routing transparently. Your workflow code does not change -- only the provider name and configuration.
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
+import (
+    "go.temporal.io/sdk/client"
+
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
+)
+
+// Dial the Temporal server with the Temporal Go SDK, then hand the client to Beluga.
+temporalClient, err := client.Dial(client.Options{
+    HostPort:  "localhost:7233",
+    Namespace: "default",
+})
+if err != nil {
+    return err
+}
+defer temporalClient.Close()
 
 executor, err := workflow.New("temporal", workflow.Config{
     Extra: map[string]any{
-        "host":       "localhost:7233",
-        "namespace":  "default",
-        "task_queue": "beluga-tasks",
+        "client":     temporalClient, // required
+        "task_queue": "beluga-tasks", // optional, defaults to "beluga-workflows"
     },
 })
+if err != nil {
+    return err
+}
 ```
 
 The Temporal provider wraps your `WorkflowFunc` and `ActivityFunc` types into native Temporal workflows and activities, handling serialization, retries, and signal routing transparently.

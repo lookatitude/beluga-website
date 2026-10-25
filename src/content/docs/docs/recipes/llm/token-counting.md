@@ -38,7 +38,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
     "github.com/lookatitude/beluga-ai/v2/schema"
 )
@@ -103,7 +103,7 @@ func (tc *TokenCounter) CountTokens(ctx context.Context, text string, requireExa
     count, err := tc.exactCounter(text)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return 0, err
     }
 
