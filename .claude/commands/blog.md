@@ -36,7 +36,7 @@ Proceed anyway? (no — stop and re-run; yes — continue as blog ignoring the l
 ### Step 1 — Source material
 Identify what you're writing from. Typically one of:
 - A recent framework release (read the `CHANGELOG.md` body from the docs bundle, the release notes, the associated PRs in `lookatitude/beluga-ai`)
-- A feature brief from the workspace (`../research/` or `../.wiki/briefs/` when running inside the multi-repo workspace)
+- A feature brief from the workspace (`../research/` when running inside the multi-repo workspace)
 - An existing tutorial, guide, or recipe in `src/content/docs/docs/` that needs a short-form companion
 
 If you need original research (competitive analysis, benchmarks, user surveys, community sentiment), STOP and file a research brief upward — the workspace researcher handles investigation. Do not try to do it here.
