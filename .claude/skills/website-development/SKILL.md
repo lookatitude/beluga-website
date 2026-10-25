@@ -7,7 +7,7 @@ description: Website development patterns for the Beluga AI docs and marketing s
 
 ## Tech Stack
 
-- **Framework**: Astro 5 with Starlight documentation theme
+- **Framework**: Astro 7 with Starlight (0.42) documentation theme
 - **Styling**: Tailwind CSS 4 (via `@tailwindcss/vite` plugin)
 - **Components**: Astro components (`.astro`) — use React 19 (`.tsx`) only when client-side interactivity is required
 - **Build**: Vite 7, TypeScript 5

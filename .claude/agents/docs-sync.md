@@ -93,7 +93,7 @@ Output a structured report:
 
 ### Existing content to update
 - [ ] `src/content/docs/docs/guides/<file>.mdx` — mentions <old API>; framework changed to <new API>
-- [ ] `src/content/docs/docs/start/quick-start.mdx` — example uses deprecated <X>
+- [ ] `src/content/docs/docs/start/quick-start.md` — example uses deprecated <X>
 
 ### No action needed
 - Bug fix: <description> — no content impact
