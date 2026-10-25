@@ -16,7 +16,7 @@ JSON Schema validation is useful for verifying that data entering or leaving you
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - Familiarity with JSON Schema format (draft-07 or later)
 

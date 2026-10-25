@@ -24,7 +24,7 @@ This integration uses the Kubernetes Go client (`client-go`) to create and manag
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Access to a Kubernetes cluster (local or remote)
 - `kubectl` configured with cluster access
 - Beluga AI framework installed

@@ -16,7 +16,7 @@ The Azure Speech integration uses the `voice/tts` package registry to create a T
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Azure account with Speech Services resource
 - Azure subscription key and region
 

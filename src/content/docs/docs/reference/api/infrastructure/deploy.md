@@ -47,7 +47,7 @@ import (
 )
 
 dockerfile, err := deploy.GenerateDockerfile(deploy.DockerfileConfig{
-    GoVersion:   "1.23",
+    GoVersion:   "1.26", // must match or exceed the go directive in your go.mod
     BaseImage:   "gcr.io/distroless/static-debian12",
     AgentConfig: "config/agent.yaml",
     Port:        8080,
@@ -63,7 +63,7 @@ The generated Dockerfile:
 
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM golang:1.23 AS builder
+FROM golang:1.26 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

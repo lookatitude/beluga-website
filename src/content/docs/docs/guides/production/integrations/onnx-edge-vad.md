@@ -16,7 +16,7 @@ The `voice/vad` package's Silero provider loads an ONNX model to detect speech i
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Silero VAD ONNX model file (`silero_vad.onnx`)
 - ONNX Runtime libraries available on target platform
 

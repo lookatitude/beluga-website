@@ -16,7 +16,7 @@ A health check system that monitors LLM provider availability, aggregates compon
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Understanding of Beluga AI's core architecture
 
 ## Step 1: Define Health Check Types

@@ -14,7 +14,7 @@ General-purpose APM tools show you that an LLM call took 800ms, but LangSmith sh
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI application
 - A LangSmith account and API key (from [smith.langchain.com](https://smith.langchain.com))
 

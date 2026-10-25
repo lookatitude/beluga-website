@@ -16,7 +16,7 @@ The `voice/turndetection` package's heuristic provider offers a lightweight, con
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 
 ## Installation
 

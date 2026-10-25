@@ -10,14 +10,14 @@ head:
 
 ## System Requirements
 
-- **Go 1.23+** — Beluga AI uses `iter.Seq2[T, error]` (range-over-func iterators) for all streaming APIs. This feature was introduced in Go 1.23, so earlier versions will not compile the framework.
+- **Go 1.26+** — the framework `go.mod` declares `go 1.26.0`. Beluga AI uses `iter.Seq2[T, error]` (range-over-func iterators, added in Go 1.23) for all streaming APIs and builds on newer standard-library features, so older toolchains will not compile it. With `GOTOOLCHAIN=local` an older Go fails at `go get`.
 - **Git** — For version control and `go get` operations
 
 Verify your Go version:
 
 ```bash
 go version
-# go version go1.23.0 linux/amd64  (or later)
+# go version go1.26.0 linux/amd64  (or later)
 ```
 
 ## Install the Core Module

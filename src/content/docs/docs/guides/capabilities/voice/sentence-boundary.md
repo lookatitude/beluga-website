@@ -16,7 +16,7 @@ A heuristic turn detector that identifies user turn completion based on sentence
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Basic familiarity with voice session concepts
 
 ## When to Use Heuristic Detection

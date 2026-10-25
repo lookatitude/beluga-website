@@ -16,7 +16,7 @@ A voice session that processes interim STT results to speculatively generate res
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - A streaming STT provider (e.g., Deepgram, Google) that supports interim results
 - Completion of [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming)
 

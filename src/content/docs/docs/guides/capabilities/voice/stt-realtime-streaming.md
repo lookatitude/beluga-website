@@ -17,7 +17,7 @@ A streaming speech-to-text pipeline using the Deepgram provider that processes a
 ## Prerequisites
 
 - Deepgram API key
-- Go 1.23+
+- Go 1.26 or later
 - Basic understanding of audio buffers and PCM encoding
 
 ## Step 1: Initialize the STT Provider

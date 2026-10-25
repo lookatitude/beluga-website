@@ -17,7 +17,7 @@ A real-time voice conversation system using Amazon Nova's S2S model that process
 ## Prerequisites
 
 - AWS credentials with Bedrock/Nova access
-- Go 1.23+
+- Go 1.26 or later
 - Basic understanding of bidirectional audio streams
 
 ## S2S vs. Traditional Pipeline

@@ -21,7 +21,7 @@ When using Beluga AI's voice pipeline with the LiveKit transport, webhooks provi
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - LiveKit project with URL, API key, and API secret
 - A publicly accessible HTTPS endpoint for webhook delivery

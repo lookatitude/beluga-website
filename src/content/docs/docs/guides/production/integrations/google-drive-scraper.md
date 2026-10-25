@@ -18,7 +18,7 @@ The Google Drive loader uses the Drive API to list and download files from a spe
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Google Cloud project with the Drive API enabled
 - OAuth 2.0 credentials or a service account key

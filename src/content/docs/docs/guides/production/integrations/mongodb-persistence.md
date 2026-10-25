@@ -23,7 +23,7 @@ The `mongodb` store implements the `memory.MessageStore` interface, storing each
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI project initialized with `go mod init`
 - A MongoDB instance (local, Docker, or MongoDB Atlas)
 - The MongoDB Go driver v2

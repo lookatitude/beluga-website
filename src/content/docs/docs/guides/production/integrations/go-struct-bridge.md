@@ -21,7 +21,7 @@ JSON Schema serves as the shared contract between both sides.
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - Python 3.8+ with Pydantic (for the Python side)
 - Familiarity with JSON serialization in both languages

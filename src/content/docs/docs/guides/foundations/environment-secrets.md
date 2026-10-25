@@ -16,7 +16,7 @@ A configuration system that loads defaults from a JSON file, overrides values wi
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Understanding of Go struct tags
 
 ## Configuration Precedence

@@ -16,7 +16,7 @@ While Beluga AI includes built-in guards for prompt injection detection, PII red
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - API credentials for your chosen safety service
 - Familiarity with the `guard` package and the `Guard` interface

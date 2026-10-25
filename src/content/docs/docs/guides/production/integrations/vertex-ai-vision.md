@@ -23,7 +23,7 @@ Vertex AI is Google Cloud's managed AI platform. When paired with Beluga AI's LL
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Google Cloud project with the Vertex AI API enabled
 - Google Cloud credentials (service account or Application Default Credentials)
 - Beluga AI framework installed

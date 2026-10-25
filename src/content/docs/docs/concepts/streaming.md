@@ -3,7 +3,7 @@ title: Streaming
 description: "Why Beluga AI uses iter.Seq2[T, error] instead of channels. Consumer patterns, stream composition, backpressure, and context cancellation."
 ---
 
-Beluga requires Go 1.23+ specifically because it uses `iter.Seq2[T, error]`
+Beluga requires Go 1.26+ (its `go.mod` declares `go 1.26.0`). Its streaming model is built on `iter.Seq2[T, error]`
 for all streaming public APIs. This is not a stylistic preference. Channels
 in streaming APIs produce goroutine leaks, impose coordination overhead at
 every composition boundary, and have no generic form before Go 1.21. `iter.Seq2`

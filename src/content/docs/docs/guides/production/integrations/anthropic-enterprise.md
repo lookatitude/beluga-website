@@ -24,7 +24,7 @@ Key enterprise capabilities:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI project initialized with `go mod init`
 - An Anthropic Enterprise API key
 - Enterprise account access with model permissions configured

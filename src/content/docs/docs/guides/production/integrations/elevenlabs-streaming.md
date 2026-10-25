@@ -16,7 +16,7 @@ The ElevenLabs integration uses the `voice/tts` package registry to create a str
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - ElevenLabs API key (from [elevenlabs.io](https://elevenlabs.io))
 
 ## Installation

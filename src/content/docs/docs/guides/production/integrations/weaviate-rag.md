@@ -24,7 +24,7 @@ This integration provides:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Weaviate instance (local or Weaviate Cloud Services)
 - Weaviate Go client v4

@@ -24,7 +24,7 @@ This integration provides:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Elasticsearch 8.x instance (local or cloud)
 - Elasticsearch Go client v8

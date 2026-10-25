@@ -20,7 +20,7 @@ The loader implements Beluga AI's `DocumentLoader` interface from the `rag/loade
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - AWS account with S3 and SQS/Lambda access
 - AWS credentials configured (IAM role or access keys)

@@ -12,11 +12,11 @@ This guide walks you through setting up a local development environment for cont
 
 ## Prerequisites
 
-Before you begin, make sure you have the following installed. Go 1.23+ is required because Beluga uses `iter.Seq2` (range-over-func iterators) for all streaming APIs — earlier versions will fail to compile:
+Before you begin, make sure you have the following installed. Go 1.26+ is required: the framework `go.mod` declares `go 1.26.0` (Beluga also relies on `iter.Seq2` range-over-func iterators, added in Go 1.23). Earlier versions will fail to compile:
 
 | Tool | Version | Required | Notes |
 |---|---|---|---|
-| **Go** | 1.23+ | Yes | Beluga uses `iter.Seq2` and other Go 1.23 features |
+| **Go** | 1.26+ | Yes | The framework `go.mod` declares `go 1.26.0`; streaming uses `iter.Seq2` |
 | **Git** | 2.x+ | Yes | For cloning and version control |
 | **Make** | Any | Recommended | Simplifies common tasks via Makefile targets |
 | **golangci-lint** | Latest | Recommended | Runs all configured linters in one pass |

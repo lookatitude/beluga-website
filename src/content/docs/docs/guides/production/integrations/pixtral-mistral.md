@@ -25,7 +25,7 @@ Pixtral uses the same Mistral API as other Mistral models, with multimodal input
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Mistral AI API key (obtain from [mistral.ai](https://mistral.ai))
 - Beluga AI framework installed
 

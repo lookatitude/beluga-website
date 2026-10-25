@@ -23,7 +23,7 @@ This integration uses the official NATS Go client to build a message bus that ag
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A running NATS server (local or remote)
 - Beluga AI framework installed
 

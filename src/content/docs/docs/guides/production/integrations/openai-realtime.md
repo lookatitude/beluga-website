@@ -16,7 +16,7 @@ The OpenAI Realtime integration uses the `voice/s2s` package to enable bidirecti
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - OpenAI API key with Realtime API access
 - Understanding of WebSocket streaming concepts
 

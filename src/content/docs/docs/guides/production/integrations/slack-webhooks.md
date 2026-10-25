@@ -14,7 +14,7 @@ Slack is where most engineering and operations teams already communicate. By con
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI application
 - A Slack workspace with admin access
 - A Slack app configured with a bot token and webhook URL

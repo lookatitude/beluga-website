@@ -18,7 +18,7 @@ The splitter implements Beluga AI's `TextSplitter` interface and works with any 
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - A Go Tiktoken library or Python with `tiktoken` installed
 - Understanding of BPE tokenization concepts

@@ -23,7 +23,7 @@ The MCP implementation uses the Streamable HTTP transport (March 2025 spec) with
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - For testing: an MCP client (Cursor, Claude Code, MCP CLI, or `curl`)
 

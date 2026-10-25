@@ -12,7 +12,7 @@ LLM calls are slow and expensive. A single agent invocation may chain multiple m
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Familiarity with Go concurrency fundamentals
 

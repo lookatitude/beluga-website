@@ -14,7 +14,7 @@ Customers reach out through SMS, WhatsApp, and web chat -- often switching betwe
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI application
 - A Twilio account with Conversations API enabled
 - Twilio Account SID, Auth Token, and Conversations Service SID

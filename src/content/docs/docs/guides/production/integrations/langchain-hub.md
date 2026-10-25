@@ -21,7 +21,7 @@ LangChain Hub provides a repository of reusable prompt templates. By building a 
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - LangChain Hub API key (optional, required for private prompts)
 - Familiarity with the `prompt` package

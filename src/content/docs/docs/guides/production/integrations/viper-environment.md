@@ -12,7 +12,7 @@ Production applications need configuration that adapts to the deployment environ
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - The Viper configuration library
 

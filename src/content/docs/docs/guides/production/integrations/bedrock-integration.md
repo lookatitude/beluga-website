@@ -24,7 +24,7 @@ Key benefits:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI project initialized with `go mod init`
 - An AWS account with Bedrock access enabled
 - AWS credentials configured (IAM role, environment variables, or AWS config file)

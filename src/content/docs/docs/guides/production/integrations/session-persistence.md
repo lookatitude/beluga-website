@@ -16,7 +16,7 @@ By persisting session-scoped state keyed by session ID, multi-turn voice flows s
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A persistence store (Redis, PostgreSQL, or similar)
 - Beluga AI voice session configured
 

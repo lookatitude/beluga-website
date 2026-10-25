@@ -18,7 +18,7 @@ A deterministic keyword-based sentiment analyzer that implements `core.Runnable`
 
 ## Prerequisites
 
-- Go 1.23+ (for `iter.Seq2` streaming support)
+- Go 1.26+ (the framework `go.mod` requires `go 1.26.0`)
 - Familiarity with `context.Context` and Go interfaces
 
 ## The Runnable Interface

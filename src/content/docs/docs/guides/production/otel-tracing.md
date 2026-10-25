@@ -31,7 +31,7 @@ An instrumented application with OpenTelemetry tracing, including custom spans, 
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Docker (for running Jaeger)
 
 ## Step 1: Install Dependencies

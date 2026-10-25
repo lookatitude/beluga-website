@@ -24,7 +24,7 @@ All mocks implement the `llm.ChatModel` interface, making them drop-in replaceme
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - A test suite or UI application that accepts `llm.ChatModel`
 

@@ -18,7 +18,7 @@ The splitter implements Beluga AI's `TextSplitter` interface, making it compatib
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Python 3.8+ with SpaCy installed
 - A SpaCy language model (e.g., `en_core_web_sm`)

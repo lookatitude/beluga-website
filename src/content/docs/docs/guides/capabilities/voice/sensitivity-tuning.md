@@ -16,7 +16,7 @@ A tuned VAD and turn detection configuration that correctly distinguishes speech
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Basic understanding of audio frames and PCM encoding
 - Completion of [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming) is recommended
 

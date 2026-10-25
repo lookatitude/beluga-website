@@ -16,7 +16,7 @@ The guard pipeline validates content at three stages -- input, output, and tool 
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - Familiarity with the `guard` package and its `GuardResult` type
 

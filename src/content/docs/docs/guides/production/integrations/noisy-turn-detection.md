@@ -16,7 +16,7 @@ The `voice/turndetection` package provides heuristic and ONNX-based turn detecti
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A voice pipeline with VAD providing silence duration
 - (Optional) ONNX turn-detection model for the `onnx` provider
 

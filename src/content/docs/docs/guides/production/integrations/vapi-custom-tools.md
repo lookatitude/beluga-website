@@ -22,7 +22,7 @@ This pattern enables:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Vapi account with an assistant configured for custom tools ([docs.vapi.ai](https://docs.vapi.ai/tools))
 - A publicly accessible HTTPS endpoint

@@ -16,7 +16,7 @@ The `voice/vad` package's `webrtc` provider uses WebRTC-compatible VAD logic run
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Browser client capable of sending audio (WebSocket, HTTP upload)
 - Audio format: PCM 16-bit mono, 16 kHz
 

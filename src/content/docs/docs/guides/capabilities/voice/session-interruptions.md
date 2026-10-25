@@ -16,7 +16,7 @@ A voice session with interrupt support that allows users to barge in while the a
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Working STT and TTS provider configuration
 - Completion of [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) is recommended
 

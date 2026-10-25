@@ -12,7 +12,7 @@ This guide walks you through building a working AI agent with tools and streamin
 
 ## Prerequisites
 
-- Go 1.23+ installed ([download](https://go.dev/dl/))
+- Go 1.26+ installed ([download](https://go.dev/dl/))
 - An OpenAI API key (or any [supported provider](/docs/start/installation/#all-available-providers))
 
 ## Step 1: Create a New Project

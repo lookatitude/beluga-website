@@ -16,7 +16,7 @@ The Amazon Nova integration uses the `voice/s2s` package to enable bidirectional
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - AWS account with Bedrock access
 - Nova 2 Sonic model enabled in Bedrock console
 - AWS credentials configured (IAM role or access keys)

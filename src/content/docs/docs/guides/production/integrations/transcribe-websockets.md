@@ -16,7 +16,7 @@ The Amazon Transcribe integration wraps the AWS Transcribe Streaming API to impl
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - AWS account with Transcribe access
 - AWS credentials configured (IAM role or access keys)
 

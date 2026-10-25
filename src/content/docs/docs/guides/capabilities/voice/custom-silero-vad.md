@@ -16,7 +16,7 @@ A voice activity detection system using Silero's ONNX model that classifies audi
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Silero VAD ONNX model file (downloadable from the Silero VAD repository)
 - Completion of [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) is recommended
 

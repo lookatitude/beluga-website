@@ -22,7 +22,7 @@ The bridge wraps the OpenAI Assistants API (threads, runs, messages) behind a `C
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - OpenAI API key with Assistants API access
 - Familiarity with OpenAI's Assistants API concepts (threads, runs, messages)

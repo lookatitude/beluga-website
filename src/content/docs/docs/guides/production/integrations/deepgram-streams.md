@@ -16,7 +16,7 @@ The Deepgram integration uses the `voice/stt` package to connect to Deepgram's s
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Deepgram API key (from [deepgram.com](https://deepgram.com))
 
 ## Installation

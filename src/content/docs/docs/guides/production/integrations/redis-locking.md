@@ -24,7 +24,7 @@ Key properties:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI project initialized with `go mod init`
 - A Redis server (v5.0 or later)
 - The `go-redis/v9` client library

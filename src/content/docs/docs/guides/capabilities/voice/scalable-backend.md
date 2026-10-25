@@ -16,7 +16,7 @@ A production-ready voice backend that supports concurrent sessions, configurable
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - API keys for your chosen voice providers
 - Completion of [LiveKit and Vapi Integration](/docs/guides/capabilities/voice/livekit-vapi) is recommended
 

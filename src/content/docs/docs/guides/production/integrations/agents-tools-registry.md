@@ -24,7 +24,7 @@ Agents receive tools at construction time via `agent.WithTools()` and invoke the
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - An LLM provider configured (any provider that supports tool calling)
 

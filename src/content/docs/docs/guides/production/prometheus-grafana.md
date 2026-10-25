@@ -27,7 +27,7 @@ A metrics pipeline that exports Beluga AI metrics to Prometheus and displays the
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Docker (for Prometheus and Grafana)
 - Understanding of [OpenTelemetry Tracing](/docs/guides/foundations/otel-tracing)
 

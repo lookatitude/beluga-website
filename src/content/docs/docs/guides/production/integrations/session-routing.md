@@ -16,7 +16,7 @@ Rather than hardcoding a single STT/TTS provider, session routing evaluates cont
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Multiple STT/TTS or S2S providers configured
 - Routing criteria defined (tenant, region, feature flags)
 

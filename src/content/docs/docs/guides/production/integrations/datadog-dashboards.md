@@ -14,7 +14,7 @@ Datadog is the preferred observability platform for teams that need a unified vi
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI application with the `o11y` package configured
 - A Datadog account with an API key
 - Datadog Agent installed (optional, for local development)

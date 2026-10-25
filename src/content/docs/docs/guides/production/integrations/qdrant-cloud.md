@@ -25,7 +25,7 @@ Key capabilities:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Qdrant Cloud account ([cloud.qdrant.io](https://cloud.qdrant.io))
 - A Qdrant cluster with its URL and API key

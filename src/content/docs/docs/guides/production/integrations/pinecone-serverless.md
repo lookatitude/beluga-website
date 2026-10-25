@@ -24,7 +24,7 @@ Key capabilities:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Pinecone account with API key ([pinecone.io](https://www.pinecone.io))
 - A serverless index created in the Pinecone console

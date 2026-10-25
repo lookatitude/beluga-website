@@ -20,7 +20,7 @@ The recommended model is `nomic-embed-text`, which produces 768-dimensional vect
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Ollama installed and running ([ollama.com](https://ollama.com))
 

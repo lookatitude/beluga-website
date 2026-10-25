@@ -16,7 +16,7 @@ A shell-based workflow that installs the CLI from a pinned framework version, in
 
 ## Prerequisites
 
-- Go 1.23 or later (`go version` should print `go1.23` or higher).
+- Go 1.26 or later (`go version` should print `go1.26` or higher).
 - [`jq`](https://jqlang.github.io/jq/) available on your `PATH` — the CI gate uses it to parse JSON.
 - A working `$GOPATH/bin` or `$GOBIN` on your shell's `PATH`, so that binaries from `go install` are discoverable.
 
@@ -74,11 +74,11 @@ beluga version
 ```console
 $ beluga version
 beluga v2.10.1
-go1.23.x
+go1.26.x
 providers: llm=3 embedding=2 vectorstore=1 memory=5
 ```
 
-Your second line shows whichever Go toolchain produced the binary; any `go1.23+` release is fine. Each line has a job. The first line is what you assert on in a release test: the leading `beluga ` makes it trivial to cut with `awk '{print $2}'`. The second line is the Go toolchain, which matters when you are debugging a binary built in CI against one you compiled locally. The third line is a quick sanity check that the providers you expect to be compiled in actually are. If you expected `llm=5` and see `llm=3`, something in your release pipeline dropped two blank imports.
+Your second line shows whichever Go toolchain produced the binary; any `go1.26+` release is fine. Each line has a job. The first line is what you assert on in a release test: the leading `beluga ` makes it trivial to cut with `awk '{print $2}'`. The second line is the Go toolchain, which matters when you are debugging a binary built in CI against one you compiled locally. The third line is a quick sanity check that the providers you expect to be compiled in actually are. If you expected `llm=5` and see `llm=3`, something in your release pipeline dropped two blank imports.
 
 `beluga version` does not take `--output json`. The three-line format is stable, and `awk` is all you need to extract any of the three values. Scripts that need structured data should call `beluga providers --output json` instead, which is the focus of the next two steps.
 

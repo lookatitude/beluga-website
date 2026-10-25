@@ -16,7 +16,7 @@ A structured multi-turn conversation using typed messages, demonstrating how to 
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Understanding of Go interfaces
 
 ## Message Roles

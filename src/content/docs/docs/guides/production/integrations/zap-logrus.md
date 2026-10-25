@@ -12,7 +12,7 @@ Go's standard `slog` package covers basic logging needs, but production AI appli
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - One of: Zap or Logrus
 

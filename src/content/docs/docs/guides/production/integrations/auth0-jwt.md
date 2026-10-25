@@ -14,7 +14,7 @@ Exposing AI agents as API endpoints introduces the same authentication requireme
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - An Auth0 account with an API application configured
 - Auth0 tenant domain, client ID, and API audience identifier

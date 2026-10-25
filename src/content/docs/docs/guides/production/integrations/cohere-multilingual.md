@@ -20,7 +20,7 @@ The recommended model is `embed-multilingual-v3.0`, which produces 1024-dimensio
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Cohere API key (obtain from [cohere.com](https://cohere.com))
 
