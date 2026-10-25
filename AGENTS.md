@@ -20,11 +20,31 @@ When working on cross-repo concerns (a release flow incident, coordinating a fra
 
 ## Voice steward and style guide (A2)
 
-Every content PR invokes `voice-steward` (`.claude/agents/voice-steward.md`) as a pre-merge advisory gate — it reads `.guild/wiki/style-guide.md` and posts a structured review comment covering tone, vocabulary, reading level, and cross-content consistency. It never blocks; the human approves the final merge. Update voice rules via normal PR to `.guild/wiki/style-guide.md` (versioned in the file header). `voice-steward` is wired into `/tutorial`, `/guide`, `/blog`, and `/announce-release` automatically; it can also be invoked manually via `@agent-voice-steward` on any content diff.
+Every content PR invokes `voice-steward` (`.claude/agents/voice-steward.md`; Guild copy `.guild/agents/voice-steward.md`) as a pre-merge advisory gate — it reads `.guild/wiki/style-guide.md` and returns a structured review comment covering tone, vocabulary, reading level, and cross-content consistency, which the coordinator posts on the PR. It never blocks; the human approves the final merge. Update voice rules via normal PR to `.guild/wiki/style-guide.md` (versioned in the file header). `voice-steward` is wired into `/tutorial`, `/guide`, `/blog`, and `/announce-release` automatically; it can also be invoked manually via `@agent-voice-steward` on any content diff.
 
-## Claude 4.x and content agents
+## Agents and models
 
-Content and marketing agents (see `.claude/agents/`) include a **Prompting baseline (Claude 4.x)**. Newer models can read as more direct; the `voice-steward` and long-form agents are instructed to **steer copy toward** `.guild/wiki/style-guide.md` (warmth, clarity) without padding. If a draft is for **sensitive security** topics, favor defensive framing so content stays teachable and policy-safe. **Vision / screenshots** in content: high-res images can consume more tokens in current models—keep assets only as large as needed for the layout.
+Agents live in `.claude/agents/` (Claude Code, dispatched by name from the commands in `.claude/commands/`). Each also has a **Guild specialist** copy in `.guild/agents/` for `/guild:*` runs. Guild never host-registers `.guild/agents/`, so both copies are kept; when a role's scope, model or tools change, update both. Where a shipped Guild template fits, the Guild copy is minted from it and carries a "Beluga website localization" section that wins over the template body; otherwise the copy is project-specific.
+
+| `.claude` agent | Guild specialist | Basis | `model` | Tools (both copies) |
+|---|---|---|---|---|
+| `content-writer` | `content-writer` | project-specific (spans the copywriter, technical-writer and doc-writer template lanes) | `opus` | Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch |
+| `developer-web` | `frontend` | template `frontend` | `sonnet` | Read, Write, Edit, Bash, Glob, Grep, WebFetch |
+| `marketeer` | `marketing` | template `marketing` (widened to social companions and release notes) | `opus` | Read, Write, Edit, Glob, Grep, WebSearch, WebFetch |
+| `seo-meta` | `seo` | template `seo` | `haiku` | Read, Write, Edit, Bash, Glob, Grep, WebFetch |
+| `voice-steward` | `voice-steward` | project-specific advisory reviewer (pulls the shipped `copywriter-voice-guide` skill) | `sonnet` | Read, Grep, Glob, Bash (read-only git/gh) |
+| `docs-sync` | `docs-sync` | project-specific | `sonnet` | Read, Write, Bash, Glob, Grep, WebFetch |
+| `notion-publisher` | `notion-publisher` | project-specific | `sonnet` | Read, Write, Edit, Glob, Grep, Notion MCP fetch/search/create/update |
+
+Project skills live in `.guild/skills/<name>/{SKILL.md,evals.json}`: `website-development` (points at `.claude/skills/website-development/SKILL.md`, which stays the full reference for plain Claude Code), `website-content-standards`, `voice-steward-content-review`, `docs-sync-content-gap-report`, `notion-publisher-framework-docs-mirror`. Specialists also pull shipped Guild skills (`frontend-*`, `seo-*`, `marketing-*`, `social-media-*`, `copywriter-*`, `technical-writer-*`, `doc-writer-*`) and `guild-principles`.
+
+**Model tiering.** Aliases resolve to the Claude 5 family (Opus 5.5, Sonnet 5.5, Haiku 5.5). `opus` goes to the two long-form, evidence-heavy writers (`content-writer`, `marketeer`), `sonnet` to implementation, review and sync roles, and `haiku` to the checklist-style `seo-meta`. This matches the workspace policy in `../AGENTS.md` § "Default model tiering" (`notion-publisher` and the workspace `notion-syncer` are both `sonnet`). Guild's per-lane auto-tiering (`.guild/settings.json` `models.tiers`) still applies inside `/guild` runs.
+
+**Coordinator model.** The main session is the coordinator. Teammates and subagents prepare commits on their branch and hand back. Only the coordinator pushes, opens or merges PRs, posts PR comments, files GitHub issues, and writes to Linear, Sonar or Notion (`notion-publisher` writes Notion only when the coordinator runs `/notion-publish`). Scheduled remote agents such as C2 below are their own main session.
+
+**Adversarial review.** Codex is the cross-family reviewer: `.guild/settings.json` sets `review: cross` and `adversarial_review_provider: codex-plugin`, and `.guild/config/project.json` sets `review.independence: true`. Outside Guild runs, the coordinator runs `/codex:adversarial-review` on the branch before opening a PR. If Codex is unavailable, record that in the PR; a same-family review is not an equivalent pass.
+
+**Prompting baseline.** Every agent's "Prompting baseline" points at the workspace baseline in `../AGENTS.md`. Current models read as direct, so `voice-steward` and the long-form agents steer copy toward `.guild/wiki/style-guide.md` (warmth, clarity) without padding. For **sensitive security** topics, favor defensive framing so content stays teachable and policy-safe. Keep screenshots and other images only as large as the layout needs; high-res images cost tokens.
 
 ## Release announcement automation (C2)
 
@@ -45,7 +65,9 @@ yarn build            # production build → dist/
 yarn preview          # serve the built dist/ locally
 ```
 
-Node 22.23.4 or later (Astro 7 requires it; CI uses the latest Node 22 via `.github/workflows/deploy.yml`).
+Node 22.23.4 or later (`package.json` `engines`; both `.github/workflows/pr.yml` and `.github/workflows/deploy.yml` pin `NODE_VERSION: "22.23.4"`).
+
+`astro.config.mjs` sets `compressHTML: false` on purpose: Astro 7's HTML compression drops the newline whitespace before inline elements on hand-written `.astro` pages and glues words together (`concerns.<em>Build`). Keep it off.
 
 ## Deploy
 

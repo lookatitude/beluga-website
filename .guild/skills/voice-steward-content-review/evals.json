@@ -1,0 +1,15 @@
+{
+  "skill": "voice-steward-content-review",
+  "should_trigger": [
+    "Run a voice review on the guard-pipeline blog PR",
+    "Check the new tutorial against the style guide",
+    "Flag any banned phrases in the v2.14.0 announcement bundle",
+    "Is the rate-limiting guide described consistently with the blog post?"
+  ],
+  "should_not_trigger": [
+    "Rewrite the intro of the tutorial to be warmer",
+    "Do the Go examples in this guide compile?",
+    "Shorten the meta description on the release post",
+    "Draft the LinkedIn post for the release"
+  ]
+}

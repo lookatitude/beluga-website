@@ -1,0 +1,16 @@
+{
+  "skill": "website-content-standards",
+  "should_trigger": [
+    "Where should the tutorial on durable workflows be saved?",
+    "Save the X, LinkedIn and Bluesky companions for the v2.14.0 post",
+    "My _social/v2.12.0-x.md file is showing up as a page on the site",
+    "Run the Go snippet check on the new guide before I commit",
+    "Does this example meet our import and error-handling rules?"
+  ],
+  "should_not_trigger": [
+    "Register a new Starlight Footer override",
+    "Is the tone of this post consistent with the style guide?",
+    "Publish the framework architecture doc to Notion",
+    "Compare the godoc tree between v2.13 and v2.14"
+  ]
+}

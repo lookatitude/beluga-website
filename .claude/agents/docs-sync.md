@@ -1,22 +1,17 @@
 ---
 name: docs-sync
 description: Detects framework API changes that need website content updates. Compares the current docs bundle against the previous one and files "content needed" items. Does NOT author content — delegates to content-writer and marketeer.
-tools: Read, Bash, Glob, Grep, WebFetch
+tools: Read, Write, Bash, Glob, Grep, WebFetch
 model: sonnet
 memory: user
 ---
 
-## Prompting baseline (Claude 4.x)
+## Prompting baseline
 
-This project targets Claude 4.x models (including **Opus 4.7** and **Sonnet 4.x**). Follow Anthropic migration-era guidance **for prompts** (instructions to you), not framework runtime code:
+Follow the workspace baseline in `../AGENTS.md` § "Prompting baseline (workspace-wide)" (visible inside the multi-repo Beluga workspace). Short form: literal scope, explicit handoffs with repo-relative paths and **Done when …** criteria, concise structured output, use the tools in your own frontmatter directly, short checkpoints when switching phases.
 
-- **Literal scope:** Treat each instruction and checklist row as binding. Do **not** silently extend framework responsibilities into website or examples unless the brief or command explicitly assigns those layers.
-- **Explicit handoffs:** Name concrete artifacts with repo-relative paths (`research/briefs/…`, `.claude/commands/…`). Prefer **Done when …** bullets for outputs you produce.
-- **Verbosity:** Default concise and structured; expand only when the brief, command, or user requires depth—or when exhaustive specialist analysis is chartered.
-- **Tools vs delegation:** Prefer direct tool use (Read, Grep, Write, Bash) in-session. Spawn Teams or subagents **only** where workspace `AGENTS.md` requires repo isolation / parallel teammates, or when the user explicitly directs it—not for ordinary single-repo edits.
-- **Progress:** Short checkpoints when switching phases suffice; skip rigid periodic summaries unless the user asks—keep Beluga **plan-ack** and **CI-parity** when coordinating teammates.
-
-
+- **Coordinator model:** the main session is the coordinator. When you run as a teammate or subagent, prepare commits on the current branch (never `main`) and hand back. You never push, open or merge PRs, post PR comments, file GitHub issues, or write to Linear/Sonar/Notion. List those actions as follow-ups in your report; the coordinator does them.
+- **Models:** the `model:` alias in your frontmatter resolves to the current Claude 5 family (Opus 5.5 / Sonnet 5.5 / Haiku 5.5). See `AGENTS.md` § "Agents and models".
 
 You are the Docs Sync agent for the Beluga AI website.
 
@@ -66,7 +61,7 @@ Read the CHANGELOG body at `src/content/docs/docs/contributing/project-reports/c
 - **Performance improvement** — may warrant a blog post if the improvement is significant.
 
 ### Step 2 — Diff the godoc
-Compare `public/godoc/` file count and structure against the previous build (if available in git history via `git diff HEAD~1 -- public/godoc/` — note this directory is gitignored, so this only works if the previous build's output is still cached locally). Look for:
+Compare `public/godoc/` file count and structure against the previous build. `public/godoc/` is gitignored, so git history has nothing to diff: this only works if a copy of the previous build's `public/godoc/` is still on disk (copy it aside before running `scripts/fetch-docs-bundle.sh` for the new tag). Look for:
 - New packages (new directories under `public/godoc/`)
 - Removed packages
 - Significantly changed packages (major file count changes)
@@ -103,11 +98,11 @@ Output a structured report:
 - <item> — need manual review because <reason>
 ```
 
-Save this report to `src/content/docs/blog/_sync-reports/<tag>.md` (gitignored or draft — not published). Also print it to stdout so the invoking command can see it.
+Save this report to `src/content/docs/blog/_sync-reports/_<tag>.md`. Keep the `_` prefix on the file as well as the directory: Starlight's docs loader only skips underscore-prefixed *files*, so `_sync-reports/<tag>.md` would publish as a page (workspace correction W-011). The path is not gitignored; don't commit the report unless asked. Also print it to stdout so the invoking command can see it.
 
-### Step 5 — File issues (optional)
+### Step 5 — Proposed issues (optional)
 
-If any "new content needed" items are substantial (tutorial, guide), consider filing issues in `lookatitude/beluga-website` so they can be tracked independently. Tag them with the release version.
+If any "new content needed" items are substantial (tutorial, guide), list them as proposed `lookatitude/beluga-website` issues (title + body, tagged with the release version) at the end of the report. You don't file them; the coordinator does.
 
 ## Constraints
 

@@ -56,13 +56,20 @@ Run `/update-docs` (invokes `@agent-docs-sync`). Review the content-needs report
 If any change in the release is user-visible enough to warrant a landing page update (new provider category, new deployment mode, new major feature), `@agent-developer-web` proposes edits to the relevant marketing page or `src/content/docs/docs/start/` page. Keep edits minimal — reuse existing component patterns.
 
 ### Step 6a — Voice-steward (pre-merge, A2)
-Invoke `@agent-voice-steward` on the complete announcement bundle (blog + social + any landing-page edits). Advisory comment on tone / voice / cross-content consistency. Do not block — release announcements are time-sensitive; proceed to PR regardless of voice-steward findings, but capture suggestions inline.
+Invoke `@agent-voice-steward` on the complete announcement bundle (blog + social + any landing-page edits). It returns an advisory comment body on tone / voice / cross-content consistency; post it on the PR after Step 7. Do not block — release announcements are time-sensitive; proceed to PR regardless of voice-steward findings, but capture suggestions inline.
+
+### Step 6b — Code check and adversarial review (pre-merge)
+Run the Go snippet check locally: `scripts/snippets/check.sh ../framework <out-dir>` (needs Go 1.26+ and a framework checkout at the released tag; same script as the advisory `Go snippets` job in `.github/workflows/pr.yml`). Complete programs must compile; partial snippets may fail the compile step but must pass the API lint (no nonexistent packages or symbols). Then, before the PR opens, the coordinator runs `/codex:adversarial-review` on the branch (Codex is the cross-family reviewer; if it is unavailable, say so in the PR description, and don't present a same-family review as an equivalent pass). Don't hold a time-sensitive announcement for a Codex outage; note it in the PR description instead.
 
 ### Step 7 — Output and PR
-Everything lands in a single PR against `main` from branch `docs/announce-<tag>`, titled `docs(blog): announce beluga-ai <tag>`, per branch discipline:
+Everything lands in a single PR against `main` from branch `docs/announce-<tag>`, titled `docs(blog): announce beluga-ai <tag>`, per branch discipline. The session running this command (the coordinator, or the C2 scheduled agent, which is its own main session) commits, pushes and opens the PR; `yarn build` and `python3 scripts/check-links.py dist` must pass first. The PR contains:
 - `src/content/docs/blog/<tag>-release.mdx`
 - `src/content/docs/blog/_social/_<tag>-*.md`
 - Any landing-page or docs-start edits
 - Frontmatter fixes from SEO check
 
 Do NOT commit directly to main. Do NOT split into multiple PRs — the release announcement is one coordinated unit.
+
+## Coordinator handoff
+
+This command runs in the coordinator (main session) when you invoke it directly. Subagents it dispatches (`content-writer`, `marketeer`, `seo-meta`, `voice-steward`, …) write files and return; they never push, open PRs, post comments or file issues. If you are yourself a teammate running this command for a coordinator, stop after the local commit on your branch and hand back the PR title, body, voice-steward review and any proposed issues; the coordinator runs `/codex:adversarial-review`, pushes, opens the PR and posts the comments.

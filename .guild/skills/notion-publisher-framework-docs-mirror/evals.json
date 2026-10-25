@@ -1,0 +1,15 @@
+{
+  "skill": "notion-publisher-framework-docs-mirror",
+  "should_trigger": [
+    "Publish the framework docs to Notion",
+    "The Beluga AI v2 Architecture page in Notion is out of date, resync it",
+    "Why is framework/docs/guides/streaming.md missing from Notion?",
+    "Mirror the new framework/docs/reference pages into Framework Docs"
+  ],
+  "should_not_trigger": [
+    "Sync the research briefs to Notion",
+    "Refresh the project dashboard in Notion",
+    "Fix a typo in framework/docs/architecture/overview.md",
+    "Write a blog post about the Notion integration"
+  ]
+}
