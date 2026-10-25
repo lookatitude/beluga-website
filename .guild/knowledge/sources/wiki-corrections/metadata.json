@@ -1,0 +1,10 @@
+{
+  "slug": "wiki-corrections",
+  "source_type": "file",
+  "url": null,
+  "path": ".wiki/corrections.md",
+  "original_file": "original.md",
+  "checksum_sha256": "d5df118fd020db2e2e5075bf1da39cc0f661316bb64f82827ff45479e7496c81",
+  "captured_at": "2026-10-25T05:15:37Z",
+  "captured_by": "orchestrator"
+}

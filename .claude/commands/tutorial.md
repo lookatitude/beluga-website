@@ -69,7 +69,7 @@ Every Go code snippet in the tutorial must compile. Run `go build` on the comple
 Invoke `@agent-pr-review-toolkit:code-reviewer` on the draft. Verifies imports complete, errors handled, links accurate. Address high-confidence findings before opening the PR.
 
 ### Step 4b — Voice-steward (pre-merge, A2)
-Invoke `@agent-voice-steward` on the draft. Reads `.wiki/style-guide.md`, posts a review comment on tone / vocabulary / reading level / cross-content consistency. **Advisory only** — do not block on findings; continue to Step 5. Human decides what to act on.
+Invoke `@agent-voice-steward` on the draft. Reads `.guild/wiki/style-guide.md`, posts a review comment on tone / vocabulary / reading level / cross-content consistency. **Advisory only** — do not block on findings; continue to Step 5. Human decides what to act on.
 
 ### Step 5 — Output
 Save to `src/content/docs/docs/guides/<slug>.mdx`. Open a PR against `main` per branch discipline. If a Linear sub-issue ID was used, include `LOO-NN` in the PR title so Linear auto-links.

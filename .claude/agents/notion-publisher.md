@@ -31,7 +31,7 @@ You run from the website repo OR from the workspace root (you read framework fil
 ## Before starting (retrieval protocol)
 
 1. Read `CLAUDE.md` for the docs bundle contract — you are NOT a replacement for that bundle, you are an additional publishing surface.
-2. Read `.wiki/index.md` for any Notion-publisher-specific notes.
+2. Read `.guild/wiki/index.md` for any Notion-publisher-specific notes.
 3. Read `.claude/state/notion-pages.json` for existing page mappings (create on first run).
 4. Read accumulated rules in `.claude/agents/notion-publisher/rules/`.
 

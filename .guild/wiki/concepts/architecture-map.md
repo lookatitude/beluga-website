@@ -60,4 +60,4 @@ graph and onboarding tour were **not** built at init; run `/guild:learn` to buil
 
 ## Knowledge that stays where it is
 
-- **[high]** This repo's own `.wiki/` (notably `.wiki/style-guide.md`, enforced by `voice-steward`) remains the source for content agents. It was not migrated into `.guild/wiki/` at init.
+- **[high]** This repo's wiki lives in `.guild/wiki/` (moved from `.wiki/` on 2026-10-25, structure kept), including `style-guide.md`, enforced by `voice-steward`.

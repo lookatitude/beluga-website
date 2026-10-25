@@ -40,7 +40,7 @@ Channels are a good synchronization primitive. They are a poor streaming API.
 Channels still appear *inside* implementations — `MergeStreams` uses a
 channel internally for the multi-goroutine fan-in case
 (`core/stream.go:113-130`). They do not cross public API boundaries.
-C-004, C-005 in `.wiki/corrections.md` document two real violations that were
+C-004, C-005 in `.guild/wiki/corrections.md` document two real violations that were
 refactored — the `workflow.WorkflowContext.ReceiveSignal` interface and the
 entire `voice` frame processor pipeline.
 
@@ -343,7 +343,7 @@ Two rules for producers:
 
 ## Common mistakes
 
-- **Returning a channel from a public method.** Use `Stream[T]`. C-004 (`workflow.WorkflowContext.ReceiveSignal`) and C-005 (voice pipeline) in `.wiki/corrections.md` show the cost of getting this wrong.
+- **Returning a channel from a public method.** Use `Stream[T]`. C-004 (`workflow.WorkflowContext.ReceiveSignal`) and C-005 (voice pipeline) in `.guild/wiki/corrections.md` show the cost of getting this wrong.
 - **Ignoring `yield → false`.** A producer that continues after `yield` returns false wastes CPU and can block on a channel send forever.
 - **Not checking `ctx.Done()`.** The context is the only cancellation signal a producer receives. Producers that ignore it hold resources — goroutines, connections, allocations — open after the caller has given up.
 - **Implementing `Invoke` without `Stream`.** `Invoke` must delegate to `Stream`. Middleware and hooks attach to the `Stream` path; an `Invoke`-only implementation bypasses them.

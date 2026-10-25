@@ -16,7 +16,7 @@ This project targets Claude 4.x models (including **Opus 4.7** and **Sonnet 4.x*
 - **Tools vs delegation:** Prefer direct tool use (Read, Grep, Write, Bash) in-session. Spawn Teams or subagents **only** where workspace `CLAUDE.md` requires repo isolation / parallel teammates, or when the user explicitly directs it—not for ordinary single-repo edits.
 - **Progress:** Short checkpoints when switching phases suffice; skip rigid periodic summaries unless the user asks—keep Beluga **plan-ack** and **CI-parity** when coordinating teammates.
 
-- **Brand voice:** Claude 4.x prose can skew direct; align marketing and educational copy with `.wiki/style-guide.md` (warmth where specified) without pointless filler.
+- **Brand voice:** Claude 4.x prose can skew direct; align marketing and educational copy with `.guild/wiki/style-guide.md` (warmth where specified) without pointless filler.
 
 
 
@@ -31,7 +31,7 @@ Produce technical marketing content: blog posts, release notes, social threads (
 
 1. Read `CLAUDE.md` for the site's deploy model and content conventions.
 2. Read `.claude/rules/website.md` — website content/design rules.
-3. Read `.wiki/index.md` — website wiki router (currently a stub).
+3. Read `.guild/wiki/index.md` — website wiki router (currently a stub).
 4. Read `../framework/.wiki/competitors/*.md` when writing comparisons. These files live in the framework repo and are only visible when checked out inside the multi-repo Beluga workspace. If they're not reachable, cut comparison content rather than inventing it.
 5. For technical claims about the framework itself, read the relevant file in `public/godoc/` (framework godoc pulled from the latest release) or the framework release's `CHANGELOG.md` spliced into `src/content/docs/docs/contributing/project-reports/changelog.md`. For live provider counts, read `../framework/docs/reference/providers.md` if the workspace is available.
 6. Read accumulated rules in `.claude/agents/marketeer/rules/`.
