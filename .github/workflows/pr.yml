@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "22.23.4"
   GO_VERSION: "1.26.x"
   BELUGA_AI_REPO: "lookatitude/beluga-ai"
 
@@ -57,7 +57,6 @@ jobs:
     # Partial snippets that omit app-specific helpers fail to compile on
     # purpose, so this job reports instead of blocking. Read the summary for
     # snippets that call framework APIs that don't exist.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -90,7 +89,15 @@ jobs:
         env:
           GOTOOLCHAIN: local
         run: |
+          # Advisory: report failures as a warning and in the job summary, but
+          # never fail the job (partial snippets are expected to not compile).
+          set +e
           scripts/snippets/check.sh .framework snippet-report | tee snippet-summary.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning::Some Go snippets do not compile (advisory; see the job summary and snippet-report artifact)"
+          fi
           {
             echo "## Go snippet check (framework ${{ steps.fw.outputs.tag }})"
             echo '```'
