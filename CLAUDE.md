@@ -28,7 +28,13 @@ Content and marketing agents (see `.claude/agents/`) include a **Prompting basel
 
 ## Release announcement automation (C2)
 
-A scheduled remote agent (`trig_01KTj6rE8aPCCKkyuM6JmDbc`, cron `0 */4 * * *`) polls the latest framework release every 4h. If no blog file under `src/content/docs/blog/` references the latest tag, the agent invokes `/announce-release <tag>` — which drafts blog + social companions + SEO meta + (optional) landing-page edits, runs voice-steward advisory, and opens a PR against `main`. **Human approves + merges.** Catch-up policy: announce only the latest missed tag; prior missed releases are covered via the changelog section in the blog body. Silent retry on failure (next 4h cycle). Manual `/announce-release <tag>` remains available.
+A scheduled remote agent (`trig_01KTj6rE8aPCCKkyuM6JmDbc`, cron `0 */4 * * *`) polls the latest framework release every 4h and invokes `/announce-release <tag>` only when **all** of these hold (Step 0 of the command runs the exact checks):
+
+1. No blog file under `src/content/docs/blog/` on `main` references the tag.
+2. No PR (open, or merged but not yet visible on `main`) has the branch `docs/announce-<tag>` or a title containing `announce beluga-ai <tag>`.
+3. No other announcement PR is still open. If one is open for an older tag, the agent does not open a second PR. It stops and reports, and a human merges or closes the stale PR first. Without these checks the trigger opened a new v2.13.2 PR on almost every cycle (#14–#27) while the first one waited for review.
+
+The command drafts blog + social companions + SEO meta + (optional) landing-page edits, runs voice-steward advisory, and opens one PR against `main` from the deterministic branch `docs/announce-<tag>`. **Human approves + merges.** Catch-up policy: announce only the latest missed tag; prior missed releases are covered via the changelog section in the blog body. Failures are reported in the run output (never silently retried into a new PR). Manual `/announce-release <tag>` runs the same Step 0 checks.
 
 ## Common commands
 
