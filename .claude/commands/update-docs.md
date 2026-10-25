@@ -25,7 +25,7 @@ The docs-sync agent produces a structured content-needs report:
 - No-action items (bug fixes, chores with no content impact)
 - Unable-to-determine items (need manual review)
 
-Report is saved to `src/content/docs/blog/_sync-reports/<tag>.md` and printed to stdout.
+Report is saved to `src/content/docs/blog/_sync-reports/_<tag>.md` (underscore file prefix so Starlight doesn't publish it; W-011) and printed to stdout. The path is not gitignored; don't commit the report unless someone asks for it.
 
 ### Step 4 — Next steps (manual)
 Review the report. For each actionable item:
@@ -35,4 +35,4 @@ Review the report. For each actionable item:
 - Release announcement → run `/announce-release <tag>`
 - Existing content update → edit the file directly or assign to `content-writer`
 
-This command does NOT automatically create content — it detects what's needed and produces a checklist for human review.
+This command does NOT automatically create content — it detects what's needed and produces a checklist for human review. Proposed issues in the report are filed by the coordinator, not by `docs-sync`.

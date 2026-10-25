@@ -50,7 +50,7 @@ scripts/snippets/check.sh ../framework /tmp/snippet-report
 ## Deploy
 
 Pushes to `main`, framework releases (`repository_dispatch`) and manual runs
-deploy through `.github/workflows/deploy.yml`. See `CLAUDE.md` for the full
+deploy through `.github/workflows/deploy.yml`. See `AGENTS.md` for the full
 deploy model, Starlight overrides and content rules.
 
 ## Related repositories

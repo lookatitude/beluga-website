@@ -7,9 +7,9 @@ Write a tutorial on: $ARGUMENTS
 
 $ARGUMENTS may be a free-form topic OR a Linear sub-issue ID (e.g., `LOO-47`) labeled `layer:website`. If it matches `^LOO-\d+$` (case-insensitive), run the Linear pre-flight below first; otherwise skip to Step 1.
 
-## Claude 4.x invocation notes
+## Invocation notes
 
-- **Structure:** Number steps explicitly; avoid assumed prior steps—Claude 4.x literalism applies to authoring agents too.
+- **Structure:** Number steps explicitly; avoid assumed prior steps. Current models read instructions literally, and so do readers following a tutorial.
 - **Companion example:** State whether `beluga-examples` tracks a sibling PR and link paths; don’t imply an example landed unless it exists.
 
 ## Pre-flight (Linear-integrated, A1)
@@ -47,12 +47,12 @@ Identify the framework feature being taught. Read:
 - The relevant package code if the docs are thin — `../framework/<package>/`.
 - Any existing content in `src/content/docs/docs/` that covers adjacent topics (avoid duplication).
 
-If the feature isn't documented in framework docs, STOP and file an issue in `lookatitude/beluga-ai` asking for documentation first. Don't write a tutorial from undocumented code.
+If the feature isn't documented in framework docs, STOP and (coordinator) file an issue in `lookatitude/beluga-ai` asking for documentation first. Don't write a tutorial from undocumented code.
 
 ### Step 2 — Companion example check
 Check whether a runnable example exists in `lookatitude/beluga-examples` for this feature:
 - If yes: the tutorial will link to it. Read the example to understand its scope.
-- If no: file an issue in `lookatitude/beluga-examples` requesting a companion example. Include the tutorial title, the feature being taught, and the expected imports. Continue writing the tutorial; link to the issue as "companion example in progress".
+- If no: (coordinator) file an issue in `lookatitude/beluga-examples` requesting a companion example. Include the tutorial title, the feature being taught, and the expected imports. Continue writing the tutorial; link to the issue as "companion example in progress".
 
 ### Step 3 — Draft
 `@agent-content-writer` writes the tutorial:
@@ -65,13 +65,17 @@ Check whether a runnable example exists in `lookatitude/beluga-examples` for thi
 ### Step 4 — Code verification
 Every Go code snippet in the tutorial must compile. Run `go build` on the complete code section at minimum. If individual steps are meant to be runnable independently, verify each one.
 
-### Step 4a — Code-reviewer (pre-merge, A1)
-Invoke `@agent-pr-review-toolkit:code-reviewer` on the draft. Verifies imports complete, errors handled, links accurate. Address high-confidence findings before opening the PR.
+### Step 4a — Code check and adversarial review (pre-merge)
+Run the Go snippet check locally: `scripts/snippets/check.sh ../framework <out-dir>` (needs Go 1.26+ and a framework checkout at the released tag; same script as the advisory `Go snippets` job in `.github/workflows/pr.yml`). Complete programs must compile; partial snippets may fail the compile step but must pass the API lint (no nonexistent packages or symbols). Then, before the PR opens, the coordinator runs `/codex:adversarial-review` on the branch (Codex is the cross-family reviewer; if it is unavailable, say so in the PR description, and don't present a same-family review as an equivalent pass). Address high-confidence findings before opening the PR.
 
 ### Step 4b — Voice-steward (pre-merge, A2)
-Invoke `@agent-voice-steward` on the draft. Reads `.guild/wiki/style-guide.md`, posts a review comment on tone / vocabulary / reading level / cross-content consistency. **Advisory only** — do not block on findings; continue to Step 5. Human decides what to act on.
+Invoke `@agent-voice-steward` on the draft. Reads `.guild/wiki/style-guide.md` and returns a review comment body (the coordinator posts it on the PR) on tone / vocabulary / reading level / cross-content consistency. **Advisory only** — do not block on findings; continue to Step 5. Human decides what to act on.
 
 ### Step 5 — Output
-Save to `src/content/docs/docs/guides/<slug>.mdx`. Open a PR against `main` per branch discipline. If a Linear sub-issue ID was used, include `LOO-NN` in the PR title so Linear auto-links.
+Save to `src/content/docs/docs/guides/<slug>.mdx`. Commit on a branch (never `main`); the coordinator pushes and opens the PR against `main`. If a Linear sub-issue ID was used, include `LOO-NN` in the PR title so Linear auto-links. `yarn build` and `python3 scripts/check-links.py dist` must pass locally first.
 
 Link to the companion example prominently (or to the pending issue if the example doesn't exist yet).
+
+## Coordinator handoff
+
+This command runs in the coordinator (main session) when you invoke it directly. Subagents it dispatches (`content-writer`, `marketeer`, `seo-meta`, `voice-steward`, …) write files and return; they never push, open PRs, post comments or file issues. If you are yourself a teammate running this command for a coordinator, stop after the local commit on your branch and hand back the PR title, body, voice-steward review and any proposed issues; the coordinator runs `/codex:adversarial-review`, pushes, opens the PR and posts the comments.

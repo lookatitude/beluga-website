@@ -1,0 +1,16 @@
+{
+  "skill": "website-development",
+  "should_trigger": [
+    "Add a new feature card component to the landing page",
+    "The Starlight Pagination override isn't picking up my change",
+    "After upgrading Astro the hero text renders as 'concerns.Build' with no space",
+    "yarn build fails in src/lib/og-image.ts after the satori bump",
+    "Add a /pricing marketing page with the existing MarketingHeader and Footer"
+  ],
+  "should_not_trigger": [
+    "Write a blog post about the new guard pipeline",
+    "Check the meta description length on the v2.11.0 release post",
+    "Run a voice review on the tutorial PR",
+    "What changed in framework v2.14.0 that needs new guides?"
+  ]
+}

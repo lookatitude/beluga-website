@@ -1,0 +1,15 @@
+{
+  "skill": "docs-sync-content-gap-report",
+  "should_trigger": [
+    "Produce the content-needs report for framework v2.14.0",
+    "Which of our guides still use the deprecated memory.NewBuffer API?",
+    "Is the website content current with the latest beluga-ai release?",
+    "Run the docs-sync workflow after the bundle fetch"
+  ],
+  "should_not_trigger": [
+    "Write the migration guide for the v2.14 breaking change",
+    "Draft release notes for v2.14.0",
+    "fetch-docs-bundle.sh fails its checksum, fix the script",
+    "Publish framework docs to Notion"
+  ]
+}

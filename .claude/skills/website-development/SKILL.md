@@ -1,6 +1,6 @@
 ---
 name: website-development
-description: Website development patterns for the Beluga AI docs and marketing site. Use when building, styling, or adjusting Astro components, layouts, pages, and interactive elements — NOT for writing documentation content (see content-writer).
+description: Website development patterns for the Beluga AI docs and marketing site. Use when building, styling, or adjusting Astro components, layouts, pages, and interactive elements — NOT for writing documentation content (see content-writer). Guild runs load the same knowledge through .guild/skills/website-development/SKILL.md, which points back here.
 ---
 
 # Website Development Patterns
@@ -10,7 +10,7 @@ description: Website development patterns for the Beluga AI docs and marketing s
 - **Framework**: Astro 7 with Starlight (0.42) documentation theme
 - **Styling**: Tailwind CSS 4 (via `@tailwindcss/vite` plugin)
 - **Components**: Astro components (`.astro`) — use React 19 (`.tsx`) only when client-side interactivity is required
-- **Build**: Vite 7, TypeScript 5
+- **Build**: Vite 8, TypeScript 5, Node 22.23.4 or later (`package.json` `engines`; both workflows pin `NODE_VERSION: "22.23.4"`)
 - **Extras**: astro-vtbot (view transitions), astro-embed, astro-font, Mermaid diagram rendering (custom rehype plugin), Sharp for image optimization, Satori + Resvg for OG image generation
 
 ## Project Structure
@@ -64,8 +64,8 @@ description: Website development patterns for the Beluga AI docs and marketing s
 
 ### This persona does NOT handle:
 - Writing or editing long-form content (blog posts, tutorials, guides, docs copy) — that is the `content-writer` agent's job
-- Framework Go code or architecture — file an issue in `lookatitude/beluga-ai` (the framework repo)
-- Runnable code examples — file an issue in `lookatitude/beluga-examples` (the examples repo, when it exists)
+- Framework Go code or architecture — list a follow-up for a `lookatitude/beluga-ai` issue (the coordinator files it)
+- Runnable code examples — list a follow-up for a `lookatitude/beluga-examples` issue
 
 ## Conventions
 
@@ -94,6 +94,9 @@ description: Website development patterns for the Beluga AI docs and marketing s
 - Keep overrides minimal — extend rather than replace when possible
 - Upstream Starlight updates may require refreshing these; touch carefully
 
+### Astro 7 gotcha: `compressHTML: false`
+- `astro.config.mjs` sets `compressHTML: false` on purpose. Astro 7's HTML compression drops the newline whitespace before inline elements on hand-written `.astro` pages (`concerns.<em>Build` renders as one glued word). Keep it off unless every hand-written page has been checked.
+
 ### Configuration
 - Site config: `src/config/config.json`
 - Sidebar: `src/config/sidebar.json`
@@ -117,7 +120,9 @@ yarn build      # Production build → dist/
 yarn preview    # Preview the built dist/
 ```
 
-Node 22. See `CLAUDE.md` for the full deploy model and three triggers.
+Node 22.23.4 or later. See `AGENTS.md` for the full deploy model and three triggers.
+
+CI parity before handing back: `.github/workflows/pr.yml` runs `yarn install --frozen-lockfile && yarn build`, then `python3 scripts/check-links.py dist` (blocking), plus an advisory `scripts/snippets/check.sh` job for Go snippets. Run the blocking pair locally; say so if you couldn't.
 
 ## Don'ts
 

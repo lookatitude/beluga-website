@@ -26,7 +26,7 @@ Invoke `/blog` for the main blog post on $ARGUMENTS. Output: `src/content/docs/b
 - Link to the full CHANGELOG page on the site
 - Output: `src/content/docs/releases/<tag>.mdx` (current convention — may be formalized as its own content collection later)
 
-If `marketeer` does not yet exist or lives in a different repo, write the release note yourself using the tone from existing release notes.
+`src/content/docs/releases/` does not exist yet; the first release note adds a new docs route, so check `src/config/sidebar.json` and `python3 scripts/check-links.py dist` after building.
 
 ### Step 4 — Landing page refresh
 If the release introduces user-visible changes worth highlighting on the landing page or `src/content/docs/docs/start/`, propose edits to those pages in the same PR. Do NOT rewrite marketing copy wholesale — reuse existing hero/CTA/feature-card components.
@@ -35,9 +35,13 @@ If the release introduces user-visible changes worth highlighting on the landing
 If any claim in the content depends on `research/competitor-signals.md`, cite the dated scan section it comes from. If a cited claim is older than 6 months, flag it in the PR description so the reviewer can decide whether to re-verify before publishing.
 
 ### Step 6 — Output and PR
-Everything lands in a single PR against `main` per branch discipline:
-- `src/content/docs/blog/<slug>.mdx` + `_social/<slug>.md`
+Run `@agent-voice-steward` on the bundle (advisory) and the code check from `/blog` Step 4a, then commit on a branch (never `main`). The coordinator runs `/codex:adversarial-review`, pushes, and opens a single PR against `main`:
+- `src/content/docs/blog/<slug>.mdx` + `src/content/docs/blog/_social/_<slug>-{x,linkedin,bluesky}.md` (keep the `_` file prefix; W-011)
 - `src/content/docs/releases/<tag>.mdx`
 - Any landing-page or docs edits
 
 Do NOT commit directly to main. Do NOT split this into multiple PRs — the campaign is one coordinated change.
+
+## Coordinator handoff
+
+This command runs in the coordinator (main session) when you invoke it directly. Subagents it dispatches (`content-writer`, `marketeer`, `seo-meta`, `voice-steward`, …) write files and return; they never push, open PRs, post comments or file issues. If you are yourself a teammate running this command for a coordinator, stop after the local commit on your branch and hand back the PR title, body, voice-steward review and any proposed issues; the coordinator runs `/codex:adversarial-review`, pushes, opens the PR and posts the comments.
