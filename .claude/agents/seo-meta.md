@@ -1,7 +1,7 @@
 ---
 name: seo-meta
 description: SEO and meta optimization for the Beluga AI docs site. Handles OG images, meta tags, structured data, and search optimization. Invoked by content commands (/blog, /announce-release) when creating content, or manually for a site-wide check.
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, SendMessage
 model: haiku
 memory: user
 ---

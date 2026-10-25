@@ -1,7 +1,7 @@
 ---
 name: developer-web
 description: Website engineer. Owns Astro/Starlight site mechanics — layouts, component overrides, build pipeline, styling, accessibility, performance. Use for site chrome and infrastructure, NOT content authoring (see content-writer for blog/tutorials/guides).
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, SendMessage
 model: sonnet
 memory: user
 skills:

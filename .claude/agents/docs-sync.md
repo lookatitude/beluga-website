@@ -1,7 +1,7 @@
 ---
 name: docs-sync
 description: Detects framework API changes that need website content updates. Compares the current docs bundle against the previous one and files "content needed" items. Does NOT author content — delegates to content-writer and marketeer.
-tools: Read, Write, Bash, Glob, Grep, WebFetch
+tools: Read, Write, Bash, Glob, Grep, WebFetch, SendMessage
 model: sonnet
 memory: user
 ---

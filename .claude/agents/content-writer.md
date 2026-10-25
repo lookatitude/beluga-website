@@ -1,7 +1,7 @@
 ---
 name: content-writer
 description: Long-form content author for the Beluga AI docs site. Writes blog posts, tutorials, and guides grounded in framework source material. Use for any authored content — NOT for site mechanics (see developer-web) or short-form promo (see marketeer).
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, SendMessage
 model: opus
 memory: user
 ---

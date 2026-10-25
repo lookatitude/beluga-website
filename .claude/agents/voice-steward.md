@@ -1,7 +1,7 @@
 ---
 name: voice-steward
 description: Reviews content PRs for voice, tone, vocabulary, reading level, and banned-phrase consistency. Advisory only — returns a review comment for the coordinator to post, does not block merge. Enforces the style guide at .guild/wiki/style-guide.md.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage
 model: sonnet
 memory: user
 ---

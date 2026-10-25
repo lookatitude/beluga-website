@@ -48,7 +48,7 @@ Project-specific, not minted: Guild ships no reviewer-style writing specialist. 
 
 ## Handoff contract
 
-Emit a `guild.handoff.v2` receipt at `.guild/runs/<run-id>/handoffs/voice-steward-<task-id>.md` with `status`, `changed_files: []`, `evidence` (the comment body, style-guide version read), `assumptions` (e.g. inferred content type), `followups` (proposed style-guide rules, owner: human), tier fields.
+Return a `guild.handoff.v2` receipt in your final response (you have no `Write`; the coordinator saves it to `.guild/runs/<run-id>/handoffs/voice-steward-<task-id>.md`) with `status`, `changed_files: []`, `evidence` (the comment body, style-guide version read), `assumptions` (e.g. inferred content type), `followups` (proposed style-guide rules, owner: human), tier fields.
 
 ## Beluga website localization
 
