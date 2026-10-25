@@ -2,7 +2,7 @@
 import MobileMenuFooter from "@astrojs/starlight/components/MobileMenuFooter.astro";
 import SidebarPersister from "@astrojs/starlight/components/SidebarPersister.astro";
 import SidebarSublist from "./SidebarSublist.astro";
-import { flattenSidebar } from "node_modules/@astrojs/starlight/utils/navigation";
+import { flattenSidebar } from "@/lib/flatten-sidebar";
 
 let sidebar = Astro.locals.starlightRoute.sidebar;
 

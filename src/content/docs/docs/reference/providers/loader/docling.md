@@ -15,7 +15,7 @@ Choose Docling when you need structured document conversion that preserves table
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/loader/providers/docling
+go get github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling
 ```
 
 ## Quick Start
@@ -28,9 +28,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/docling"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/docling"
 )
 
 func main() {

@@ -15,7 +15,7 @@ Choose OpenAI embeddings for the best general-purpose quality-to-cost ratio. The
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/openai
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 func main() {
@@ -77,7 +77,7 @@ For more control, construct the embedder directly:
 
 ```go
 import (
-    oaiemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    oaiemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 emb, err := oaiemb.New(config.ProviderConfig{

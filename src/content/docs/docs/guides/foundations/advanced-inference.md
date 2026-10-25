@@ -17,7 +17,7 @@ Configurations for different use cases — deterministic code generation, creati
 ## Prerequisites
 
 - A configured LLM provider (OpenAI, Anthropic, or any registered provider)
-- Understanding of the [ChatModel interface](/docs/guides/llm)
+- Understanding of the [ChatModel interface](/docs/guides/foundations/working-with-llms/)
 
 ## Generate Options
 
@@ -44,10 +44,10 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {

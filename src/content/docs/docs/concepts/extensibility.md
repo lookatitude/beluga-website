@@ -111,9 +111,9 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 func buildModel(ctx context.Context) (llm.ChatModel, error) {
@@ -191,7 +191,7 @@ Every extensible package ships a `WithTracing()` Ring 4 middleware that wraps
 its interface with OTel GenAI spans. Adding `WithTracing()` when you introduce
 a new pluggable package is mandatory, not optional. Seventeen packages currently
 ship it; the canonical template is `memory/tracing.go`. See
-[DOC-14 — Observability](/docs/reference/architecture/overview/observability).
+[DOC-14 — Observability](/docs/guides/production/observability/).
 
 ## Wiring it together
 
@@ -200,9 +200,9 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // auditHooks and costHooks are defined elsewhere in your application.
@@ -237,7 +237,7 @@ func buildLLM(ctx context.Context) (llm.ChatModel, error) {
 
 ## Related reading
 
-- [DOC-03 — Extensibility Patterns](/docs/reference/architecture/overview/extensibility-patterns) — the full architecture doc with implementation detail.
-- [Registry + Factory pattern](/docs/patterns/registry-factory) — registration model in depth.
-- [Middleware Chain pattern](/docs/patterns/middleware-chain) — composition, ordering, edge cases.
-- [Custom Provider guide](/docs/guides/custom-provider) — building a new provider end-to-end.
+- [DOC-03 — Extensibility Patterns](/docs/concepts/extensibility/) — the full architecture doc with implementation detail.
+- [Registry + Factory pattern](/docs/concepts/extensibility/) — registration model in depth.
+- [Middleware Chain pattern](/docs/concepts/extensibility/) — composition, ordering, edge cases.
+- [Custom Provider guide](/docs/guides/foundations/new-llm-provider/) — building a new provider end-to-end.

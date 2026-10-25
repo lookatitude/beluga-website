@@ -14,7 +14,7 @@ The deeper problem is that channel-specific systems prevent cross-channel intell
 
 ## Solution Architecture
 
-Beluga AI's `server/` package provides unified messaging backend abstractions with a consistent interface across channels. The key design choice is the `server.MessagingBackend` interface — SMS, WhatsApp, and email backends all implement the same `SendMessage`, `GetOrCreateConversation` contract. This means campaign logic is written once against the interface, and channel-specific behavior (WhatsApp template requirements, SMS character limits, email HTML formatting) is handled by the backend implementations. Delivery tracking and analytics aggregate across all channels into a single view.
+Beluga AI does not include SMS, WhatsApp, or email providers, so the hub defines its own small `Channel` interface and you implement it once per provider with that provider's SDK. The key design choice is that SMS, WhatsApp, and email all satisfy the same `Send` contract. Campaign logic is written once against the interface, and channel-specific behavior (WhatsApp template requirements, SMS character limits, email HTML formatting) lives in the channel implementations. Beluga AI's `o11y` package supplies the tracing. Delivery tracking and analytics aggregate across all channels into a single view.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -49,57 +49,36 @@ Beluga AI's `server/` package provides unified messaging backend abstractions wi
 The hub manages messaging across multiple channels with a unified interface:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
-
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/server"
-
-    _ "github.com/lookatitude/beluga-ai/server/providers/twilio"
+    "log"
+    "strings"
+    "time"
 )
 
+// Channel delivers one message to one address. Beluga AI does not ship
+// messaging providers; implement Channel per provider with its SDK
+// (Twilio for SMS and WhatsApp, SendGrid for email, ...).
+type Channel interface {
+    Send(ctx context.Context, address, body string) error
+}
+
 type MultiChannelHub struct {
-    backends map[string]server.MessagingBackend
+    channels map[string]Channel // "sms", "whatsapp", "email"
 }
 
-func NewMultiChannelHub(ctx context.Context) (*MultiChannelHub, error) {
-    backends := make(map[string]server.MessagingBackend)
-
-    // Setup SMS backend (Twilio)
-    smsBackend, err := server.NewMessagingBackend("twilio", server.MessagingConfig{
-        AccountSID: "your-account-sid",
-        AuthToken:  "your-auth-token",
-        Channel:    "sms",
-    })
-    if err == nil {
-        backends["sms"] = smsBackend
-    }
-
-    // Setup WhatsApp backend (Twilio)
-    whatsappBackend, err := server.NewMessagingBackend("twilio", server.MessagingConfig{
-        AccountSID: "your-account-sid",
-        AuthToken:  "your-auth-token",
-        Channel:    "whatsapp",
-    })
-    if err == nil {
-        backends["whatsapp"] = whatsappBackend
-    }
-
-    // Setup Email backend
-    emailBackend, err := server.NewMessagingBackend("sendgrid", server.MessagingConfig{
-        APIKey: "your-sendgrid-key",
-    })
-    if err == nil {
-        backends["email"] = emailBackend
-    }
-
-    return &MultiChannelHub{
-        backends: backends,
-    }, nil
+func NewMultiChannelHub(channels map[string]Channel) *MultiChannelHub {
+    return &MultiChannelHub{channels: channels}
 }
+
+// Usage:
+//
+//  hub := NewMultiChannelHub(map[string]Channel{
+//      "sms":      twilioSMS,      // your Channel implementations
+//      "whatsapp": twilioWhatsApp,
+//      "email":    sendgridEmail,
+//  })
 ```
 
 ### Campaign Management
@@ -108,11 +87,11 @@ Send campaigns across multiple channels with consistent messaging:
 
 ```go
 type Campaign struct {
-    ID        string
-    Name      string
-    Message   string
-    Channels  []string
-    Recipients []Recipient
+    ID          string
+    Name        string
+    Message     string
+    Channels    []string
+    Recipients  []Recipient
     ScheduledAt time.Time
 }
 
@@ -124,37 +103,26 @@ type Recipient struct {
 }
 
 func (h *MultiChannelHub) SendCampaign(ctx context.Context, campaign Campaign) error {
-    for _, channel := range campaign.Channels {
-        backend, exists := h.backends[channel]
+    for _, name := range campaign.Channels {
+        channel, exists := h.channels[name]
         if !exists {
+            log.Printf("campaign %s: no channel %q configured", campaign.ID, name)
             continue
         }
 
         for _, recipient := range campaign.Recipients {
-            // Get or create conversation
-            address := h.getRecipientAddress(recipient, channel)
+            address := h.getRecipientAddress(recipient, name)
             if address == "" {
                 continue
             }
 
-            conversation, err := backend.GetOrCreateConversation(ctx, address)
-            if err != nil {
-                h.trackDelivery(ctx, campaign.ID, channel, recipient.ID, "failed")
+            body := h.personalizeMessage(campaign.Message, recipient)
+            if err := channel.Send(ctx, address, body); err != nil {
+                h.trackDelivery(ctx, campaign.ID, name, recipient.ID, "failed")
                 continue
             }
 
-            // Send message
-            msg := schema.Message{
-                Content: h.personalizeMessage(campaign.Message, recipient),
-                Channel: channel,
-            }
-
-            if err := backend.SendMessage(ctx, conversation.ID, msg); err != nil {
-                h.trackDelivery(ctx, campaign.ID, channel, recipient.ID, "failed")
-                continue
-            }
-
-            h.trackDelivery(ctx, campaign.ID, channel, recipient.ID, "sent")
+            h.trackDelivery(ctx, campaign.ID, name, recipient.ID, "sent")
         }
     }
 
@@ -260,8 +228,6 @@ type ChannelStats struct {
 Schedule campaigns for optimal delivery times:
 
 ```go
-import "time"
-
 type Scheduler struct {
     hub *MultiChannelHub
 }
@@ -274,14 +240,13 @@ func (s *Scheduler) ScheduleCampaign(ctx context.Context, campaign Campaign) err
         return s.hub.SendCampaign(ctx, campaign)
     }
 
-    // Schedule for later
-    timer := time.NewTimer(delay)
-    go func() {
-        <-timer.C
+    // Schedule for later. In-process timers are lost on restart; use a
+    // durable job queue or workflow engine in production.
+    time.AfterFunc(delay, func() {
         if err := s.hub.SendCampaign(context.Background(), campaign); err != nil {
-            // Log error
+            log.Printf("campaign %s: %v", campaign.ID, err)
         }
-    }()
+    })
 
     return nil
 }
@@ -329,40 +294,38 @@ func (h *RateLimitedHub) SendCampaign(ctx context.Context, campaign Campaign) er
 Track campaign performance with OpenTelemetry:
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "go.opentelemetry.io/otel/attribute"
-)
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 func (h *MultiChannelHub) SendCampaignWithTracing(ctx context.Context, campaign Campaign) error {
-    ctx, span := o11y.StartSpan(ctx, "marketing.send_campaign")
+    ctx, span := o11y.StartSpan(ctx, "marketing.send_campaign", o11y.Attrs{
+        "campaign.id":         campaign.ID,
+        "campaign.name":       campaign.Name,
+        "campaign.channels":   len(campaign.Channels),
+        "campaign.recipients": len(campaign.Recipients),
+    })
     defer span.End()
 
-    span.SetAttributes(
-        attribute.String("campaign.id", campaign.ID),
-        attribute.String("campaign.name", campaign.Name),
-        attribute.Int("campaign.channels", len(campaign.Channels)),
-        attribute.Int("campaign.recipients", len(campaign.Recipients)),
-    )
-
-    err := h.SendCampaign(ctx, campaign)
-    if err != nil {
+    if err := h.SendCampaign(ctx, campaign); err != nil {
         span.RecordError(err)
+        span.SetStatus(o11y.StatusError, err.Error())
         return err
     }
 
     // Record campaign metrics
-    stats, _ := h.GetCampaignStats(ctx, campaign.ID)
-    if stats != nil {
-        for channel, channelStats := range stats.ByChannel {
-            span.SetAttributes(
-                attribute.Int(fmt.Sprintf("campaign.%s.sent", channel), channelStats.Sent),
-                attribute.Int(fmt.Sprintf("campaign.%s.delivered", channel), channelStats.Delivered),
-                attribute.Int(fmt.Sprintf("campaign.%s.failed", channel), channelStats.Failed),
-            )
-        }
+    stats, err := h.GetCampaignStats(ctx, campaign.ID)
+    if err != nil {
+        span.RecordError(err)
+        return nil // the campaign was sent; only stats failed
+    }
+    for channel, channelStats := range stats.ByChannel {
+        span.SetAttributes(o11y.Attrs{
+            fmt.Sprintf("campaign.%s.sent", channel):      channelStats.Sent,
+            fmt.Sprintf("campaign.%s.delivered", channel): channelStats.Delivered,
+            fmt.Sprintf("campaign.%s.failed", channel):    channelStats.Failed,
+        })
     }
 
+    span.SetStatus(o11y.StatusOK, "")
     return nil
 }
 ```
@@ -405,6 +368,5 @@ After implementing the multi-channel marketing hub, the agency achieved:
 
 ## Related Resources
 
-- [Messaging Integration](/docs/guides/production/integrations/) for channel-specific configuration
-- [Server Providers](/docs/reference/providers/server/) for available messaging backends
-- [Observability Guide](/docs/guides/observability/) for campaign analytics setup
+- [Messaging Integration](/docs/guides/production/) for channel-specific configuration
+- [Observability Guide](/docs/guides/production/observability/) for campaign analytics setup

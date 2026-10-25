@@ -15,7 +15,7 @@ Choose the file provider when you want to manage prompt templates as JSON files 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/prompt/providers/file
+go get github.com/lookatitude/beluga-ai/v2/prompt/providers/file
 ```
 
 ## Configuration
@@ -53,7 +53,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/prompt/providers/file"
+    "github.com/lookatitude/beluga-ai/v2/prompt/providers/file"
 )
 
 func main() {

@@ -38,10 +38,10 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func callWithDeadline(msgs []schema.Message) error {
@@ -79,7 +79,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
 )
 
 func tracedOperation(ctx context.Context) error {
@@ -99,7 +99,7 @@ func tracedOperation(ctx context.Context) error {
 ```
 
 Every `WithTracing()` middleware in Beluga follows this pattern. See
-[DOC-14 — Observability](/docs/reference/architecture/overview/observability) for the
+[DOC-14 — Observability](/docs/guides/production/observability/) for the
 full template.
 
 ## Tenant isolation
@@ -129,11 +129,11 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 func handleRequest(tenantID string, msgs []schema.Message) error {
@@ -209,7 +209,7 @@ the caller's context unchanged. When a circuit is open, the call returns
 immediately with a `*core.Error{Code: core.ErrProviderDown}` without
 blocking. The caller's timeout still fires if the context expires while
 waiting for the circuit to close. See
-[DOC-15 — Resilience](/docs/reference/architecture/overview/resilience).
+[DOC-15 — Resilience](/docs/reference/api/infrastructure/resilience/).
 
 ## Common mistakes
 
@@ -221,8 +221,8 @@ waiting for the circuit to close. See
 
 ## Related reading
 
-- [DOC-02 — Core Primitives](/docs/reference/architecture/overview/core-primitives) — context helpers in the full primitive set.
-- [DOC-14 — Observability](/docs/reference/architecture/overview/observability) — how OTel spans propagate through context.
-- [DOC-15 — Resilience](/docs/reference/architecture/overview/resilience) — how circuit breakers and retry interact with context timeouts.
+- [DOC-02 — Core Primitives](/docs/concepts/core-primitives/) — context helpers in the full primitive set.
+- [DOC-14 — Observability](/docs/guides/production/observability/) — how OTel spans propagate through context.
+- [DOC-15 — Resilience](/docs/reference/api/infrastructure/resilience/) — how circuit breakers and retry interact with context timeouts.
 - [`core/context.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/context.go) — session and request ID helpers.
 - [`core/tenant.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/tenant.go) — tenant isolation helpers.

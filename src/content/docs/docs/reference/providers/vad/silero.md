@@ -8,14 +8,14 @@ head:
       content: "Silero VAD, voice activity detection, neural network, speech detection, confidence scoring, Go, Beluga AI"
 ---
 
-The Silero provider implements voice activity detection using the Silero VAD ONNX model. When the ONNX runtime is unavailable, it falls back to an energy-based detector calibrated to approximate Silero's sensitivity. This provider requires CGO.
+Despite its name, the Silero provider does not run the Silero neural model. It is an RMS-energy detector on 16-bit little-endian PCM audio whose default threshold is calibrated to approximate Silero VAD sensitivity. Loading the Silero ONNX model is not implemented: setting `ModelPath` (`model_path`) makes construction fail instead of being silently ignored. This provider requires CGO.
 
-Choose Silero when you need high-accuracy, neural network-based voice activity detection. The ONNX model provides more precise speech/silence classification than energy-based methods, especially in noisy environments. Note that it requires CGO. For a pure Go alternative with no CGO dependency, use [WebRTC](/docs/reference/providers/vad/webrtc).
+Choose Silero when you want detection thresholds on Silero's 0-1 probability scale. Do not expect neural-network accuracy in noisy environments; for real Silero inference, implement `voice.ActivityDetector` on an ONNX Runtime binding and register it with `voice.RegisterVAD`. Note that it requires CGO. For a pure Go alternative with no CGO dependency, use [WebRTC](/docs/reference/providers/vad/webrtc).
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/voice/vad/providers/silero
+go get github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero
 ```
 
 This package uses the `cgo` build tag. Ensure CGO is enabled in your build environment.
@@ -26,7 +26,7 @@ This package uses the `cgo` build tag. Ensure CGO is enabled in your build envir
 |--------------|----------|----------|-----------------------------------------|
 | `Threshold`  | No       | `0.5`    | Speech probability threshold (0.0-1.0)  |
 | `SampleRate` | No       | `16000`  | Audio sample rate in Hz (8000 or 16000) |
-| `ModelPath`  | No       | —        | Path to Silero VAD ONNX model file      |
+| `ModelPath`  | No       | —        | Not supported; construction returns `core.ErrInvalidInput` when set |
 
 **Registry configuration keys:**
 
@@ -46,8 +46,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 func main() {
@@ -76,13 +76,15 @@ func main() {
 
 ### ONNX Model Loading
 
-When a `ModelPath` is provided, the Silero provider loads the ONNX model for neural network-based speech detection. Without a model path, it uses an energy-based fallback calibrated to approximate Silero's output:
+ONNX model loading is not implemented. Passing `model_path` returns an error rather than silently falling back to the energy detector:
 
 ```go
-vad, err := voice.NewVAD("silero", map[string]any{
+_, err := voice.NewVAD("silero", map[string]any{
     "threshold":  0.5,
     "model_path": "/models/silero_vad.onnx",
 })
+// err: "silero: ModelPath is not supported: this provider is an energy-based
+// approximation and cannot load the Silero ONNX model" (core.ErrInvalidInput)
 ```
 
 ### Continuous Detection with State Tracking
@@ -120,12 +122,11 @@ Lower thresholds increase sensitivity (more false positives), while higher thres
 For compile-time type safety, construct the provider directly:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+import "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 
 vad, err := silero.New(silero.Config{
     Threshold:  0.5,
     SampleRate: 16000,
-    ModelPath:  "/models/silero_vad.onnx",
 })
 ```
 

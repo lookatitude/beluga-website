@@ -43,16 +43,6 @@ Beluga AI's schema validation provides strict enforcement of HL7 FHIR output sch
 Define FHIR resource schemas with strict validation rules:
 
 ```go
-package main
-
-import (
-    "context"
-    "fmt"
-
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/o11y"
-)
-
 // FHIRPatient represents a standardized FHIR Patient resource
 type FHIRPatient struct {
     ResourceType string          `json:"resourceType" validate:"required,eq=Patient"`
@@ -269,11 +259,7 @@ type MappedData struct {
 Track transformation metrics and validation failures:
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "go.opentelemetry.io/otel"
-    "go.opentelemetry.io/otel/metric"
-)
+import "time"
 
 type AuditTrail struct {
     RecordID       string
@@ -310,7 +296,7 @@ func (m *MedicalRecordStandardizer) StandardizeWithAudit(ctx context.Context, ra
 Implement retry logic for transient failures:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 policy := resilience.RetryPolicy{
     MaxAttempts:    3,
@@ -364,6 +350,6 @@ Healthcare data requires strict security controls:
 
 ## Related Resources
 
-- [Schema Package Guide](/docs/guides/schema-validation/) for validation patterns
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for document processing
-- [Observability Guide](/docs/guides/observability/) for healthcare monitoring
+- [Schema Package Guide](/docs/recipes/infrastructure/schema-validation/) for validation patterns
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for document processing
+- [Observability Guide](/docs/guides/production/observability/) for healthcare monitoring

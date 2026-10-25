@@ -16,8 +16,8 @@ The guard pipeline validates content at three stages -- input, output, and tool 
 
 ## Prerequisites
 
-- Go 1.23 or later
-- Beluga AI framework installed (`github.com/lookatitude/beluga-ai`)
+- Go 1.26 or later
+- Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - Familiarity with the `guard` package and its `GuardResult` type
 
 ## Installation
@@ -25,7 +25,7 @@ The guard pipeline validates content at three stages -- input, output, and tool 
 No additional dependencies are required beyond the standard library and the Beluga AI framework.
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration
@@ -50,7 +50,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 // SafetyReport wraps a GuardResult with reporting metadata.
@@ -110,7 +110,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 // DetailedSafetyReport extends the basic report with pipeline execution details.
@@ -183,7 +183,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 // SafetyReporter streams JSON-encoded safety reports to a writer.
@@ -258,7 +258,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -322,7 +322,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/guard"
+	"github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 // ExportToFile writes a single GuardResult report to the specified path.
@@ -376,6 +376,6 @@ Verify the target directory exists and the process has write permissions. Use `0
 
 ## Related Resources
 
-- [Guard Package](/docs/guides/safety-guards/) -- Guard pipeline documentation
+- [Guard Package](/docs/guides/production/safety-and-guards/) -- Guard pipeline documentation
 - [Ethical API Filter](/docs/guides/production/integrations/ethical-api-filter/) -- Third-party safety API integration
-- [Monitoring and Observability](/docs/guides/production/integrations/) -- OTel instrumentation
+- [Monitoring and Observability](/docs/guides/production/) -- OTel instrumentation

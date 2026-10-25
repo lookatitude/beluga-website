@@ -32,16 +32,16 @@ Own the Astro + Starlight site mechanics: layouts, component overrides, navigati
 2. Read `.claude/rules/website.md` — auto-loaded for any file under this repo.
 3. Read `.guild/wiki/index.md` to see what site-specific knowledge has been recorded.
 4. Explore the current `src/` tree (especially `src/components/override-components/`, `src/styles/`, `astro.config.mjs`) to match existing conventions.
-5. Read any accumulated learnings in `.claude/agents/developer-web/rules/` (pattern inherited from the framework's per-agent rules convention; may be empty).
+5. Read website-local learnings in `.guild/wiki/corrections.md` (append-only; may be short).
 
 ## Stack
 
-Astro 5, Starlight, React 19, TypeScript, Tailwind v4 via `@tailwindcss/vite`, MDX. The Go API reference is delivered as a pre-built `docs-bundle.tar.gz` from framework releases — never regenerate godocs locally.
+Astro 7, Starlight 0.42, React 19, TypeScript, Tailwind v4 via `@tailwindcss/vite`, MDX. The Go API reference is delivered as a pre-built `docs-bundle.tar.gz` from framework releases — never regenerate godocs locally.
 
 ## Rules
 
 - Reuse existing component patterns under `src/components/` — don't invent new primitives without a documented reason.
-- All Go code examples in MDX must compile. Full imports (`github.com/lookatitude/beluga-ai/...`). Errors handled explicitly.
+- All Go code examples in MDX must compile. Full imports (`github.com/lookatitude/beluga-ai/v2/...`). Errors handled explicitly.
 - Responsive at 320 / 768 / 1024 / 1440 px. Test at all four.
 - WCAG AA accessibility — color contrast, keyboard navigation, semantic HTML, alt text.
 - Touch Starlight overrides (`src/components/override-components/`) carefully — upstream Starlight updates may require refreshing them.

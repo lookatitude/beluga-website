@@ -41,7 +41,7 @@ type GuardResult struct {
 The guard pipeline validates content at three stages, each running an ordered sequence of guards:
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
 pipeline := guard.NewPipeline(
     guard.Input(inputGuard1, inputGuard2),   // Validate user messages
@@ -141,9 +141,9 @@ A production safety pipeline typically combines built-in and external guards:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/guard"
-    "github.com/lookatitude/beluga-ai/guard/providers/lakera"
-    "github.com/lookatitude/beluga-ai/guard/providers/azuresafety"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard/providers/lakera"
+    "github.com/lookatitude/beluga-ai/v2/guard/providers/azuresafety"
 )
 
 lakeraGuard, err := lakera.New(

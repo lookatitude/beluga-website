@@ -7,7 +7,7 @@ recall_importance: 2
 
 > Migrated from `.wiki/index.md` on 2026-10-25 (Guild 3.x; structure kept). Verbatim original: `.guild/knowledge/sources/wiki-index/original.md` (sha256 `782a59ff16f8…`).
 
-**Scope: website-local.** This wiki holds knowledge specific to the documentation and marketing site — Starlight override conventions, content voice and style, design system tokens, SEO/meta patterns, and website-local corrections. It does **not** hold framework patterns (those are in `../../../framework/.guild/wiki/`) or cross-repo coordination material (that is in the workspace wiki at `./`, visible when the repo is checked out inside the multi-repo Beluga workspace).
+**Scope: website-local.** This wiki holds knowledge specific to the documentation and marketing site — Starlight override conventions, content voice and style, design system tokens, SEO/meta patterns, and website-local corrections. It does **not** hold framework patterns (those are in `../../../framework/.guild/wiki/`) or cross-repo coordination material (that is in the workspace wiki at `../../../.guild/wiki/`, visible when the repo is checked out inside the multi-repo Beluga workspace).
 
 ## What lives here (and when)
 
@@ -23,8 +23,8 @@ recall_importance: 2
 ## Where everything else lives
 
 - **Framework Go patterns, APIs, architecture** → `../../../framework/.guild/wiki/`
-- **Release flow, dispatch chains, cross-repo incidents** → workspace `./` *(visible inside the multi-repo workspace)*
-- **Runnable code examples** → `../../../examples/.guild/wiki/` *(pending — Phase 5)*
+- **Release flow, dispatch chains, cross-repo incidents** → workspace `../../../.guild/wiki/` *(visible inside the multi-repo workspace)*
+- **Runnable code examples** → `../../../examples/.guild/wiki/`
 
 ## Populate this wiki when
 

@@ -15,7 +15,7 @@ Choose Cartesia when latency is critical — for example, in conversational voic
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/cartesia"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
 ```
 
 The blank import registers the `"cartesia"` provider with the TTS registry.
@@ -46,8 +46,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/cartesia"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
 )
 
 func main() {
@@ -75,7 +75,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/cartesia"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
 
 engine, err := cartesia.New(tts.Config{
     Voice:      "a0e99841-438c-4a64-b679-ae501e7d6091",
@@ -95,7 +95,9 @@ for chunk, err := range engine.SynthesizeStream(ctx, textStream) {
         log.Printf("error: %v", err)
         break
     }
-    transport.Send(chunk)
+    if _, err := audioOut.Write(chunk); err != nil { // e.g. an AudioTransport's AudioOut()
+        break
+    }
 }
 ```
 

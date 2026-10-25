@@ -24,7 +24,7 @@ This integration uses the Kubernetes Go client (`client-go`) to create and manag
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Access to a Kubernetes cluster (local or remote)
 - `kubectl` configured with cluster access
 - Beluga AI framework installed
@@ -163,8 +163,10 @@ func main() {
     }
 
     job, err := scheduler.ScheduleWorkflow(ctx, "workflow-123",
-        "beluga-ai:latest",
-        []string{"beluga", "run", "--workflow", "workflow-123"},
+        "my-registry/workflow-worker:latest",
+        // Your own worker binary built with Beluga; it reads the workflow ID
+        // and runs it (the beluga CLI has no --workflow flag).
+        []string{"/app/workflow-worker", "--workflow-id", "workflow-123"},
     )
     if err != nil {
         log.Fatalf("failed to schedule workflow: %v", err)
@@ -382,7 +384,7 @@ The container image is not accessible from the cluster. Verify the image exists 
 
 ```bash
 # Check if the image is accessible
-kubectl run test --image=beluga-ai:latest --rm -it --restart=Never -- echo "ok"
+kubectl run test --image=my-registry/workflow-worker:latest --rm -it --restart=Never -- echo "ok"
 
 # For private registries, create an image pull secret
 kubectl create secret docker-registry beluga-registry \
@@ -394,5 +396,5 @@ kubectl create secret docker-registry beluga-registry \
 ## Related Resources
 
 - [NATS Message Bus](/docs/guides/production/integrations/nats-message-bus) -- Distributed messaging for agent coordination
-- [Infrastructure](/docs/guides/production/integrations/infrastructure) -- Infrastructure integration patterns
-- [Monitoring](/docs/guides/production/integrations/monitoring) -- Observability and tracing setup
+- [Infrastructure](/docs/guides/production/) -- Infrastructure integration patterns
+- [Monitoring](/docs/guides/production/monitoring-dashboards/) -- Observability and tracing setup

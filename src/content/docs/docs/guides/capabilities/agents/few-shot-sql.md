@@ -39,22 +39,22 @@ The pipeline has four stages: example selection (find the most relevant examples
 
 ## Few-Shot SQL Generation
 
-The SQL generator selects similar examples based on query intent and constructs a prompt with schema information and examples. The prompt template uses Go's `text/template` syntax via Beluga AI's `prompt.NewPromptTemplate`, which ensures consistent prompt formatting across all invocations. Examples are selected per-dialect so the LLM sees syntax patterns matching the target database.
+The SQL generator selects similar examples based on query intent and constructs a prompt with schema information and examples. The prompt template uses Go's `text/template` syntax via Beluga AI's `prompt.Template`, which ensures consistent prompt formatting across all invocations. Examples are selected per-dialect so the LLM sees syntax patterns matching the target database.
 
 ```go
 package main
 
 import (
     "context"
-    "encoding/json"
     "fmt"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/prompt"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/prompt"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // SQLExample represents a few-shot learning example.
@@ -68,18 +68,24 @@ type SQLExample struct {
 // SQLGenerator generates SQL queries from natural language using few-shot learning.
 type SQLGenerator struct {
     model          llm.ChatModel
-    promptTemplate *prompt.PromptTemplate
+    promptTemplate *prompt.Template
     examples       []SQLExample
     schemaInfo     map[string]SchemaInfo
 }
 
 func NewSQLGenerator(ctx context.Context) (*SQLGenerator, error) {
-    model, err := llm.New("openai", config.ProviderConfig{Model: "gpt-4o"})
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
 
-    template, err := prompt.NewPromptTemplate(`
+    template := &prompt.Template{
+        Name:    "few-shot-sql",
+        Version: "1.0.0",
+        Content: `
 You are an expert SQL generator. Generate SQL queries from natural language.
 
 Database Schema:
@@ -97,9 +103,10 @@ Natural Language Query: {{.query}}
 
 Generate a SQL query following the examples. Use the same dialect and style.
 Return only the SQL query without explanation.
-`)
-    if err != nil {
-        return nil, fmt.Errorf("create prompt template: %w", err)
+`,
+    }
+    if err := template.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid prompt template: %w", err)
     }
 
     return &SQLGenerator{
@@ -119,7 +126,7 @@ func (s *SQLGenerator) GenerateSQL(ctx context.Context, query string, dialect st
     schemaStr := s.formatSchema(dialect)
 
     // Build prompt with examples and schema
-    promptText, err := s.promptTemplate.Format(map[string]any{
+    promptText, err := s.promptTemplate.Render(map[string]any{
         "schema":   schemaStr,
         "dialect":  dialect,
         "examples": examples,
@@ -245,6 +252,23 @@ func loadSchemaInfo() map[string]SchemaInfo {
             },
         },
     }
+}
+
+func main() {
+    ctx := context.Background()
+
+    gen, err := NewSQLGenerator(ctx)
+    if err != nil {
+        fmt.Printf("setup failed: %v\n", err)
+        return
+    }
+
+    sqlQuery, err := gen.GenerateSQL(ctx, "Find total revenue by customer", "postgres")
+    if err != nil {
+        fmt.Printf("generation failed: %v\n", err)
+        return
+    }
+    fmt.Println(sqlQuery)
 }
 ```
 
@@ -377,6 +401,6 @@ Few-shot SQL generation delivered significant improvements:
 
 ## Related Resources
 
-- [Dynamic Tool Injection](/docs/guides/dynamic-tool-injection/) for runtime prompt patterns
-- [Prompt Management Guide](/docs/guides/prompt-management/) for template best practices
-- [LLM Configuration](/docs/guides/production/integrations/llm-providers/) for provider-specific tuning
+- [Dynamic Tool Injection](/docs/guides/capabilities/agents/dynamic-tool-injection/) for runtime prompt patterns
+- [Prompt Management Guide](/docs/guides/foundations/prompt-engineering/) for template best practices
+- [LLM Configuration](/docs/reference/providers/llm/) for provider-specific tuning

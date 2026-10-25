@@ -15,7 +15,7 @@ Choose Kafka when Kafka is already part of your infrastructure and you want work
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/workflow/providers/kafka
+go get github.com/lookatitude/beluga-ai/v2/workflow/providers/kafka
 ```
 
 Ensure a Kafka cluster is available. For local development:
@@ -34,8 +34,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/workflow"
-    "github.com/lookatitude/beluga-ai/workflow/providers/kafka"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow/providers/kafka"
 )
 
 func main() {

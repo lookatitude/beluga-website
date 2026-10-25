@@ -10,14 +10,14 @@ head:
 
 ## System Requirements
 
-- **Go 1.23+** — Beluga AI uses `iter.Seq2[T, error]` (range-over-func iterators) for all streaming APIs. This feature was introduced in Go 1.23, so earlier versions will not compile the framework.
+- **Go 1.26+** — the framework `go.mod` declares `go 1.26.0`. Beluga AI uses `iter.Seq2[T, error]` (range-over-func iterators, added in Go 1.23) for all streaming APIs and builds on newer standard-library features, so older toolchains will not compile it. With `GOTOOLCHAIN=local` an older Go fails at `go get`.
 - **Git** — For version control and `go get` operations
 
 Verify your Go version:
 
 ```bash
 go version
-# go version go1.23.0 linux/amd64  (or later)
+# go version go1.26.0 linux/amd64  (or later)
 ```
 
 ## Install the Core Module
@@ -256,7 +256,7 @@ Most of Beluga AI is pure Go and requires no system-level dependencies beyond th
 | Package | Requires | Notes |
 |---------|----------|-------|
 | `rag/vectorstore/providers/sqlitevec` | CGO + sqlite-vec extension | For embedded vector search |
-| `voice/vad/silero` | CGO + ONNX Runtime | For Silero VAD voice activity detection |
+| `voice/vad/providers/silero` | CGO | Energy-based VAD on Silero's 0-1 scale (no ONNX Runtime needed; the ONNX model is not loaded) |
 
 Enable CGO:
 
@@ -301,5 +301,5 @@ Go support is built in. For integration tests, add `-tags=integration` to your r
 ## Next Steps
 
 - [Quick Start](/docs/start/quick-start/) — Build your first agent in 5 minutes
-- [Working with LLMs](/docs/guides/working-with-llms/) — Deep dive into LLM configuration
-- [LLM Providers](/docs/guides/production/integrations/llm-providers/) — Detailed provider setup guides
+- [Working with LLMs](/docs/guides/foundations/working-with-llms/) — Deep dive into LLM configuration
+- [LLM Providers](/docs/reference/providers/llm/) — Detailed provider setup guides

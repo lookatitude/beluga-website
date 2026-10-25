@@ -18,7 +18,7 @@ The splitter implements Beluga AI's `TextSplitter` interface, making it compatib
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Python 3.8+ with SpaCy installed
 - A SpaCy language model (e.g., `en_core_web_sm`)
@@ -74,7 +74,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // SpaCySplitter splits text into chunks at sentence boundaries.
@@ -99,8 +99,8 @@ func NewSpaCySplitter(language string, chunkSize, chunkOverlap int) (*SpaCySplit
     }, nil
 }
 
-// SplitText splits text into chunks that respect sentence boundaries.
-func (s *SpaCySplitter) SplitText(ctx context.Context, text string) ([]string, error) {
+// Split splits text into chunks that respect sentence boundaries.
+func (s *SpaCySplitter) Split(ctx context.Context, text string) ([]string, error) {
     sentences, err := s.sentenceAPI.SplitSentences(text)
     if err != nil {
         return nil, fmt.Errorf("split sentences: %w", err)
@@ -137,14 +137,14 @@ func (s *SpaCySplitter) SplitDocuments(ctx context.Context, documents []schema.D
     var result []schema.Document
 
     for _, doc := range documents {
-        chunks, err := s.SplitText(ctx, doc.PageContent)
+        chunks, err := s.Split(ctx, doc.Content)
         if err != nil {
             return nil, err
         }
 
         for i, chunk := range chunks {
             chunkDoc := schema.Document{
-                PageContent: chunk,
+                Content:     chunk,
                 Metadata:    copyMetadata(doc.Metadata),
             }
             chunkDoc.Metadata["chunk_index"] = i
@@ -241,7 +241,7 @@ func main() {
 It focuses on the interaction between computers and human language.
 Modern NLP relies heavily on machine learning approaches.`
 
-    chunks, err := splitter.SplitText(ctx, text)
+    chunks, err := splitter.Split(ctx, text)
     if err != nil {
         log.Fatalf("Split failed: %v", err)
     }
@@ -276,7 +276,7 @@ func (s *SpaCySplitter) SplitTextWithTracing(ctx context.Context, text string) (
         attribute.Int("text_length", len(text)),
     )
 
-    chunks, err := s.SplitText(ctx, text)
+    chunks, err := s.Split(ctx, text)
     if err != nil {
         span.RecordError(err)
         return nil, err
@@ -304,10 +304,10 @@ func (s *SpaCySplitter) SplitTextMultilingual(ctx context.Context, text string) 
         if err != nil {
             return nil, fmt.Errorf("create splitter for %s: %w", lang, err)
         }
-        return langSplitter.SplitText(ctx, text)
+        return langSplitter.Split(ctx, text)
     }
 
-    return s.SplitText(ctx, text)
+    return s.Split(ctx, text)
 }
 ```
 
@@ -356,5 +356,5 @@ python -m spacy download en_core_web_sm
 ## Related Resources
 
 - [Tiktoken BPE Tokenizer](/docs/guides/production/integrations/tiktoken-bpe) -- Token-count-aware splitting
-- [RAG Pipeline Guide](/docs/guides/rag) -- End-to-end retrieval-augmented generation
-- [Text Splitter API Reference](/docs/reference/api/rag/splitter) -- All built-in splitter implementations
+- [RAG Pipeline Guide](/docs/recipes/rag/) -- End-to-end retrieval-augmented generation
+- [Text Splitter API Reference](/docs/reference/api/memory-rag/rag-splitter/) -- All built-in splitter implementations

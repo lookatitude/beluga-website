@@ -3,7 +3,7 @@ title: Streaming
 description: "Why Beluga AI uses iter.Seq2[T, error] instead of channels. Consumer patterns, stream composition, backpressure, and context cancellation."
 ---
 
-Beluga requires Go 1.23+ specifically because it uses `iter.Seq2[T, error]`
+Beluga requires Go 1.26+ (its `go.mod` declares `go 1.26.0`). Its streaming model is built on `iter.Seq2[T, error]`
 for all streaming public APIs. This is not a stylistic preference. Channels
 in streaming APIs produce goroutine leaks, impose coordination overhead at
 every composition boundary, and have no generic form before Go 1.21. `iter.Seq2`
@@ -51,10 +51,10 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func streamResponse(ctx context.Context, msgs []schema.Message) error {
@@ -92,10 +92,10 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 func generateAndCollect(ctx context.Context, msgs []schema.Message) (*schema.AIMessage, error) {
@@ -151,8 +151,8 @@ import (
     "context"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func upperCaseDeltas(ctx context.Context, src core.Stream[schema.StreamChunk]) core.Stream[schema.StreamChunk] {
@@ -177,8 +177,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func mergeExample(ctx context.Context, s1, s2 core.Stream[schema.StreamChunk]) error {
@@ -220,7 +220,7 @@ graph LR
   Ex --> C[Client]
 ```
 
-Five `EventType`s propagate: `EventData` (text chunk), `EventToolCall`, `EventToolResult`, `EventDone`, and `EventError`. Hooks see tool events; plugins see the full turn; the client receives data and terminal events. See [DOC-04 — Data Flow](../../../../architecture/04-data-flow.md#event-propagation) for the complete description.
+Five `EventType`s propagate: `EventData` (text chunk), `EventToolCall`, `EventToolResult`, `EventDone`, and `EventError`. Hooks see tool events; plugins see the full turn; the client receives data and terminal events. See [DOC-04 — Data Flow](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/04-data-flow.md#event-propagation) for the complete description.
 
 ## Backpressure
 
@@ -237,8 +237,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func bufferedConsumer(ctx context.Context, src core.Stream[schema.StreamChunk]) error {
@@ -271,10 +271,10 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func streamWithTimeout(msgs []schema.Message) error {
@@ -307,7 +307,7 @@ import (
     "fmt"
     "iter"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 // counterStream emits n integer events then stops.
@@ -351,6 +351,6 @@ Two rules for producers:
 ## Related reading
 
 - [Core Primitives](/docs/concepts/core-primitives) — `Event[T]`, `Stream[T]`, `Runnable` definitions.
-- [DOC-02 — Core Primitives](/docs/reference/architecture/overview/core-primitives) — extended rationale including the channel comparison table.
+- [DOC-02 — Core Primitives](/docs/concepts/core-primitives/) — extended rationale including the channel comparison table.
 - [`core/stream.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/stream.go) — all stream types and combinators.
 - [`core/runnable.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/runnable.go) — `Pipe` and `Parallel` over `Runnable`.

@@ -15,7 +15,7 @@ Choose Notion when your team's knowledge base or documentation lives in Notion a
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/loader/providers/notion
+go get github.com/lookatitude/beluga-ai/v2/rag/loader/providers/notion
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/notion"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/notion"
 )
 
 func main() {

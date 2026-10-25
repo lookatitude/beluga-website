@@ -40,7 +40,7 @@ The `protocol/mcp` package provides `MCPServer`, which processes JSON-RPC 2.0 re
 - **Prompts** -- Reusable prompt templates with parameterized arguments. Clients can list available prompts and fill in arguments, enabling consistent prompt engineering across tools.
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
 
 server := mcp.NewServer("my-tools", "1.0.0")
 ```
@@ -55,10 +55,8 @@ package main
 import (
     "context"
     "fmt"
-    "os"
 
-    "github.com/lookatitude/beluga-ai/protocol/mcp"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 type WeatherInput struct {
@@ -96,7 +94,7 @@ func main() {
 
 ## Step 2: Create the MCP Server
 
-Register tools with the MCP server. The `AddTool` method accepts any value implementing the `tool.Tool` interface, which means tools built for agent use work without modification. The server internally maps each tool's `Name()` to its `Schema()` for the `tools/list` response and delegates to `Execute()` for `tools/call` requests.
+Register tools with the MCP server. The `AddTool` method accepts any value implementing the `tool.Tool` interface, which means tools built for agent use work without modification. The server internally maps each tool's `Name()` to its `InputSchema()` for the `tools/list` response and delegates to `Execute()` for `tools/call` requests.
 
 ```go
 func buildServer() *mcp.MCPServer {

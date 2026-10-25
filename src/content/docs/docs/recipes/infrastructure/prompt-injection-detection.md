@@ -43,7 +43,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.safety.prompt_injection")
@@ -109,9 +109,9 @@ func (pid *PromptInjectionDetector) Detect(ctx context.Context, input string) (b
     )
 
     if detected {
-        span.SetStatus(trace.StatusError, "prompt injection detected")
+        span.SetStatus(codes.Error, "prompt injection detected")
     } else {
-        span.SetStatus(trace.StatusOK, "no injection detected")
+        span.SetStatus(codes.Ok, "no injection detected")
     }
 
     return detected, matches
@@ -136,7 +136,7 @@ func (pid *PromptInjectionDetector) Sanitize(ctx context.Context, input string) 
         attribute.Int("original_length", len(input)),
         attribute.Int("sanitized_length", len(sanitized)),
     )
-    span.SetStatus(trace.StatusOK, "input sanitized")
+    span.SetStatus(codes.Ok, "input sanitized")
 
     return sanitized, nil
 }
@@ -164,11 +164,11 @@ func (pid *PromptInjectionDetector) ValidateInput(ctx context.Context, input str
         return sanitized, nil
 
         // Option 2: Block (uncomment to block instead of sanitize)
-        // span.SetStatus(trace.StatusError, "input blocked")
+        // span.SetStatus(codes.Error, "input blocked")
         // return "", fmt.Errorf("prompt injection detected: %v", matches)
     }
 
-    span.SetStatus(trace.StatusOK, "input validated")
+    span.SetStatus(codes.Ok, "input validated")
     return input, nil
 }
 
@@ -263,5 +263,5 @@ func (pid *PromptInjectionDetector) DetectWithContext(ctx context.Context, input
 
 ## Related Recipes
 
-- [PII Redaction in Logs](/docs/recipes/pii-redaction) — Protect sensitive data
-- [Server Rate Limiting per Project](/docs/recipes/server-rate-limiting-per-project) — Additional security measures
+- [PII Redaction in Logs](/docs/recipes/infrastructure/pii-redaction/) — Protect sensitive data
+- [Server Rate Limiting per Project](/docs/recipes/infrastructure/rate-limiting/) — Additional security measures

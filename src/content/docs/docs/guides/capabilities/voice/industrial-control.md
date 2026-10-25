@@ -12,7 +12,7 @@ Manufacturing environments require hands-free equipment control for worker safet
 
 The challenge is not just transcription accuracy but the entire command pipeline: recognizing speech in noise, mapping natural language to a constrained set of valid commands, and validating that each command is safe to execute in the current equipment state. A single layer of defense is insufficient — the system must fail safe at every stage.
 
-Using Beluga AI's STT pipeline with noise-resistant models and multi-layer command validation, this system achieves 96% command accuracy with zero safety incidents.
+This guide combines Beluga AI's STT engines with a constrained command vocabulary and multi-layer command validation, so that a misrecognition is rejected rather than executed.
 
 ## Solution Architecture
 
@@ -39,7 +39,7 @@ The multi-stage pipeline is deliberate: each stage acts as a filter that reduces
 
 ### Noise-Resistant STT Setup
 
-The controller wraps three components: an STT engine for transcription, a command validator for safety rules, and a command executor for equipment control. The `ProcessCommand` method chains these in sequence, with early returns at each validation stage. Deepgram is chosen for its strong performance in noisy environments, though the STT registry pattern allows swapping providers without changing the command pipeline.
+The controller wraps three components: an STT engine for transcription, a command validator for safety rules, and a command executor for equipment control. The `ProcessCommand` method chains these in sequence, with early returns at each validation stage. `parseCommand` (mapping a transcript to a `Command` from your vocabulary) and `CommandExecutor` (your equipment interface, whose `Execute` returns a confirmation message) are application code. Deepgram is used here, but the STT registry pattern allows swapping providers without changing the command pipeline.
 
 ```go
 package main
@@ -47,10 +47,11 @@ package main
 import (
     "context"
     "fmt"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 // IndustrialController processes voice commands for equipment control.
@@ -60,8 +61,13 @@ type IndustrialController struct {
     executor  *CommandExecutor
 }
 
-func NewIndustrialController(ctx context.Context) (*IndustrialController, error) {
-    sttEngine, err := stt.New("deepgram", nil)
+func NewIndustrialController() (*IndustrialController, error) {
+    sttEngine, err := stt.New("deepgram", stt.Config{
+        Model:      "nova-2",
+        SampleRate: 16000,
+        Encoding:   "linear16",
+        Extra:      map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
+    })
     if err != nil {
         return nil, fmt.Errorf("create stt engine: %w", err)
     }
@@ -100,7 +106,7 @@ func (c *IndustrialController) ProcessCommand(ctx context.Context, audio []byte)
     }
 
     // Execute command
-    result, err := c.executor.Execute(ctx, command)
+    confirmation, err := c.executor.Execute(ctx, command)
     if err != nil {
         return nil, fmt.Errorf("command execution failed: %w", err)
     }
@@ -108,7 +114,7 @@ func (c *IndustrialController) ProcessCommand(ctx context.Context, audio []byte)
     return &CommandResult{
         Executed:     true,
         Command:      command,
-        Confirmation: fmt.Sprintf("Command %s executed successfully", command.Action),
+        Confirmation: confirmation,
     }, nil
 }
 
@@ -158,22 +164,13 @@ func (v *CommandValidator) Validate(ctx context.Context, cmd Command) bool {
 ## Deployment Considerations
 
 - **Noise-resistant models**: Use models optimized for high-noise environments (Deepgram Nova-2 or similar)
-- **Audio preprocessing**: Apply noise filtering before STT to improve accuracy
+- **Audio preprocessing**: Beluga has no noise-filtering stage; use noise-cancelling microphones or headsets, and see [Noise-Resistant VAD](/docs/guides/capabilities/voice/noise-resistant-vad) for gating audio before STT
 - **Command vocabulary**: Use a constrained vocabulary matching your equipment actions
 - **Confirmation feedback**: Always provide audible confirmation of executed commands
 - **Emergency stop**: Priority handling for emergency commands; bypass normal validation
 - **Observability**: Track command accuracy, rejection rates, and safety metrics with OpenTelemetry
 
-## Results
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Command accuracy | 60-70% | 96% | 37-60% improvement |
-| Safety incidents | 3-5/month | 0 | 100% reduction |
-| Operation efficiency | 75% | 92% | 23% improvement |
-| Hands-free operation rate | 0% | 87% | New capability |
-
-### Lessons Learned
+## Lessons Learned
 
 - **Domain-specific vocabulary**: A constrained command set dramatically improves accuracy in noise
 - **Audio preprocessing first**: Invest in noise filtering before relying solely on model robustness
@@ -181,6 +178,6 @@ func (v *CommandValidator) Validate(ctx context.Context, cmd Command) bool {
 
 ## Related Resources
 
-- [Meeting Minutes](/docs/guides/meeting-minutes/) for real-time transcription patterns
-- [Noise-Resistant VAD](/docs/guides/noise-resistant-vad/) for voice activity detection in noisy environments
-- [Voice AI Applications](/docs/guides/voice-applications/) for voice pipeline architecture
+- [Meeting Minutes](/docs/guides/capabilities/voice/meeting-minutes/) for real-time transcription patterns
+- [Noise-Resistant VAD](/docs/guides/capabilities/voice/noise-resistant-vad/) for voice activity detection in noisy environments
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for voice pipeline architecture

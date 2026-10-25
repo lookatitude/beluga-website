@@ -15,7 +15,7 @@ Choose Voyage embeddings when retrieval quality is critical, especially for code
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/voyage
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/voyage
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/voyage"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/voyage"
 )
 
 func main() {
@@ -104,7 +104,7 @@ queryEmb, err := embedding.New("voyage", config.ProviderConfig{
 
 ```go
 import (
-    voyageemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/voyage"
+    voyageemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/voyage"
 )
 
 emb, err := voyageemb.New(config.ProviderConfig{

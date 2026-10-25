@@ -24,14 +24,14 @@ All mocks implement the `llm.ChatModel` interface, making them drop-in replaceme
 
 ## Prerequisites
 
-- Go 1.23 or later
-- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai`)
+- Go 1.26 or later
+- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - A test suite or UI application that accepts `llm.ChatModel`
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Simple Mock
@@ -47,8 +47,8 @@ import (
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // SimpleMock maps user messages to predefined responses.
@@ -99,8 +99,8 @@ func (m *SimpleMock) Generate(
     // Find the last user message
     var userInput string
     for i := len(msgs) - 1; i >= 0; i-- {
-        if msgs[i].Role() == schema.RoleHuman {
-            userInput = msgs[i].(schema.HasText).Text()
+        if hm, ok := msgs[i].(*schema.HumanMessage); ok {
+            userInput = hm.Text()
             break
         }
     }
@@ -113,7 +113,7 @@ func (m *SimpleMock) Generate(
         response = "This is a mock response."
     }
 
-    return schema.NewAIMessage(schema.WithText(response)), nil
+    return schema.NewAIMessage(response), nil
 }
 
 func (m *SimpleMock) Stream(
@@ -153,8 +153,8 @@ import (
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // Scenario defines a conditional response.
@@ -215,10 +215,10 @@ func (m *ScenarioMock) Generate(
         if s.Err != nil {
             return nil, s.Err
         }
-        return schema.NewAIMessage(schema.WithText(s.Response)), nil
+        return schema.NewAIMessage(s.Response), nil
     }
 
-    return schema.NewAIMessage(schema.WithText("Default mock response")), nil
+    return schema.NewAIMessage("Default mock response"), nil
 }
 
 func (m *ScenarioMock) Stream(
@@ -257,8 +257,8 @@ import (
     "iter"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // StreamingMock produces token-by-token output from a list of chunks.
@@ -284,7 +284,7 @@ func (m *StreamingMock) Generate(
     for _, chunk := range m.chunks {
         full += chunk
     }
-    return schema.NewAIMessage(schema.WithText(full)), nil
+    return schema.NewAIMessage(full), nil
 }
 
 func (m *StreamingMock) Stream(
@@ -468,5 +468,5 @@ func LoadFixtures(path string) *SimpleMock {
 ## Related Resources
 
 - [OpenAI Assistants API Bridge](/docs/guides/production/integrations/openai-assistants-bridge) — Integrate OpenAI Assistants
-- [LLM Providers](/docs/guides/production/integrations/llm-providers) — Production LLM provider options
-- [Testing Patterns](/docs/guides/testing) — Comprehensive testing guide
+- [LLM Providers](/docs/reference/providers/llm/) — Production LLM provider options
+- [Testing Patterns](/docs/contributing/testing/) — Comprehensive testing guide

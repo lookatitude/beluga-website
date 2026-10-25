@@ -18,7 +18,7 @@ The splitter implements Beluga AI's `TextSplitter` interface and works with any 
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - A Go Tiktoken library or Python with `tiktoken` installed
 - Understanding of BPE tokenization concepts
@@ -80,7 +80,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // TiktokenSplitter splits text into chunks based on token count.
@@ -105,8 +105,8 @@ func NewTiktokenSplitter(encodingName string, chunkSize, chunkOverlap int) (*Tik
     }, nil
 }
 
-// SplitText splits text into token-bounded chunks.
-func (s *TiktokenSplitter) SplitText(ctx context.Context, text string) ([]string, error) {
+// Split splits text into token-bounded chunks.
+func (s *TiktokenSplitter) Split(ctx context.Context, text string) ([]string, error) {
     tokenCount, err := s.tokenizer.Count(text)
     if err != nil {
         return nil, fmt.Errorf("count tokens: %w", err)
@@ -150,14 +150,14 @@ func (s *TiktokenSplitter) SplitDocuments(ctx context.Context, documents []schem
     var result []schema.Document
 
     for _, doc := range documents {
-        chunks, err := s.SplitText(ctx, doc.PageContent)
+        chunks, err := s.Split(ctx, doc.Content)
         if err != nil {
             return nil, err
         }
 
         for i, chunk := range chunks {
             chunkDoc := schema.Document{
-                PageContent: chunk,
+                Content:     chunk,
                 Metadata:    copyMetadata(doc.Metadata),
             }
             chunkDoc.Metadata["chunk_index"] = i
@@ -174,7 +174,7 @@ func (s *TiktokenSplitter) CreateDocuments(ctx context.Context, texts []string, 
     var result []schema.Document
 
     for i, text := range texts {
-        chunks, err := s.SplitText(ctx, text)
+        chunks, err := s.Split(ctx, text)
         if err != nil {
             return nil, err
         }
@@ -186,7 +186,7 @@ func (s *TiktokenSplitter) CreateDocuments(ctx context.Context, texts []string, 
 
         for j, chunk := range chunks {
             doc := schema.Document{
-                PageContent: chunk,
+                Content:     chunk,
                 Metadata:    copyMetadata(baseMeta),
             }
             doc.Metadata["chunk_index"] = j
@@ -274,7 +274,7 @@ via MCP and A2A, and a pluggable architecture for LLMs, tools, memory, and RAG.
 The framework supports production patterns including circuit breakers, rate
 limiting, human-in-the-loop approval, and OpenTelemetry instrumentation.`
 
-    chunks, err := splitter.SplitText(ctx, text)
+    chunks, err := splitter.Split(ctx, text)
     if err != nil {
         log.Fatalf("Split failed: %v", err)
     }
@@ -317,7 +317,7 @@ func (s *TiktokenSplitter) SplitTextWithTracing(ctx context.Context, text string
         attribute.Int("text_length_chars", len(text)),
     )
 
-    chunks, err := s.SplitText(ctx, text)
+    chunks, err := s.Split(ctx, text)
     if err != nil {
         span.RecordError(err)
         return nil, err
@@ -355,7 +355,7 @@ For best results, split on sentence boundaries first, then verify each chunk fit
 ```go
 func SplitSentenceThenToken(ctx context.Context, text string, sentSplitter *SpaCySplitter, tokSplitter *TiktokenSplitter) ([]string, error) {
     // First pass: sentence-aware split
-    sentenceChunks, err := sentSplitter.SplitText(ctx, text)
+    sentenceChunks, err := sentSplitter.Split(ctx, text)
     if err != nil {
         return nil, err
     }
@@ -363,7 +363,7 @@ func SplitSentenceThenToken(ctx context.Context, text string, sentSplitter *SpaC
     // Second pass: ensure each chunk fits token limit
     var result []string
     for _, chunk := range sentenceChunks {
-        tokenChunks, err := tokSplitter.SplitText(ctx, chunk)
+        tokenChunks, err := tokSplitter.Split(ctx, chunk)
         if err != nil {
             return nil, err
         }
@@ -396,5 +396,5 @@ func SplitSentenceThenToken(ctx context.Context, text string, sentSplitter *SpaC
 ## Related Resources
 
 - [SpaCy Sentence Tokenizer](/docs/guides/production/integrations/spacy-tokenizer) -- Sentence-boundary-aware splitting
-- [RAG Pipeline Guide](/docs/guides/rag) -- End-to-end retrieval-augmented generation
-- [Text Splitter API Reference](/docs/reference/api/rag/splitter) -- All built-in splitter implementations
+- [RAG Pipeline Guide](/docs/recipes/rag/) -- End-to-end retrieval-augmented generation
+- [Text Splitter API Reference](/docs/reference/api/memory-rag/rag-splitter/) -- All built-in splitter implementations

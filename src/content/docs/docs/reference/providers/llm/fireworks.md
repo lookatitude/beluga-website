@@ -15,7 +15,7 @@ Choose Fireworks AI when you need fast inference for open-source models with com
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/fireworks
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/fireworks
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/fireworks"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/fireworks"
 )
 
 func main() {
@@ -125,7 +125,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/fireworks"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/fireworks"
 
 model, err := fireworks.New(config.ProviderConfig{
     Model:  "accounts/fireworks/models/llama-v3p1-70b-instruct",

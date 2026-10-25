@@ -14,7 +14,7 @@ Code-aware splitting reduces chunk count by 50-60%, preserves semantic boundarie
 
 ## Solution Architecture
 
-Beluga AI's splitter package supports language-specific separators and AST-based boundary detection. The code splitter uses language parsers to extract function boundaries, applies hierarchical splitting that respects code structure, and validates chunks against token limits to optimize embedding costs.
+Beluga AI's recursive splitter (`splitter.NewRecursiveSplitter` with `splitter.WithSeparators`) supports language-specific separators. For Go, the code splitter below adds AST-based boundary detection using the standard library's `go/parser` to extract function boundaries, applies hierarchical splitting that respects code structure, and validates chunks against token limits to optimize embedding costs.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -46,8 +46,6 @@ Beluga AI's splitter package supports language-specific separators and AST-based
 Use Go's AST parser to extract function boundaries:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
@@ -56,8 +54,8 @@ import (
     "go/token"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/rag/splitter"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type GoCodeSplitter struct {
@@ -65,7 +63,7 @@ type GoCodeSplitter struct {
     chunkSize int
 }
 
-func NewGoCodeSplitter(chunkSize, chunkOverlap int) (*GoCodeSplitter, error) {
+func NewGoCodeSplitter(chunkSize, chunkOverlap int) *GoCodeSplitter {
     // Go-specific separators that respect code structure
     separators := []string{
         "\n\nfunc ",    // Function declarations
@@ -78,19 +76,16 @@ func NewGoCodeSplitter(chunkSize, chunkOverlap int) (*GoCodeSplitter, error) {
         " ",            // Spaces
     }
 
-    textSplitter, err := splitter.New("recursive", &splitter.Config{
-        ChunkSize:    chunkSize,
-        ChunkOverlap: chunkOverlap,
-        Separators:   separators,
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create splitter: %w", err)
-    }
+    textSplitter := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(chunkSize),
+        splitter.WithChunkOverlap(chunkOverlap),
+        splitter.WithSeparators(separators),
+    )
 
     return &GoCodeSplitter{
         splitter:  textSplitter,
         chunkSize: chunkSize,
-    }, nil
+    }
 }
 
 func (g *GoCodeSplitter) SplitCode(ctx context.Context, source, filePath string) ([]schema.Document, error) {
@@ -98,8 +93,11 @@ func (g *GoCodeSplitter) SplitCode(ctx context.Context, source, filePath string)
     fset := token.NewFileSet()
     node, err := parser.ParseFile(fset, filePath, source, parser.ParseComments)
     if err != nil {
-        // Fallback to basic splitting if parsing fails
-        return g.splitter.SplitText(ctx, source)
+        // Fall back to separator-based splitting if parsing fails
+        return g.splitter.SplitDocuments(ctx, []schema.Document{{
+            Content:  source,
+            Metadata: map[string]any{"source": filePath, "language": "go"},
+        }})
     }
 
     // Extract function boundaries and content
@@ -115,7 +113,7 @@ func (g *GoCodeSplitter) SplitCode(ctx context.Context, source, filePath string)
         if len(currentChunk)+len(fn.Content) > g.chunkSize && currentChunk != "" {
             doc := schema.Document{
                 Content: currentChunk,
-                Metadata: map[string]interface{}{
+                Metadata: map[string]any{
                     "source":      filePath,
                     "language":    "go",
                     "start_line":  currentLine,
@@ -134,7 +132,7 @@ func (g *GoCodeSplitter) SplitCode(ctx context.Context, source, filePath string)
     if currentChunk != "" {
         doc := schema.Document{
             Content: currentChunk,
-            Metadata: map[string]interface{}{
+            Metadata: map[string]any{
                 "source":     filePath,
                 "language":   "go",
                 "start_line": currentLine,
@@ -192,10 +190,8 @@ func extractLines(text string, start, end int) string {
 Define separators for different programming languages:
 
 ```go
-package main
-
 import (
-    "github.com/lookatitude/beluga-ai/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 )
 
 func GetSeparatorsForLanguage(language string) []string {
@@ -255,14 +251,12 @@ func GetSeparatorsForLanguage(language string) []string {
     }
 }
 
-func CreateCodeSplitter(language string, chunkSize, chunkOverlap int) (splitter.TextSplitter, error) {
-    separators := GetSeparatorsForLanguage(language)
-
-    return splitter.New("recursive", &splitter.Config{
-        ChunkSize:    chunkSize,
-        ChunkOverlap: chunkOverlap,
-        Separators:   separators,
-    })
+func CreateCodeSplitter(language string, chunkSize, chunkOverlap int) splitter.TextSplitter {
+    return splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(chunkSize),
+        splitter.WithChunkOverlap(chunkOverlap),
+        splitter.WithSeparators(GetSeparatorsForLanguage(language)),
+    )
 }
 ```
 
@@ -271,11 +265,12 @@ func CreateCodeSplitter(language string, chunkSize, chunkOverlap int) (splitter.
 Validate chunks against embedding model token limits:
 
 ```go
-package main
-
 import (
     "context"
 
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/trace"
 )
@@ -290,6 +285,7 @@ func NewTokenAwareOptimizer(maxTokens int) *TokenAwareOptimizer {
     return &TokenAwareOptimizer{
         tokenizer: SimpleTokenCounter,
         maxTokens: maxTokens,
+        tracer:    otel.Tracer("code-chunker"),
     }
 }
 
@@ -311,7 +307,7 @@ func (o *TokenAwareOptimizer) OptimizeChunks(ctx context.Context, chunks []schem
             // Chunk exceeds limits, split further
             subChunks, err := o.splitOversizedChunk(ctx, chunk)
             if err != nil {
-                continue
+                return nil, err
             }
             optimized = append(optimized, subChunks...)
         }
@@ -326,12 +322,12 @@ func (o *TokenAwareOptimizer) splitOversizedChunk(ctx context.Context, chunk sch
     // Estimate characters per token (roughly 4 chars per token)
     targetSize := o.maxTokens * 4
 
-    splitter, _ := splitter.New("recursive", &splitter.Config{
-        ChunkSize:    targetSize,
-        ChunkOverlap: targetSize / 10,
-    })
+    sp := splitter.NewRecursiveSplitter(
+        splitter.WithChunkSize(targetSize),
+        splitter.WithChunkOverlap(targetSize/10),
+    )
 
-    subChunks, err := splitter.SplitDocuments(ctx, []schema.Document{chunk})
+    subChunks, err := sp.SplitDocuments(ctx, []schema.Document{chunk})
     if err != nil {
         return nil, err
     }
@@ -350,11 +346,12 @@ func SimpleTokenCounter(text string) int {
 Identify file language before splitting:
 
 ```go
-package main
-
 import (
+    "context"
     "path/filepath"
     "strings"
+
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type LanguageDetector struct {
@@ -394,22 +391,17 @@ func (d *LanguageDetector) DetectLanguage(filePath string) string {
 func (d *LanguageDetector) SplitCodeFile(ctx context.Context, filePath, content string) ([]schema.Document, error) {
     language := d.DetectLanguage(filePath)
 
-    // Use language-specific splitter
-    switch language {
-    case "go":
-        splitter, _ := NewGoCodeSplitter(1500, 200)
-        return splitter.SplitCode(ctx, content, filePath)
-
-    case "python":
-        // Use Python-specific splitter with indentation awareness
-        splitter, _ := CreateCodeSplitter("python", 1500, 200)
-        return splitter.SplitText(ctx, content)
-
-    default:
-        // Use generic code splitter
-        splitter, _ := CreateCodeSplitter("generic", 1500, 200)
-        return splitter.SplitText(ctx, content)
+    // Go files get AST-aware splitting
+    if language == "go" {
+        return NewGoCodeSplitter(1500, 200).SplitCode(ctx, content, filePath)
     }
+
+    // Other languages use separator-based splitting (python, java, generic, ...)
+    doc := schema.Document{
+        Content:  content,
+        Metadata: map[string]any{"source": filePath, "language": language},
+    }
+    return CreateCodeSplitter(language, 1500, 200).SplitDocuments(ctx, []schema.Document{doc})
 }
 ```
 
@@ -418,18 +410,26 @@ func (d *LanguageDetector) SplitCodeFile(ctx context.Context, filePath, content 
 Process large repositories efficiently:
 
 ```go
-package main
-
 import (
     "context"
     "io/fs"
+    "log"
+    "os"
     "path/filepath"
     "sync"
+
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "go.opentelemetry.io/otel/attribute"
+    "go.opentelemetry.io/otel/trace"
 )
 
 type CodeProcessor struct {
     detector  *LanguageDetector
     optimizer *TokenAwareOptimizer
+    embedder  embedding.Embedder
+    store     vectorstore.VectorStore
     tracer    trace.Tracer
 }
 
@@ -445,8 +445,7 @@ func (c *CodeProcessor) ProcessRepository(ctx context.Context, repoPath string) 
             defer wg.Done()
             for filePath := range fileChan {
                 if err := c.processFile(ctx, filePath); err != nil {
-                    // Log error but continue
-                    continue
+                    log.Printf("process %s: %v", filePath, err) // continue with other files
                 }
             }
         }()
@@ -510,6 +509,21 @@ func (c *CodeProcessor) processFile(ctx context.Context, filePath string) error 
     // Store in vector database
     return c.storeChunks(ctx, optimized)
 }
+
+func (c *CodeProcessor) storeChunks(ctx context.Context, chunks []schema.Document) error {
+    if len(chunks) == 0 {
+        return nil
+    }
+    texts := make([]string, len(chunks))
+    for i, ch := range chunks {
+        texts[i] = ch.Content
+    }
+    vecs, err := c.embedder.Embed(ctx, texts)
+    if err != nil {
+        return err
+    }
+    return c.store.Add(ctx, chunks, vecs)
+}
 ```
 
 ## Production Considerations
@@ -520,9 +534,13 @@ Track splitting metrics and boundary preservation:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "time"
+
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
+
+var meter = otel.Meter("code-processor")
 
 func (c *CodeProcessor) ProcessWithObservability(ctx context.Context, repoPath string) error {
     ctx, span := c.tracer.Start(ctx, "code.process.repository")
@@ -545,8 +563,12 @@ func (c *CodeProcessor) ProcessWithObservability(ctx context.Context, repoPath s
         attribute.Float64("duration.seconds", duration.Seconds()),
     )
 
-    meter.RecordHistogram(ctx, "code.process.duration", duration.Seconds())
-    meter.IncrementCounter(ctx, "repositories.processed")
+    // Create instruments once at startup in real code
+    hist, err := meter.Float64Histogram("code.process.duration")
+    if err != nil {
+        return err
+    }
+    hist.Record(ctx, duration.Seconds())
 
     return nil
 }
@@ -557,7 +579,7 @@ func (c *CodeProcessor) ProcessWithObservability(ctx context.Context, repoPath s
 Cache parsed ASTs to avoid repeated parsing:
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache"
+import "github.com/lookatitude/beluga-ai/v2/cache"
 
 type CachedGoCodeSplitter struct {
     GoCodeSplitter
@@ -568,8 +590,14 @@ func (c *CachedGoCodeSplitter) SplitCode(ctx context.Context, source, filePath s
     cacheKey := fmt.Sprintf("ast:%s", filePath)
 
     // Check cache first
-    if cached, ok := c.cache.Get(ctx, cacheKey); ok {
-        return cached.([]schema.Document), nil
+    cached, ok, err := c.cache.Get(ctx, cacheKey)
+    if err != nil {
+        return nil, err
+    }
+    if ok {
+        if docs, isDocs := cached.([]schema.Document); isDocs {
+            return docs, nil
+        }
     }
 
     // Parse and split
@@ -579,7 +607,9 @@ func (c *CachedGoCodeSplitter) SplitCode(ctx context.Context, source, filePath s
     }
 
     // Cache for 1 hour
-    c.cache.Set(ctx, cacheKey, chunks, time.Hour)
+    if err := c.cache.Set(ctx, cacheKey, chunks, time.Hour); err != nil {
+        return nil, err
+    }
 
     return chunks, nil
 }
@@ -610,7 +640,7 @@ func ValidateFunctionBoundaries(chunks []schema.Document) error {
 
 ## Related Resources
 
-- [Text Splitter Guide](/docs/guides/text-splitting/) for splitting strategies
-- [Scientific Paper Processing](/docs/guides/scientific-papers/) for academic splitting
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for complete RAG setup
-- [Embedding Guide](/docs/guides/embeddings/) for cost optimization
+- [Text Splitter Guide](/docs/guides/capabilities/documents/semantic-splitting/) for splitting strategies
+- [Scientific Paper Processing](/docs/guides/capabilities/rag/scientific-papers/) for academic splitting
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for complete RAG setup
+- [Embedding Guide](/docs/reference/providers/embedding/) for cost optimization

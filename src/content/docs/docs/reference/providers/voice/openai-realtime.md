@@ -10,12 +10,12 @@ head:
 
 OpenAI Realtime provides native speech-to-speech via the OpenAI Realtime API over WebSocket, bypassing the traditional STT/LLM/TTS cascade for lower end-to-end latency. The provider supports bidirectional audio streaming, server-side voice activity detection (VAD), tool calling, and text transcripts of both user and agent speech.
 
-Choose OpenAI Realtime when you need native speech-to-speech with GPT-4o's reasoning capabilities. By skipping the STT/LLM/TTS cascade, this provider delivers lower end-to-end latency and more natural conversations, with built-in tool calling support. For Google's equivalent S2S approach, consider [Gemini Live](/docs/reference/providers/voice/gemini-live). For AWS-native deployments, consider [Amazon Nova S2S](/docs/reference/providers/voice/nova-s2s).
+Choose OpenAI Realtime when you need native speech-to-speech with OpenAI's GA Realtime models. By skipping the STT/LLM/TTS cascade, this provider delivers lower end-to-end latency and more natural conversations, with built-in tool calling support. For Google's equivalent S2S approach, consider [Gemini Live](/docs/reference/providers/voice/gemini-live). For AWS-native deployments, consider [Amazon Nova S2S](/docs/reference/providers/voice/nova-s2s).
 
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 ```
 
 The blank import registers the `"openai_realtime"` provider with the S2S registry.
@@ -25,7 +25,7 @@ The blank import registers the `"openai_realtime"` provider with the S2S registr
 | Field          | Type                      | Default                        | Description                          |
 |----------------|---------------------------|--------------------------------|--------------------------------------|
 | `Voice`        | `string`                  | `"alloy"`                      | Voice (alloy, echo, shimmer, etc.)   |
-| `Model`        | `string`                  | `"gpt-4o-realtime-preview"`    | Realtime model identifier            |
+| `Model`        | `string`                  | `"gpt-realtime-2.1"`    | Realtime model identifier            |
 | `Instructions` | `string`                  | —                              | System prompt for the session        |
 | `Tools`        | `[]schema.ToolDefinition` | —                              | Tools available to the model         |
 | `Extra`        | —                         | —                              | See below                            |
@@ -48,8 +48,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 func main() {
@@ -57,7 +57,7 @@ func main() {
 
     engine, err := s2s.New("openai_realtime", s2s.Config{
         Voice: "alloy",
-        Model: "gpt-4o-realtime-preview",
+        Model: "gpt-realtime-2.1",
         Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
     })
     if err != nil {
@@ -76,7 +76,11 @@ func main() {
     }
 
     // Receive events
-    for event := range session.Recv() {
+    for event, err := range session.Recv(ctx) {
+        if err != nil {
+            log.Printf("session: %v", err)
+            break
+        }
         switch event.Type {
         case s2s.EventAudioOutput:
             playAudio(event.Audio)
@@ -93,16 +97,23 @@ func main() {
         }
     }
 }
+// audioChunk is PCM16 audio captured from your microphone or transport.
+var audioChunk []byte
+
+// playAudio writes synthesized PCM16 audio to your output device or transport.
+func playAudio(pcm []byte) {
+    fmt.Printf("received %d bytes of audio\n", len(pcm))
+}
 ```
 
 ## Direct Construction
 
 ```go
-import openai_realtime "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+import openai_realtime "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 
 engine, err := openai_realtime.New(s2s.Config{
     Voice:        "alloy",
-    Model:        "gpt-4o-realtime-preview",
+    Model:        "gpt-realtime-2.1",
     Instructions: "You are a helpful voice assistant.",
     Extra:        map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
 })
@@ -139,7 +150,11 @@ session, err := engine.Start(ctx,
     }),
 )
 
-for event := range session.Recv() {
+for event, err := range session.Recv(ctx) {
+    if err != nil {
+        log.Printf("session: %v", err)
+        break
+    }
     if event.Type == s2s.EventToolCall {
         result := executeWeatherTool(event.ToolCall.Arguments)
         if err := session.SendToolResult(ctx, schema.ToolResult{
@@ -178,14 +193,14 @@ The provider configures server-side voice activity detection by default (`"turn_
 
 ### Audio Format
 
-Audio is exchanged in PCM16 format (16-bit linear PCM). The provider handles base64 encoding/decoding transparently.
+Audio is exchanged as 24 kHz PCM16 (`audio/pcm`). The provider handles base64 encoding/decoding transparently. Sessions use the GA Realtime API (`session.type` `"realtime"`, no `OpenAI-Beta` header); both GA (`response.output_audio.*`) and preview (`response.audio.*`) server event names are understood.
 
 ### Per-Session Options
 
 ```go
 session, err := engine.Start(ctx,
     s2s.WithVoice("echo"),
-    s2s.WithModel("gpt-4o-realtime-preview"),
+    s2s.WithModel("gpt-realtime-2.1"),
     s2s.WithInstructions("Respond concisely."),
 )
 ```

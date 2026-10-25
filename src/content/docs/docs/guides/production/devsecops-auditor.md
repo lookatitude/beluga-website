@@ -42,17 +42,14 @@ package main
 import (
     "context"
     "fmt"
-    "log"
-    "time"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/agent/providers/react"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 type PolicyAuditorAgent struct {
@@ -75,16 +72,17 @@ func NewPolicyAuditorAgent(ctx context.Context) (*PolicyAuditorAgent, error) {
         createConfigCheckerTool(),
     }
 
-    ag, err := agent.New("react", agent.Config{
-        Name:        "policy-auditor",
-        Description: "DevSecOps policy auditor that scans infrastructure, code, and configurations for policy violations",
-        Model:       model,
-        Tools:       tools,
-        MaxIterations: 15,
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create agent: %w", err)
-    }
+    // ReAct is the default planner; it is named explicitly here for clarity.
+    ag := agent.New("policy-auditor",
+        agent.WithLLM(model),
+        agent.WithTools(tools),
+        agent.WithPlannerName("react"),
+        agent.WithMaxIterations(15),
+        agent.WithPersona(agent.Persona{
+            Role: "DevSecOps policy auditor",
+            Goal: "Scan infrastructure, code, and configurations for policy violations",
+        }),
+    )
 
     return &PolicyAuditorAgent{
         agent:        ag,
@@ -92,17 +90,32 @@ func NewPolicyAuditorAgent(ctx context.Context) (*PolicyAuditorAgent, error) {
     }, nil
 }
 
+// Tool inputs: FuncTool derives each tool's JSON Schema from these struct tags.
+type ScanInput struct {
+    Scope string `json:"scope" description:"Infrastructure scope to scan (account, cluster, or environment)" required:"true"`
+}
+
+type CodeInput struct {
+    Repository string `json:"repository" description:"Repository to analyze" required:"true"`
+    Branch     string `json:"branch" description:"Branch to analyze" default:"main"`
+}
+
+type ConfigInput struct {
+    ConfigType string `json:"config_type" description:"Configuration type (k8s, terraform, ...)" required:"true"`
+    Path       string `json:"path" description:"Path to the configuration" required:"true"`
+}
+
 // Infrastructure scanning tool
 func createInfrastructureScannerTool() tool.Tool {
     return tool.NewFuncTool(
         "scan_infrastructure",
         "Scan infrastructure for security and compliance violations (IAM, network, encryption, etc.)",
-        func(ctx context.Context, scope string) (string, error) {
-            violations := scanInfrastructure(scope)
+        func(ctx context.Context, in ScanInput) (*tool.Result, error) {
+            violations := scanInfrastructure(in.Scope)
             if len(violations) == 0 {
-                return "No infrastructure violations found", nil
+                return tool.TextResult("No infrastructure violations found"), nil
             }
-            return formatViolations("infrastructure", violations), nil
+            return tool.TextResult(formatViolations("infrastructure", violations)), nil
         },
     )
 }
@@ -112,12 +125,12 @@ func createCodeAnalyzerTool() tool.Tool {
     return tool.NewFuncTool(
         "analyze_code",
         "Analyze code for security vulnerabilities, secrets, and policy violations",
-        func(ctx context.Context, repository string, branch string) (string, error) {
-            violations := analyzeCode(repository, branch)
+        func(ctx context.Context, in CodeInput) (*tool.Result, error) {
+            violations := analyzeCode(in.Repository, in.Branch)
             if len(violations) == 0 {
-                return "No code violations found", nil
+                return tool.TextResult("No code violations found"), nil
             }
-            return formatViolations("code", violations), nil
+            return tool.TextResult(formatViolations("code", violations)), nil
         },
     )
 }
@@ -127,12 +140,12 @@ func createConfigCheckerTool() tool.Tool {
     return tool.NewFuncTool(
         "check_config",
         "Check deployment configurations for compliance violations",
-        func(ctx context.Context, configType string, path string) (string, error) {
-            violations := checkConfiguration(configType, path)
+        func(ctx context.Context, in ConfigInput) (*tool.Result, error) {
+            violations := checkConfiguration(in.ConfigType, in.Path)
             if len(violations) == 0 {
-                return "No configuration violations found", nil
+                return tool.TextResult("No configuration violations found"), nil
             }
-            return formatViolations("config", violations), nil
+            return tool.TextResult(formatViolations("config", violations)), nil
         },
     )
 }
@@ -279,7 +292,7 @@ Report all violations found with policy ID, severity, and details.`,
     )
 
     // Execute agent
-    result, err := p.agent.Execute(ctx, prompt)
+    result, err := p.agent.Invoke(ctx, prompt)
     if err != nil {
         return nil, fmt.Errorf("agent execution: %w", err)
     }
@@ -348,7 +361,7 @@ Send immediate alerts for critical violations:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
 )
 
@@ -476,23 +489,30 @@ func (p *PolicyAuditorAgent) RunAuditWithMetrics(ctx context.Context, scope Audi
 Implement robust tool execution with retries:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 func createRobustInfrastructureScannerTool() tool.Tool {
     return tool.NewFuncTool(
         "scan_infrastructure",
         "Scan infrastructure for security and compliance violations",
-        func(ctx context.Context, scope string) (string, error) {
+        func(ctx context.Context, in ScanInput) (*tool.Result, error) {
             policy := resilience.RetryPolicy{
                 MaxAttempts:    3,
                 InitialBackoff: 1 * time.Second,
                 MaxBackoff:     10 * time.Second,
                 BackoffFactor:  2.0,
+                Jitter:         true,
             }
 
-            return resilience.Retry(ctx, policy, func(ctx context.Context) (string, error) {
-                return scanInfrastructure(scope), nil
+            // scanInfrastructureE is the error-returning variant of the scanner;
+            // Retry re-runs it on retryable errors.
+            violations, err := resilience.Retry(ctx, policy, func(ctx context.Context) ([]Violation, error) {
+                return scanInfrastructureE(ctx, in.Scope)
             })
+            if err != nil {
+                return tool.ErrorResult(err), nil
+            }
+            return tool.TextResult(formatViolations("infrastructure", violations)), nil
         },
     )
 }
@@ -549,6 +569,6 @@ Organizations using automated policy auditing with Beluga AI achieve:
 
 ## Related Resources
 
-- [Agent Types Guide](/docs/guides/agent-types/) for ReAct agent patterns
-- [Tool Integration](/docs/guides/tool-integration/) for custom tool development
-- [Security Best Practices](/docs/guides/security/) for production security
+- [Agent Types Guide](/docs/guides/capabilities/agents/) for ReAct agent patterns
+- [Tool Integration](/docs/guides/capabilities/agents/tools-and-mcp/) for custom tool development
+- [Security Best Practices](/docs/guides/production/safety-and-guards/) for production security

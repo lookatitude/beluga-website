@@ -1,6 +1,6 @@
 ---
 title: Voice Session Interruptions
-description: "Implement barge-in detection and playback cancellation in Go so users can naturally interrupt a speaking voice agent — using Beluga AI's session state machine and VAD."
+description: "Implement barge-in detection and playback cancellation in Go so users can naturally interrupt a speaking voice agent — using Beluga AI's voice session state and VAD."
 head:
   - tag: meta
     attrs:
@@ -8,203 +8,232 @@ head:
       content: "Beluga AI, Go, tutorial, voice interruption, barge-in, playback cancellation, VAD, voice session"
 ---
 
-In natural conversation, speakers interrupt each other. A voice agent that cannot be interrupted feels unresponsive and frustrating -- users expect to be able to cut in with a correction or follow-up without waiting for the agent to finish its entire response. This tutorial demonstrates how to configure a voice session that detects user speech during agent playback and cancels the current response to switch back to listening mode. The approach uses Beluga's session state machine and VAD integration to create a responsive barge-in experience.
+In natural conversation, speakers interrupt each other. A voice agent that cannot be interrupted feels unresponsive: users expect to cut in with a correction or follow-up without waiting for the agent to finish. This tutorial builds interruptible playback: detect user speech while the agent is speaking, stop playback within one audio chunk, and return to listening. It uses Beluga's `voice.VoiceSession` state machine, a VAD from the `voice` package, and a TTS engine.
 
 ## What You Will Build
 
-A voice session with interrupt support that allows users to barge in while the agent is speaking, immediately cancels agent playback, and transitions to listening for the new user input.
+A `Speaker` that plays synthesized speech in small chunks and can be cancelled mid-utterance, a barge-in watcher that cancels it when the VAD detects user speech, and session state that tracks whether the agent is speaking or listening.
 
 ## Prerequisites
 
-- Go 1.23+
-- Working STT and TTS provider configuration
-- Completion of [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) is recommended
+- Go 1.26 or later
+- A TTS provider API key (this example uses `cartesia`, which returns raw PCM)
+- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) is recommended background
 
-## Step 1: Create a Session with STT and TTS
+## The Session State Machine
 
-The voice session orchestrates STT, TTS, and VAD providers into a unified pipeline. By passing providers as functional options, you can swap implementations without changing the session logic. This design follows Beluga's composability principle -- each component is independent and pluggable.
+`voice.VoiceSession` tracks one conversation's state and turn history, and it is safe for concurrent use. `Transition` enforces valid state changes and returns an error for invalid ones:
+
+```
+ idle ──▶ listening ──▶ speaking ──▶ listening
+              ▲                          │
+              └──── (agent done or ──────┘
+                     interrupted)
+ any state ──▶ idle (reset)
+```
+
+A new session starts in `voice.StateIdle`. Move it to `voice.StateListening` when the conversation starts, to `voice.StateSpeaking` while the agent plays audio, and back to `voice.StateListening` when playback ends or the user interrupts. Barge-in is the speaking-to-listening transition triggered by user speech.
+
+## Step 1: Interruptible Playback
+
+Playing a whole synthesized buffer in one write cannot be stopped. The `Speaker` instead writes 20 ms chunks at real-time pace and checks for cancellation between chunks, so an interruption takes effect within about 20 ms. It uses `context.WithCancelCause` to tell an interruption apart from the caller cancelling the context.
+
+```go
+// ErrInterrupted is returned by Say when the user barged in.
+var ErrInterrupted = errors.New("playback interrupted")
+
+// Speaker plays synthesized speech and can be interrupted mid-utterance.
+type Speaker struct {
+	engine tts.TTS
+	sess   *voice.VoiceSession
+	out    io.Writer
+
+	mu     sync.Mutex
+	cancel context.CancelCauseFunc
+}
+
+func NewSpeaker(engine tts.TTS, sess *voice.VoiceSession, out io.Writer) *Speaker {
+	return &Speaker{engine: engine, sess: sess, out: out}
+}
+
+// Say synthesizes text and plays it in 20 ms chunks at real-time pace, so an
+// interruption takes effect within one chunk.
+func (s *Speaker) Say(ctx context.Context, text string) error {
+	audio, err := s.engine.Synthesize(ctx, text)
+	if err != nil {
+		return fmt.Errorf("synthesize: %w", err)
+	}
+
+	playCtx, cancel := context.WithCancelCause(ctx)
+	s.mu.Lock()
+	s.cancel = cancel
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		s.cancel = nil
+		s.mu.Unlock()
+		cancel(nil)
+	}()
+
+	if err := s.sess.Transition(voice.StateSpeaking); err != nil {
+		return err
+	}
+	defer func() {
+		// Back to listening, unless an interruption already moved us there.
+		if s.sess.CurrentState() == voice.StateSpeaking {
+			if err := s.sess.Transition(voice.StateListening); err != nil {
+				log.Printf("transition: %v", err)
+			}
+		}
+	}()
+
+	chunk := sampleRate / 50 * 2 // 20 ms of 16-bit mono PCM
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	for off := 0; off < len(audio); off += chunk {
+		select {
+		case <-playCtx.Done():
+			if errors.Is(context.Cause(playCtx), ErrInterrupted) {
+				return ErrInterrupted
+			}
+			return playCtx.Err()
+		case <-tick.C:
+		}
+		end := min(off+chunk, len(audio))
+		if _, err := s.out.Write(audio[off:end]); err != nil {
+			return fmt.Errorf("play: %w", err)
+		}
+	}
+	return nil
+}
+
+// Interrupt stops the current utterance, if any, and returns to listening.
+func (s *Speaker) Interrupt() {
+	s.mu.Lock()
+	cancel := s.cancel
+	s.mu.Unlock()
+	if cancel == nil {
+		return
+	}
+	cancel(ErrInterrupted)
+	if s.sess.CurrentState() == voice.StateSpeaking {
+		if err := s.sess.Transition(voice.StateListening); err != nil {
+			log.Printf("transition: %v", err)
+		}
+	}
+}
+```
+
+## Step 2: Detect Barge-In
+
+The watcher runs the VAD on every microphone frame. A speech onset while the session is in the speaking state interrupts the speaker. VAD detects speech onset within one audio frame (typically 20-30 ms), much faster than waiting for STT to produce a transcript, so the agent stops sooner.
+
+```go
+// watchBargeIn interrupts the speaker when the user starts talking over it.
+func watchBargeIn(ctx context.Context, vad voice.ActivityDetector, sess *voice.VoiceSession, sp *Speaker, mic iter.Seq2[[]byte, error]) error {
+	speaking := false
+	for frame, err := range mic {
+		if err != nil {
+			return err
+		}
+		res, err := vad.DetectActivity(ctx, frame)
+		if err != nil {
+			return err
+		}
+		onset := res.IsSpeech && !speaking
+		speaking = res.IsSpeech
+		if onset && sess.CurrentState() == voice.StateSpeaking {
+			log.Println("user barged in; stopping playback")
+			sp.Interrupt()
+		}
+	}
+	return nil
+}
+```
+
+A single loud frame (a cough, a door) also counts as an onset here. To require sustained speech before interrupting, wrap the VAD with the debounce wrapper from [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning#step-2-add-minimum-speech-and-silence-durations). Also enable echo cancellation on the client, or the agent's own voice will interrupt it.
+
+## Step 3: Put It Together
+
+The program creates the TTS engine, VAD, and session, starts the watcher, and speaks. An interruption is a normal event, not a failure: `Say` returns `ErrInterrupted` and the conversation continues with the user's new input.
 
 ```go
 package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"iter"
 	"log"
+	"os"
+	"sync"
+	"time"
 
-	"github.com/lookatitude/beluga-ai/voice/session"
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/voice/tts/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
+
+const sampleRate = 16000
 
 func main() {
 	ctx := context.Background()
 
-	sttProvider, err := stt.NewProvider(ctx, "openai", stt.DefaultConfig(),
-		stt.WithAPIKey("your-key"),
-	)
-	if err != nil {
-		log.Fatalf("create STT: %v", err)
-	}
-
-	ttsProvider, err := tts.NewProvider(ctx, "openai", tts.DefaultConfig(),
-		tts.WithAPIKey("your-key"),
-	)
+	engine, err := tts.New("cartesia", tts.Config{
+		Voice:      os.Getenv("CARTESIA_VOICE_ID"),
+		SampleRate: sampleRate, // Cartesia returns raw 16-bit PCM
+		Extra:      map[string]any{"api_key": os.Getenv("CARTESIA_API_KEY")},
+	})
 	if err != nil {
 		log.Fatalf("create TTS: %v", err)
 	}
 
-	sess, err := session.NewVoiceSession(ctx,
-		session.WithSTTProvider(sttProvider),
-		session.WithTTSProvider(ttsProvider),
-		session.WithConfig(session.DefaultConfig()),
-	)
-	if err != nil {
-		log.Fatalf("create session: %v", err)
-	}
-	defer sess.Stop(ctx)
-
-	if err := sess.Start(ctx); err != nil {
-		log.Fatalf("start session: %v", err)
-	}
-}
-```
-
-## Step 2: Speak with Interruption Support
-
-Use `SayWithOptions` with `AllowInterruptions: true` to enable barge-in. The returned `SayHandle` provides methods to cancel playback and wait for completion. The handle pattern decouples the initiation of speech from its lifecycle management, allowing you to start playback, register interruption callbacks, and wait for completion in separate parts of your code.
-
-```go
-	opts := session.SayOptions{AllowInterruptions: true}
-	handle, err := sess.SayWithOptions(ctx, "Hello, how can I help you today?", opts)
-	if err != nil {
-		log.Fatalf("say: %v", err)
-	}
-
-	// Wait for the utterance to complete or be cancelled
-	if err := handle.WaitForPlayout(ctx); err != nil {
-		log.Printf("playout interrupted: %v", err)
-	}
-```
-
-The `SayHandle` interface provides:
-
-| Method              | Description                                     |
-|--------------------|-------------------------------------------------|
-| `WaitForPlayout(ctx)` | Blocks until the audio finishes playing or is cancelled |
-| `Cancel()`          | Immediately stops playback and releases resources |
-
-## Step 3: React to State Changes
-
-Register a state change callback to detect when the session transitions from `speaking` to `listening`. The session state machine manages transitions automatically -- when VAD detects user speech during the `speaking` state, the session transitions to `listening` and fires the callback. This callback is the integration point where your application cancels the current `SayHandle` and prepares to process the new user input.
-
-```go
-	var currentHandle session.SayHandle
-
-	sess.OnStateChanged(func(state session.SessionState) {
-		switch state {
-		case session.SessionStateListening:
-			// User started speaking; cancel agent playback if active
-			if currentHandle != nil {
-				if err := currentHandle.Cancel(); err != nil {
-					log.Printf("cancel handle: %v", err)
-				}
-				currentHandle = nil
-			}
-		case session.SessionStateSpeaking:
-			log.Println("Agent is speaking")
-		case session.SessionStateProcessing:
-			log.Println("Processing user input")
-		}
-	})
-```
-
-## Step 4: Complete Interruption Flow
-
-Combine speaking, state monitoring, and handle management into a complete interruption-aware conversation loop. The `agentSpeak` function stores the handle for the state change callback to access, then blocks until either the utterance completes normally or the user interrupts. Treating interruption as a normal event (returning `nil`) rather than an error ensures the conversation loop continues naturally.
-
-```go
-func agentSpeak(ctx context.Context, sess session.VoiceSession, text string) error {
-	opts := session.SayOptions{AllowInterruptions: true}
-	handle, err := sess.SayWithOptions(ctx, text, opts)
-	if err != nil {
-		return fmt.Errorf("say: %w", err)
-	}
-
-	// Store handle for interruption callback
-	currentHandle = handle
-
-	// Wait for completion or interruption
-	if err := handle.WaitForPlayout(ctx); err != nil {
-		// Playout was interrupted; this is expected behavior
-		log.Println("Playback interrupted by user")
-		return nil
-	}
-
-	currentHandle = nil
-	return nil
-}
-```
-
-## Step 5: Add VAD for Robust Detection
-
-For more reliable interruption detection, add a VAD provider to the session. VAD detects user speech at the audio level, which is faster and more reliable than waiting for STT to produce a transcript. This matters for interruptions because STT needs several hundred milliseconds of audio to generate even a partial transcript, while VAD can detect speech onset in a single audio frame (typically 20-30ms). The faster detection means the agent stops speaking sooner, creating a more natural interaction.
-
-```go
-import (
-	"github.com/lookatitude/beluga-ai/voice/vad"
-	_ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
-)
-
-func main() {
-	ctx := context.Background()
-
-	vadProvider, err := vad.NewProvider(ctx, "silero", vad.DefaultConfig(),
-		vad.WithThreshold(0.5),
-	)
+	vad, err := voice.NewVAD("silero", map[string]any{"threshold": 0.5, "sample_rate": sampleRate})
 	if err != nil {
 		log.Fatalf("create VAD: %v", err)
 	}
 
-	sess, err := session.NewVoiceSession(ctx,
-		session.WithSTTProvider(sttProvider),
-		session.WithTTSProvider(ttsProvider),
-		session.WithVADProvider(vadProvider),
-		session.WithConfig(session.DefaultConfig()),
-	)
-	if err != nil {
-		log.Fatalf("create session: %v", err)
+	sess := voice.NewSession("session-001")
+	if err := sess.Transition(voice.StateListening); err != nil {
+		log.Fatalf("start session: %v", err)
 	}
 
-	// VAD-aware sessions automatically detect barge-in
-	// when AllowInterruptions is true
+	speaker := NewSpeaker(engine, sess, os.Stdout) // replace os.Stdout with your audio output
+	go func() {
+		if err := watchBargeIn(ctx, vad, sess, speaker, microphone(ctx)); err != nil {
+			log.Printf("barge-in watcher: %v", err)
+		}
+	}()
+
+	err = speaker.Say(ctx, "Hello, how can I help you today?")
+	switch {
+	case errors.Is(err, ErrInterrupted):
+		log.Println("interrupted; listening for the user's new input")
+	case err != nil:
+		log.Fatalf("say: %v", err)
+	}
+}
+
+// microphone yields 20 ms PCM frames from your audio input.
+func microphone(ctx context.Context) iter.Seq2[[]byte, error] {
+	return func(yield func([]byte, error) bool) {}
 }
 ```
 
-## Session State Machine
-
-The voice session transitions between these states. The state machine enforces valid transitions and prevents race conditions -- for example, the session cannot transition from `initial` directly to `speaking`, which would bypass the listening phase:
-
-```
- initial ──▶ listening ──▶ processing ──▶ speaking ──▶ listening
-                 ▲                                        │
-                 │              (interruption)             │
-                 └────────────────────────────────────────┘
-```
-
-When `AllowInterruptions` is enabled and the user speaks during the `speaking` state, the session transitions directly to `listening`, triggering the `OnStateChanged` callback. This shortcut transition is the mechanism that enables barge-in.
+In a cascading `voice.VoicePipeline`, the pipeline sends TTS audio through the transport and the client plays it, so the same idea applies at the transport: watch incoming audio during playback and tell the client to stop. [Barge-In Detection](/docs/guides/capabilities/voice/barge-in-detection) shows a transport wrapper that does this. For speech-to-speech engines, `session.Interrupt(ctx)` on an `s2s.Session` cancels the model's current response.
 
 ## Verification
 
-1. Start the session and trigger `Say` with `AllowInterruptions: true`.
-2. While the agent is speaking, begin speaking yourself (or send audio via `ProcessAudio`).
-3. Confirm that `OnStateChanged` fires with `SessionStateListening`.
-4. Confirm that `SayHandle.Cancel()` stops playback immediately.
-5. Verify the agent processes your new input correctly.
+1. Run the program with a long utterance and let it play to the end; the session ends in `voice.StateListening`.
+2. Speak while the agent is talking and confirm `Say` returns `ErrInterrupted` within a frame or two.
+3. Check `sess.CurrentState()` is `voice.StateListening` after the interruption.
+4. Tap the desk during playback and decide whether you need the debounce wrapper.
 
 ## Next Steps
 
 - [Preemptive Generation](/docs/guides/capabilities/voice/preemptive-generation) -- Start generating replies from interim transcripts
 - [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) -- Tune VAD thresholds for interruption detection
-- [Custom Silero VAD](/docs/guides/capabilities/voice/custom-silero-vad) -- Use custom models for precise speech detection
+- [Custom Silero VAD](/docs/guides/capabilities/voice/custom-silero-vad) -- Configure voice activity detection

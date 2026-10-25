@@ -50,13 +50,17 @@ package main
 import (
     "context"
     "fmt"
+    "log"
+    "os"
+    "strings"
 
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type RecommendationEngine struct {
@@ -65,7 +69,7 @@ type RecommendationEngine struct {
 }
 
 func NewRecommendationEngine(ctx context.Context) (*RecommendationEngine, error) {
-    embedder, err := embedding.New("openai", &embedding.Config{
+    embedder, err := embedding.New("openai", config.ProviderConfig{
         Model:  "text-embedding-3-large",
         APIKey: os.Getenv("OPENAI_API_KEY"),
     })
@@ -73,10 +77,12 @@ func NewRecommendationEngine(ctx context.Context) (*RecommendationEngine, error)
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", &vectorstore.Config{
-        ConnectionString: os.Getenv("DATABASE_URL"),
-        CollectionName:   "products",
-        Dimensions:       3072,
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("DATABASE_URL"),
+        Options: map[string]any{
+            "table":     "products",
+            "dimension": float64(3072),
+        },
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
@@ -98,9 +104,9 @@ type ProductMetadata struct {
     Tags        []string
 }
 
-func (r *RecommendationEngine) IndexProduct(ctx context.Context, product ProductMetadata) error {
-    // Create rich product description for embedding
-    description := fmt.Sprintf(
+// productDescription builds the rich text that gets embedded for a product.
+func productDescription(product ProductMetadata) string {
+    return fmt.Sprintf(
         "Product: %s\nBrand: %s\nCategory: %s\nDescription: %s\nTags: %s",
         product.Name,
         product.Brand,
@@ -108,32 +114,50 @@ func (r *RecommendationEngine) IndexProduct(ctx context.Context, product Product
         product.Description,
         strings.Join(product.Tags, ", "),
     )
+}
+
+func (r *RecommendationEngine) IndexProduct(ctx context.Context, product ProductMetadata) error {
+    description := productDescription(product)
 
     // Generate embedding
-    embeddings, err := r.embedder.Embed(ctx, []string{description})
+    vec, err := r.embedder.EmbedSingle(ctx, description)
     if err != nil {
         return fmt.Errorf("embed product: %w", err)
     }
 
     // Store in vector database
     doc := schema.Document{
-        Content:   description,
-        Embedding: embeddings[0],
-        Metadata: map[string]interface{}{
-            "product_id":  product.ProductID,
-            "name":        product.Name,
-            "category":    product.Category,
-            "price":       product.Price,
-            "brand":       product.Brand,
-            "tags":        product.Tags,
+        ID:      product.ProductID,
+        Content: description,
+        Metadata: map[string]any{
+            "product_id": product.ProductID,
+            "name":       product.Name,
+            "category":   product.Category,
+            "price":      product.Price,
+            "brand":      product.Brand,
+            "tags":       product.Tags,
         },
     }
 
-    if err := r.vectorStore.Add(ctx, []schema.Document{doc}); err != nil {
+    if err := r.vectorStore.Add(ctx, []schema.Document{doc}, [][]float32{vec}); err != nil {
         return fmt.Errorf("store product: %w", err)
     }
 
     return nil
+}
+
+func main() {
+    ctx := context.Background()
+    engine, err := NewRecommendationEngine(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    err = engine.IndexProduct(ctx, ProductMetadata{
+        ProductID: "sku-1", Name: "Trail runner", Category: "shoes", Price: 120, Brand: "Acme",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
@@ -142,14 +166,12 @@ func (r *RecommendationEngine) IndexProduct(ctx context.Context, product Product
 Build user preference vectors from behavior:
 
 ```go
-package main
-
-import (
-    "context"
-)
-
 type UserPreferenceEngine struct {
     embedder embedding.Embedder
+}
+
+func NewUserPreferenceEngine(embedder embedding.Embedder) *UserPreferenceEngine {
+    return &UserPreferenceEngine{embedder: embedder}
 }
 
 type UserBehavior struct {
@@ -159,7 +181,7 @@ type UserBehavior struct {
     ClickedCategories []string
 }
 
-func (u *UserPreferenceEngine) GetUserVector(ctx context.Context, userID string) ([]float64, error) {
+func (u *UserPreferenceEngine) GetUserVector(ctx context.Context, userID string) ([]float32, error) {
     // Fetch user behavior
     behavior, err := u.fetchUserBehavior(ctx, userID)
     if err != nil {
@@ -194,12 +216,12 @@ func (u *UserPreferenceEngine) GetUserVector(ctx context.Context, userID string)
     }
 
     // Generate preference embedding
-    embeddings, err := u.embedder.Embed(ctx, []string{preferences.String()})
+    vec, err := u.embedder.EmbedSingle(ctx, preferences.String())
     if err != nil {
         return nil, fmt.Errorf("embed preferences: %w", err)
     }
 
-    return embeddings[0], nil
+    return vec, nil
 }
 
 func (u *UserPreferenceEngine) fetchUserBehavior(ctx context.Context, userID string) (*UserBehavior, error) {
@@ -209,7 +231,7 @@ func (u *UserPreferenceEngine) fetchUserBehavior(ctx context.Context, userID str
 }
 
 func (u *UserPreferenceEngine) getProductInfo(ctx context.Context, productID string) *ProductMetadata {
-    // Fetch product details
+    // Fetch product details from your catalog
     return &ProductMetadata{}
 }
 ```
@@ -219,19 +241,13 @@ func (u *UserPreferenceEngine) getProductInfo(ctx context.Context, productID str
 Generate recommendations using vector similarity:
 
 ```go
-package main
-
-import (
-    "context"
-)
-
 type Recommendation struct {
-    ProductID   string
-    Name        string
-    Category    string
-    Price       float64
-    Score       float64
-    Reason      string
+    ProductID string
+    Name      string
+    Category  string
+    Price     float64
+    Score     float64
+    Reason    string
 }
 
 func (r *RecommendationEngine) GetRecommendations(ctx context.Context, userID string, limit int) ([]Recommendation, error) {
@@ -243,9 +259,8 @@ func (r *RecommendationEngine) GetRecommendations(ctx context.Context, userID st
         return r.getColdStartRecommendations(ctx, limit)
     }
 
-    // Search for similar products
-    results, err := r.vectorStore.SimilaritySearch(ctx, userVector,
-        vectorstore.WithTopK(limit*2), // Get more for ranking
+    // Search for similar products; fetch extra candidates for ranking
+    results, err := r.vectorStore.Search(ctx, userVector, limit*2,
         vectorstore.WithThreshold(0.6),
     )
     if err != nil {
@@ -253,9 +268,22 @@ func (r *RecommendationEngine) GetRecommendations(ctx context.Context, userID st
     }
 
     // Rank and filter
-    recommendations := r.rankRecommendations(ctx, results, userID, limit)
+    return r.rankRecommendations(ctx, results, userID, limit), nil
+}
 
-    return recommendations, nil
+// toRecommendation reads the metadata written by IndexProduct.
+func toRecommendation(doc schema.Document, reason string) Recommendation {
+    name, _ := doc.Metadata["name"].(string)
+    category, _ := doc.Metadata["category"].(string)
+    price, _ := doc.Metadata["price"].(float64)
+    return Recommendation{
+        ProductID: doc.ID,
+        Name:      name,
+        Category:  category,
+        Price:     price,
+        Score:     doc.Score, // similarity from the vector store
+        Reason:    reason,
+    }
 }
 
 func (r *RecommendationEngine) rankRecommendations(ctx context.Context, docs []schema.Document, userID string, limit int) []Recommendation {
@@ -264,22 +292,13 @@ func (r *RecommendationEngine) rankRecommendations(ctx context.Context, docs []s
     // Apply business logic and filters
     for _, doc := range docs {
         // Skip already purchased products
-        if r.hasUserPurchased(ctx, userID, doc.Metadata["product_id"].(string)) {
+        if r.hasUserPurchased(ctx, userID, doc.ID) {
             continue
         }
 
-        // Apply diversity filter
-        // Apply price range filter
-        // Apply inventory filter
+        // Apply diversity, price range, and inventory filters here
 
-        recommendations = append(recommendations, Recommendation{
-            ProductID: doc.Metadata["product_id"].(string),
-            Name:      doc.Metadata["name"].(string),
-            Category:  doc.Metadata["category"].(string),
-            Price:     doc.Metadata["price"].(float64),
-            Score:     doc.Metadata["score"].(float64),
-            Reason:    r.generateReason(doc),
-        })
+        recommendations = append(recommendations, toRecommendation(doc, r.generateReason(doc)))
 
         if len(recommendations) >= limit {
             break
@@ -291,7 +310,7 @@ func (r *RecommendationEngine) rankRecommendations(ctx context.Context, docs []s
 
 func (r *RecommendationEngine) generateReason(doc schema.Document) string {
     // Generate human-readable reason for recommendation
-    return fmt.Sprintf("Based on your interest in %s", doc.Metadata["category"])
+    return fmt.Sprintf("Based on your interest in %v", doc.Metadata["category"])
 }
 
 func (r *RecommendationEngine) hasUserPurchased(ctx context.Context, userID, productID string) bool {
@@ -305,18 +324,12 @@ func (r *RecommendationEngine) hasUserPurchased(ctx context.Context, userID, pro
 Recommend to new users using content similarity:
 
 ```go
-package main
-
-import (
-    "context"
-)
-
 func (r *RecommendationEngine) getColdStartRecommendations(ctx context.Context, limit int) ([]Recommendation, error) {
     // Strategy 1: Popular products
     // Strategy 2: New arrivals
     // Strategy 3: Trending in category
 
-    // For this example, use popular products
+    // For this example, use popular products from your catalog
     popularProducts, err := r.getPopularProducts(ctx, limit)
     if err != nil {
         return nil, err
@@ -337,37 +350,30 @@ func (r *RecommendationEngine) getColdStartRecommendations(ctx context.Context, 
     return recommendations, nil
 }
 
-func (r *RecommendationEngine) GetSimilarProducts(ctx context.Context, productID string, limit int) ([]Recommendation, error) {
-    // Get product embedding
-    doc, err := r.vectorStore.Get(ctx, productID)
+func (r *RecommendationEngine) GetSimilarProducts(ctx context.Context, product ProductMetadata, limit int) ([]Recommendation, error) {
+    // VectorStore has no lookup-by-ID, so re-embed the product description
+    // (or cache product vectors in your own store).
+    vec, err := r.embedder.EmbedSingle(ctx, productDescription(product))
     if err != nil {
-        return nil, fmt.Errorf("get product: %w", err)
+        return nil, fmt.Errorf("embed product: %w", err)
     }
 
-    // Find similar products
-    results, err := r.vectorStore.SimilaritySearch(ctx, doc.Embedding,
-        vectorstore.WithTopK(limit+1), // +1 to exclude self
+    // Find similar products; +1 because the product itself will match
+    results, err := r.vectorStore.Search(ctx, vec, limit+1,
         vectorstore.WithThreshold(0.7),
     )
     if err != nil {
         return nil, fmt.Errorf("similarity search: %w", err)
     }
 
-    recommendations := make([]Recommendation, 0)
+    recommendations := make([]Recommendation, 0, limit)
     for _, result := range results {
         // Skip the product itself
-        if result.Metadata["product_id"].(string) == productID {
+        if result.ID == product.ProductID {
             continue
         }
 
-        recommendations = append(recommendations, Recommendation{
-            ProductID: result.Metadata["product_id"].(string),
-            Name:      result.Metadata["name"].(string),
-            Category:  result.Metadata["category"].(string),
-            Price:     result.Metadata["price"].(float64),
-            Score:     result.Metadata["score"].(float64),
-            Reason:    "Similar product",
-        })
+        recommendations = append(recommendations, toRecommendation(result, "Similar product"))
 
         if len(recommendations) >= limit {
             break
@@ -383,10 +389,11 @@ func (r *RecommendationEngine) GetSimilarProducts(ctx context.Context, productID
 Combine multiple signals for better recommendations:
 
 ```go
-package main
-
 import (
     "context"
+    "sort"
+
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type HybridRanker struct {
@@ -411,29 +418,22 @@ func (h *HybridRanker) Rank(ctx context.Context, docs []schema.Document, userID 
     for i, doc := range docs {
         score := 0.0
 
-        // Semantic similarity (from vector search)
-        score += doc.Metadata["score"].(float64) * h.weights["semantic_similarity"]
+        // Semantic similarity (Score is set by the vector store search)
+        score += doc.Score * h.weights["semantic_similarity"]
 
         // Popularity (view count, purchase count)
-        popularity := h.calculatePopularity(doc)
-        score += popularity * h.weights["popularity"]
+        score += h.calculatePopularity(doc) * h.weights["popularity"]
 
         // User affinity (category match, brand preference)
-        affinity := h.calculateUserAffinity(ctx, userID, doc)
-        score += affinity * h.weights["user_affinity"]
+        score += h.calculateUserAffinity(ctx, userID, doc) * h.weights["user_affinity"]
 
         // Freshness (newer products ranked higher)
-        freshness := h.calculateFreshness(doc)
-        score += freshness * h.weights["freshness"]
+        score += h.calculateFreshness(doc) * h.weights["freshness"]
 
         // Price match (user's typical price range)
-        priceMatch := h.calculatePriceMatch(ctx, userID, doc)
-        score += priceMatch * h.weights["price_match"]
+        score += h.calculatePriceMatch(ctx, userID, doc) * h.weights["price_match"]
 
-        scored[i] = scoredDoc{
-            doc:   doc,
-            score: score,
-        }
+        scored[i] = scoredDoc{doc: doc, score: score}
     }
 
     // Sort by combined score
@@ -444,7 +444,7 @@ func (h *HybridRanker) Rank(ctx context.Context, docs []schema.Document, userID 
     result := make([]schema.Document, len(scored))
     for i, s := range scored {
         result[i] = s.doc
-        result[i].Metadata["final_score"] = s.score
+        result[i].Score = s.score
     }
 
     return result
@@ -484,8 +484,16 @@ Track recommendation quality and user engagement:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "time"
+
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
+    "go.opentelemetry.io/otel/metric"
+)
+
+var (
+    tracer = otel.Tracer("recommendations")
+    meter  = otel.Meter("recommendations")
 )
 
 func (r *RecommendationEngine) GetRecommendationsWithTracking(ctx context.Context, userID string, limit int) ([]Recommendation, error) {
@@ -511,8 +519,11 @@ func (r *RecommendationEngine) GetRecommendationsWithTracking(ctx context.Contex
         attribute.Float64("duration.ms", float64(duration.Milliseconds())),
     )
 
-    meter.RecordHistogram(ctx, "recommendation.duration", duration.Milliseconds())
-    meter.IncrementCounter(ctx, "recommendations.generated")
+    // Create instruments once at startup in real code
+    latency, err := meter.Int64Histogram("recommendation.duration", metric.WithUnit("ms"))
+    if err == nil {
+        latency.Record(ctx, duration.Milliseconds())
+    }
 
     return recommendations, nil
 }
@@ -523,7 +534,7 @@ func (r *RecommendationEngine) GetRecommendationsWithTracking(ctx context.Contex
 Cache recommendations for frequent users:
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache"
+import "github.com/lookatitude/beluga-ai/v2/cache"
 
 type CachedRecommendationEngine struct {
     RecommendationEngine
@@ -534,8 +545,14 @@ func (c *CachedRecommendationEngine) GetRecommendations(ctx context.Context, use
     cacheKey := fmt.Sprintf("rec:%s:%d", userID, limit)
 
     // Check cache
-    if cached, ok := c.cache.Get(ctx, cacheKey); ok {
-        return cached.([]Recommendation), nil
+    cached, ok, err := c.cache.Get(ctx, cacheKey)
+    if err != nil {
+        return nil, fmt.Errorf("cache get: %w", err)
+    }
+    if ok {
+        if recs, isRecs := cached.([]Recommendation); isRecs {
+            return recs, nil
+        }
     }
 
     // Generate recommendations
@@ -545,7 +562,9 @@ func (c *CachedRecommendationEngine) GetRecommendations(ctx context.Context, use
     }
 
     // Cache for 5 minutes
-    c.cache.Set(ctx, cacheKey, recommendations, 5*time.Minute)
+    if err := c.cache.Set(ctx, cacheKey, recommendations, 5*time.Minute); err != nil {
+        return nil, fmt.Errorf("cache set: %w", err)
+    }
 
     return recommendations, nil
 }
@@ -606,14 +625,11 @@ func (r *RecommendationEngine) IndexBatch(ctx context.Context, products []Produc
         // Generate descriptions
         descriptions := make([]string, len(batch))
         for j, product := range batch {
-            descriptions[j] = fmt.Sprintf(
-                "Product: %s\nBrand: %s\nCategory: %s\nDescription: %s",
-                product.Name, product.Brand, product.Category, product.Description,
-            )
+            descriptions[j] = productDescription(product)
         }
 
-        // Batch embed
-        embeddings, err := r.embedder.EmbedBatch(ctx, descriptions)
+        // One embedding call per batch
+        embeddings, err := r.embedder.Embed(ctx, descriptions)
         if err != nil {
             return err
         }
@@ -622,9 +638,9 @@ func (r *RecommendationEngine) IndexBatch(ctx context.Context, products []Produc
         docs := make([]schema.Document, len(batch))
         for j, product := range batch {
             docs[j] = schema.Document{
-                Content:   descriptions[j],
-                Embedding: embeddings[j],
-                Metadata: map[string]interface{}{
+                ID:      product.ProductID,
+                Content: descriptions[j],
+                Metadata: map[string]any{
                     "product_id": product.ProductID,
                     "name":       product.Name,
                     "category":   product.Category,
@@ -633,8 +649,8 @@ func (r *RecommendationEngine) IndexBatch(ctx context.Context, products []Produc
             }
         }
 
-        // Batch store
-        if err := r.vectorStore.Add(ctx, docs); err != nil {
+        // Batch store: documents and embeddings are parallel slices
+        if err := r.vectorStore.Add(ctx, docs, embeddings); err != nil {
             return err
         }
     }
@@ -645,7 +661,7 @@ func (r *RecommendationEngine) IndexBatch(ctx context.Context, products []Produc
 
 ## Related Resources
 
-- [Vector Store Guide](/docs/guides/vector-stores/) for scaling strategies
-- [Embedding Guide](/docs/guides/embeddings/) for embedding optimization
-- [Knowledge QA System](/docs/guides/knowledge-qa/) for similarity patterns
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for RAG pipeline patterns
+- [Vector Store Guide](/docs/reference/providers/vectorstore/) for scaling strategies
+- [Embedding Guide](/docs/reference/providers/embedding/) for embedding optimization
+- [Knowledge QA System](/docs/guides/capabilities/rag/knowledge-qa/) for similarity patterns
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for RAG pipeline patterns

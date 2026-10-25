@@ -38,9 +38,9 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.llms.token_counting")
@@ -103,7 +103,7 @@ func (tc *TokenCounter) CountTokens(ctx context.Context, text string, requireExa
     count, err := tc.exactCounter(text)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return 0, err
     }
 
@@ -299,5 +299,5 @@ func (tc *TokenCounter) CountTokensBatch(ctx context.Context, texts []string) ([
 
 ## Related Recipes
 
-- **[Streaming Tool Calls](./streaming-tool-calls)** — Handle streaming with tool calls
-- **[S2S Voice Metrics](./s2s-voice-metrics)** — Track token usage metrics
+- **[Streaming Tool Calls](/docs/recipes/llm/streaming-tool-calls/)** — Handle streaming with tool calls
+- **[S2S Voice Metrics](/docs/recipes/voice/s2s-voice-metrics/)** — Track token usage metrics

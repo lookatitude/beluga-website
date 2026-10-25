@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/auth"
+import "github.com/lookatitude/beluga-ai/v2/auth"
 ```
 
 Package auth provides capability-based authorization for the Beluga AI

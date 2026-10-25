@@ -57,8 +57,8 @@ Load documents from various sources:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/loader"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/loader"
 )
 
 // Load a text file
@@ -108,8 +108,8 @@ Split documents into chunks optimized for embedding:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/splitter"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/splitter"
 )
 
 s, err := splitter.New("recursive", config.ProviderConfig{
@@ -147,9 +147,9 @@ Convert text to vector representations:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	_ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 embedder, err := embedding.New("openai", config.ProviderConfig{
@@ -176,7 +176,7 @@ fmt.Println("Dimensions:", embedder.Dimensions())
 | Provider | Import Path | Models |
 |----------|-------------|--------|
 | OpenAI | `rag/embedding/providers/openai` | `text-embedding-3-small`, `text-embedding-3-large` |
-| Google | `rag/embedding/providers/google` | `text-embedding-004` |
+| Google | `rag/embedding/providers/google` | `gemini-embedding-001`, `text-embedding-004` (deprecated) |
 | Cohere | `rag/embedding/providers/cohere` | `embed-english-v3.0` |
 | Voyage | `rag/embedding/providers/voyage` | `voyage-3` |
 | Mistral | `rag/embedding/providers/mistral` | `mistral-embed` |
@@ -193,9 +193,9 @@ Store and search embeddings:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/vectorstore"
-	_ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 store, err := vectorstore.New("pgvector", config.ProviderConfig{
@@ -263,7 +263,7 @@ graph LR
 The `Retriever` interface abstracts the search step, decoupling your application from specific vector store implementations and search strategies. Retrievers can combine multiple backends, apply reranking, or implement advanced strategies like CRAG and HyDE. This abstraction is where the most impactful RAG quality improvements happen — choosing the right retrieval strategy often matters more than choosing the right embedding model.
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/retriever"
+import "github.com/lookatitude/beluga-ai/v2/rag/retriever"
 
 docs, err := r.Retrieve(ctx, "What is quantum computing?",
 	retriever.WithTopK(5),
@@ -343,17 +343,17 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	"github.com/lookatitude/beluga-ai/rag/loader"
-	"github.com/lookatitude/beluga-ai/rag/splitter"
-	"github.com/lookatitude/beluga-ai/rag/vectorstore"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/rag/loader"
+	"github.com/lookatitude/beluga-ai/v2/rag/splitter"
+	"github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
 )
 
 func main() {
@@ -462,7 +462,7 @@ graph LR
   Web --> LLM
 ```
 
-CRAG is a registered `Retriever` strategy — enable it with a one-line config change: `retriever.New("crag", cfg)`. See [DOC-10 — RAG Pipeline](../../../../../architecture/10-rag-pipeline.md#crag--corrective-retrieval) for the full list of pluggable strategies (HyDE, Adaptive RAG, Parent-document retrieval).
+CRAG is a registered `Retriever` strategy — enable it with a one-line config change: `retriever.New("crag", cfg)`. See [DOC-10 — RAG Pipeline](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/10-rag-pipeline.md#crag--corrective-retrieval) for the full list of pluggable strategies (HyDE, Adaptive RAG, Parent-document retrieval).
 
 ## Retriever Hooks
 
@@ -485,7 +485,7 @@ hooks := retriever.Hooks{
 
 ## Next Steps
 
-- [Working with LLMs](/docs/guides/working-with-llms/) — The ChatModel that generates answers
-- [Memory System](/docs/guides/memory-system/) — Persistent memory with vector search
-- [Tools & MCP](/docs/guides/tools-and-mcp/) — Give agents retrieval as a tool
-- [Monitoring & Observability](/docs/guides/observability/) — Trace RAG pipeline performance
+- [Working with LLMs](/docs/guides/foundations/working-with-llms/) — The ChatModel that generates answers
+- [Memory System](/docs/guides/capabilities/memory/memory-system/) — Persistent memory with vector search
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) — Give agents retrieval as a tool
+- [Monitoring & Observability](/docs/guides/production/observability/) — Trace RAG pipeline performance

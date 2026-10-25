@@ -14,7 +14,7 @@ Traditional API gateway products (Kong, AWS API Gateway) provide generic HTTP co
 
 ## Solution Architecture
 
-Beluga AI's `server/` package provides REST API infrastructure with middleware composition following the standard `func(http.Handler) http.Handler` pattern. The middleware approach is composable — authentication, authorization, rate limiting, and observability are independent layers that stack in a defined order. This matters because each concern has different failure semantics: authentication failures return 401, authorization failures return 403, and rate limit failures return 429. Separating them ensures correct HTTP semantics and allows each layer to be tested, monitored, and configured independently.
+Beluga AI's `server/` package provides the HTTP server through `server.ServerAdapter` (the built-in `stdlib` adapter or one of the framework adapters under `server/adapters/`), and the gateway's middleware uses the standard `func(http.Handler) http.Handler` pattern. The middleware approach is composable — authentication, authorization, rate limiting, and observability are independent layers that stack in a defined order. This matters because each concern has different failure semantics: authentication failures return 401, authorization failures return 403, and rate limit failures return 429. Separating them ensures correct HTTP semantics and allows each layer to be tested, monitored, and configured independently.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -37,23 +37,23 @@ Beluga AI's `server/` package provides REST API infrastructure with middleware c
 
 ## Gateway Setup
 
-Create a REST server with middleware for security and routing:
+Create the HTTP server and chain the security and routing middleware:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
     "net/http"
+    "time"
 
-    "github.com/lookatitude/beluga-ai/server"
-    "go.opentelemetry.io/otel/trace"
+    "github.com/lookatitude/beluga-ai/v2/server"
+    "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/metric"
+    "go.opentelemetry.io/otel/trace"
 )
 
 type CustomerSupportGateway struct {
-    server        *server.RESTServer
+    server        server.ServerAdapter
     authenticator *Authenticator
     authorizer    *Authorizer
     rateLimiter   *RateLimiter
@@ -63,22 +63,42 @@ type CustomerSupportGateway struct {
 }
 
 func NewCustomerSupportGateway(ctx context.Context) (*CustomerSupportGateway, error) {
-    restServer, err := server.NewRESTServer(
-        server.WithHost("0.0.0.0"),
-        server.WithPort(8080),
-        server.WithBasePath("/api/v1"),
-    )
+    // Built-in net/http adapter; gin, chi, echo, fiber, ... live under server/adapters/
+    httpServer, err := server.New("stdlib", server.Config{
+        ReadTimeout:  10 * time.Second,
+        WriteTimeout: 60 * time.Second,
+    })
     if err != nil {
-        return nil, fmt.Errorf("create REST server: %w", err)
+        return nil, fmt.Errorf("create HTTP server: %w", err)
     }
 
-    return &CustomerSupportGateway{
-        server:        restServer,
+    g := &CustomerSupportGateway{
+        server:        httpServer,
         authenticator: NewAuthenticator(),
         authorizer:    NewAuthorizer(),
         rateLimiter:   NewRateLimiter(),
         router:        NewRequestRouter(),
-    }, nil
+        tracer:        otel.Tracer("support-gateway"),
+        meter:         otel.Meter("support-gateway"),
+    }
+
+    // Middleware order: authenticate -> authorize -> rate limit -> route
+    var h http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        g.HandleRequest(r.Context(), w, r)
+    })
+    h = g.RateLimitMiddleware(h)
+    h = g.AuthorizationMiddleware(h)
+    h = g.AuthenticationMiddleware(h)
+
+    if err := httpServer.RegisterHandler("/api/v1/", h); err != nil {
+        return nil, fmt.Errorf("register gateway handler: %w", err)
+    }
+    return g, nil
+}
+
+// Run serves the gateway on :8080 until ctx is canceled.
+func (g *CustomerSupportGateway) Run(ctx context.Context) error {
+    return g.server.Serve(ctx, ":8080")
 }
 ```
 
@@ -87,10 +107,9 @@ func NewCustomerSupportGateway(ctx context.Context) (*CustomerSupportGateway, er
 Authentication runs first in the middleware chain and attaches user identity to the request context. Subsequent middleware (authorization, rate limiting) depends on this identity, so the ordering is critical — authorization without authentication would fail, and rate limiting without user identity could only limit by IP address:
 
 ```go
-package main
-
 import (
     "context"
+    "fmt"
     "net/http"
 )
 
@@ -124,6 +143,14 @@ func (a *Authenticator) Authenticate(r *http.Request) (*User, error) {
     return user, nil
 }
 
+// userKey is the context key for the authenticated user.
+type userKey struct{}
+
+func userFrom(ctx context.Context) (*User, bool) {
+    u, ok := ctx.Value(userKey{}).(*User)
+    return u, ok
+}
+
 func (g *CustomerSupportGateway) AuthenticationMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         user, err := g.authenticator.Authenticate(r)
@@ -133,7 +160,7 @@ func (g *CustomerSupportGateway) AuthenticationMiddleware(next http.Handler) htt
         }
 
         // Attach user to context
-        ctx := context.WithValue(r.Context(), "user", user)
+        ctx := context.WithValue(r.Context(), userKey{}, user)
         next.ServeHTTP(w, r.WithContext(ctx))
     })
 }
@@ -144,8 +171,6 @@ func (g *CustomerSupportGateway) AuthenticationMiddleware(next http.Handler) htt
 Enforce role-based access control:
 
 ```go
-package main
-
 import (
     "net/http"
 )
@@ -193,9 +218,8 @@ func (a *Authorizer) HasPermission(user *User, path, method string) bool {
 
 func (g *CustomerSupportGateway) AuthorizationMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        user := r.Context().Value("user").(*User)
-
-        if !g.authorizer.HasPermission(user, r.URL.Path, r.Method) {
+        user, ok := userFrom(r.Context())
+        if !ok || !g.authorizer.HasPermission(user, r.URL.Path, r.Method) {
             http.Error(w, "forbidden", http.StatusForbidden)
             return
         }
@@ -210,8 +234,6 @@ func (g *CustomerSupportGateway) AuthorizationMiddleware(next http.Handler) http
 Prevent API abuse with per-user rate limits:
 
 ```go
-package main
-
 import (
     "context"
     "net/http"
@@ -263,9 +285,8 @@ func (r *RateLimiter) Allow(ctx context.Context, userID string) bool {
 
 func (g *CustomerSupportGateway) RateLimitMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        user := r.Context().Value("user").(*User)
-
-        if !g.rateLimiter.Allow(r.Context(), user.ID) {
+        user, ok := userFrom(r.Context())
+        if !ok || !g.rateLimiter.Allow(r.Context(), user.ID) {
             http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
             return
         }
@@ -280,12 +301,13 @@ func (g *CustomerSupportGateway) RateLimitMiddleware(next http.Handler) http.Han
 Route requests to backend services:
 
 ```go
-package main
-
 import (
     "context"
     "io"
+    "log"
     "net/http"
+    "strings"
+    "time"
 )
 
 type RequestRouter struct {
@@ -353,7 +375,9 @@ func (g *CustomerSupportGateway) HandleRequest(ctx context.Context, w http.Respo
         }
     }
     w.WriteHeader(resp.StatusCode)
-    io.Copy(w, resp.Body)
+    if _, err := io.Copy(w, resp.Body); err != nil {
+        log.Printf("copy backend response: %v", err)
+    }
 }
 ```
 
@@ -364,10 +388,7 @@ func (g *CustomerSupportGateway) HandleRequest(ctx context.Context, w http.Respo
 Track gateway metrics and request latency:
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "go.opentelemetry.io/otel/attribute"
-)
+import "go.opentelemetry.io/otel/attribute"
 
 func (g *CustomerSupportGateway) InstrumentedHandle(ctx context.Context, w http.ResponseWriter, r *http.Request) {
     ctx, span := g.tracer.Start(ctx, "gateway.request")
@@ -378,14 +399,20 @@ func (g *CustomerSupportGateway) InstrumentedHandle(ctx context.Context, w http.
     span.SetAttributes(
         attribute.String("http.method", r.Method),
         attribute.String("http.path", r.URL.Path),
-        attribute.String("user.id", r.Context().Value("user").(*User).ID),
     )
+    if user, ok := userFrom(r.Context()); ok {
+        span.SetAttributes(attribute.String("user.id", user.ID))
+    }
 
     g.HandleRequest(ctx, w, r)
 
-    duration := time.Since(start)
-    g.meter.RecordHistogram(ctx, "gateway.request.duration", duration.Milliseconds())
-    g.meter.IncrementCounter(ctx, "gateway.requests.total")
+    // Create instruments once at startup in real code
+    hist, err := g.meter.Int64Histogram("gateway.request.duration")
+    if err != nil {
+        span.RecordError(err)
+        return
+    }
+    hist.Record(ctx, time.Since(start).Milliseconds())
 }
 ```
 
@@ -394,17 +421,21 @@ func (g *CustomerSupportGateway) InstrumentedHandle(ctx context.Context, w http.
 Add circuit breaker for backend failures:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
-breaker := resilience.NewCircuitBreaker(
-    resilience.WithFailureThreshold(5),
-    resilience.WithTimeout(30 * time.Second),
-    resilience.WithResetTimeout(60 * time.Second),
-)
+// Open after 5 consecutive failures; try again after 60 seconds.
+// Create one breaker per backend at startup and reuse it.
+breaker := resilience.NewCircuitBreaker(5, 60*time.Second)
 
-resp, err := breaker.Execute(ctx, func(ctx context.Context) (*http.Response, error) {
+result, err := breaker.Execute(ctx, func(ctx context.Context) (any, error) {
     return g.router.client.Do(backendReq)
 })
+if err != nil {
+    http.Error(w, "backend unavailable", http.StatusBadGateway)
+    return
+}
+resp := result.(*http.Response)
+defer resp.Body.Close()
 ```
 
 ### Security
@@ -417,7 +448,7 @@ resp, err := breaker.Execute(ctx, func(ctx context.Context) (*http.Response, err
 
 ## Related Resources
 
-- [Server Package Guide](/docs/guides/server-patterns/) for REST API patterns
-- [Middleware Guide](/docs/guides/middleware/) for composable middleware
-- [Observability Guide](/docs/guides/observability/) for API monitoring
-- [Search Everything Gateway](/docs/guides/search-everything/) for API integration patterns
+- [Server Package Guide](/docs/guides/production/rest-deployment/) for REST API patterns
+- [Middleware Guide](/docs/guides/foundations/middleware-implementation/) for composable middleware
+- [Observability Guide](/docs/guides/production/observability/) for API monitoring
+- [Search Everything Gateway](/docs/guides/capabilities/rag/search-everything/) for API integration patterns

@@ -26,52 +26,52 @@
         {
           "label": "Foundations",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/foundations" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/foundations" } }]
         },
         {
           "label": "Agents",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/agents" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/agents" } }]
         },
         {
           "label": "RAG",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/rag" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/rag" } }]
         },
         {
           "label": "Memory",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/memory" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/memory" } }]
         },
         {
           "label": "Voice",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/voice" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/voice" } }]
         },
         {
           "label": "Orchestration",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/orchestration" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/orchestration" } }]
         },
         {
           "label": "Documents",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/documents" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/documents" } }]
         },
         {
           "label": "Multimodal",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/multimodal" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/multimodal" } }]
         },
         {
           "label": "Messaging",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/capabilities/messaging" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/capabilities/messaging" } }]
         },
         {
           "label": "Production",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/guides/production" }
+          "items": [{ "autogenerate": { "directory": "docs/guides/production" } }]
         }
       ]
     },
@@ -82,42 +82,42 @@
         {
           "label": "Agents",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/agents" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/agents" } }]
         },
         {
           "label": "LLM",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/llm" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/llm" } }]
         },
         {
           "label": "RAG",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/rag" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/rag" } }]
         },
         {
           "label": "Memory",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/memory" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/memory" } }]
         },
         {
           "label": "Voice",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/voice" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/voice" } }]
         },
         {
           "label": "Multimodal",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/multimodal" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/multimodal" } }]
         },
         {
           "label": "Prompts",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/prompts" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/prompts" } }]
         },
         {
           "label": "Infrastructure",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/recipes/infrastructure" }
+          "items": [{ "autogenerate": { "directory": "docs/recipes/infrastructure" } }]
         }
       ]
     },
@@ -129,37 +129,37 @@
         {
           "label": "Architecture",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/reference/architecture" }
+          "items": [{ "autogenerate": { "directory": "docs/reference/architecture" } }]
         },
         {
           "label": "API — Foundation",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/reference/api/foundation" }
+          "items": [{ "autogenerate": { "directory": "docs/reference/api/foundation" } }]
         },
         {
           "label": "API — LLM and Agents",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/reference/api/llm-agents" }
+          "items": [{ "autogenerate": { "directory": "docs/reference/api/llm-agents" } }]
         },
         {
           "label": "API — Memory and RAG",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/reference/api/memory-rag" }
+          "items": [{ "autogenerate": { "directory": "docs/reference/api/memory-rag" } }]
         },
         {
           "label": "API — Voice",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/reference/api/voice" }
+          "items": [{ "autogenerate": { "directory": "docs/reference/api/voice" } }]
         },
         {
           "label": "API — Infrastructure",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/reference/api/infrastructure" }
+          "items": [{ "autogenerate": { "directory": "docs/reference/api/infrastructure" } }]
         },
         {
           "label": "API — Protocol and Server",
           "collapsed": true,
-          "autogenerate": { "directory": "docs/reference/api/protocol" }
+          "items": [{ "autogenerate": { "directory": "docs/reference/api/protocol" } }]
         },
         { "label": "Browse providers →", "link": "/providers/" }
       ]

@@ -15,7 +15,7 @@ Choose Mistral embeddings when you are already using Mistral for LLM inference a
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/mistral
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/mistral
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/mistral"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/mistral"
 )
 
 func main() {
@@ -73,7 +73,7 @@ func main() {
 
 ```go
 import (
-    mistralemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/mistral"
+    mistralemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/mistral"
 )
 
 emb, err := mistralemb.New(config.ProviderConfig{

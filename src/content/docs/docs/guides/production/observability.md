@@ -18,7 +18,7 @@ Initialize tracing and metrics at application startup. The shutdown function ret
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/o11y"
+	"github.com/lookatitude/beluga-ai/v2/o11y"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 )
 
@@ -94,7 +94,7 @@ if err != nil {
 }
 
 span.SetAttributes(o11y.Attrs{
-	o11y.AttrResponseModel: resp.Model,
+	o11y.AttrResponseModel: resp.ModelID,
 	o11y.AttrInputTokens:   resp.Usage.InputTokens,
 	o11y.AttrOutputTokens:  resp.Usage.OutputTokens,
 })
@@ -116,28 +116,23 @@ These constants follow the OpenTelemetry GenAI semantic conventions, ensuring th
 | `AttrOutputTokens` | `gen_ai.usage.output_tokens` | Output token count |
 | `AttrSystem` | `gen_ai.system` | Provider system (openai, anthropic, etc.) |
 
-### Automatic Tracing with LLM Hooks
+### Automatic Tracing with LLM Middleware
 
-Rather than manually instrumenting every LLM call, you can attach tracing through LLM hooks. Hooks are optional callback functions that execute before and after each LLM operation. The `BeforeGenerate` hook creates a span, and `AfterGenerate` records the response metadata. This approach instruments all LLM calls uniformly without modifying individual call sites.
+Rather than manually instrumenting every LLM call, wrap the model with `llm.WithTracing()`, which emits a `gen_ai.*` span around every `Generate` and `Stream` call. LLM hooks are optional callbacks that run before and after each operation; use `AfterGenerate` to record token metrics. This instruments all LLM calls uniformly without modifying individual call sites.
 
 ```go
-tracingHooks := llm.Hooks{
-	BeforeGenerate: func(ctx context.Context, msgs []schema.Message) error {
-		ctx, span := o11y.StartSpan(ctx, "llm.generate", o11y.Attrs{
-			o11y.AttrOperationName: "chat",
-			"gen_ai.messages":      len(msgs),
-		})
-		// Store span for AfterGenerate
-		return nil
-	},
+metricsHooks := llm.Hooks{
 	AfterGenerate: func(ctx context.Context, resp *schema.AIMessage, err error) {
-		if resp != nil {
+		if err == nil && resp != nil {
 			o11y.TokenUsage(ctx, resp.Usage.InputTokens, resp.Usage.OutputTokens)
 		}
 	},
 }
 
-model = llm.ApplyMiddleware(model, llm.WithHooks(tracingHooks))
+model = llm.ApplyMiddleware(model,
+	llm.WithTracing(),             // spans for every call
+	llm.WithHooks(metricsHooks),   // token metrics
+)
 ```
 
 ## Metrics
@@ -209,15 +204,18 @@ http.ListenAndServe(":9090", nil)
 Structured logging with Go's `slog` package provides machine-parseable log output that integrates with log aggregation systems. Unlike unstructured text logs, structured logs can be filtered, grouped, and analyzed programmatically, which is essential when debugging production issues across multiple service instances.
 
 ```go
-import "github.com/lookatitude/beluga-ai/o11y"
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
-logger := o11y.NewLogger(o11y.LoggerConfig{
-	Level:  slog.LevelInfo,
-	Format: "json", // "json" or "text"
-})
+logger := o11y.NewLogger(
+	o11y.WithLogLevel("info"), // "debug", "info", "warn", "error"
+	o11y.WithJSON(),           // omit for text output
+)
 
-// The logger integrates with LLM middleware
-model = llm.ApplyMiddleware(model, llm.WithLogging(logger))
+// Carry the logger in the context; o11y.FromContext(ctx) retrieves it.
+ctx = o11y.WithLogger(ctx, logger)
+
+// LLM logging middleware takes a standard *slog.Logger
+model = llm.ApplyMiddleware(model, llm.WithLogging(logger.Slog()))
 ```
 
 ### Log Levels for AI Operations
@@ -233,65 +231,92 @@ Each log level serves a specific purpose in AI operations. Keeping to these conv
 
 ### Correlating Logs with Traces
 
-When a span is active in the context, the logger automatically includes `trace_id` and `span_id` fields in every log entry. This trace correlation is what links logs, metrics, and traces together for a single request: you can start from an error log, find the trace ID, and navigate to the full distributed trace to see exactly what happened across every service and LLM call in that request's lifecycle.
+Trace correlation is what links logs, metrics, and traces together for a single request: you can start from an error log, find the trace ID, and navigate to the full distributed trace to see exactly what happened across every service and LLM call in that request's lifecycle. The `o11y` logger does not add trace fields on its own, so include them from the active span:
 
 ```go
-// Logger automatically includes trace context when spans are active
-logger.InfoContext(ctx, "llm.generate.complete",
+import "go.opentelemetry.io/otel/trace"
+
+sc := trace.SpanContextFromContext(ctx)
+logger.Info(ctx, "llm.generate.complete",
+	"trace_id", sc.TraceID().String(),
+	"span_id", sc.SpanID().String(),
 	"model", "gpt-4o",
 	"input_tokens", 150,
 	"output_tokens", 300,
 	"latency_ms", 245,
 )
-// Output includes trace_id and span_id for correlation
 ```
 
 ## Health Checks
 
-Health check endpoints enable container orchestrators (Kubernetes, ECS) and load balancers to monitor application health and route traffic away from unhealthy instances. Beluga provides two standard endpoints that follow Kubernetes conventions: a liveness probe (is the process alive?) and a readiness probe (are all dependencies healthy?).
+Health check endpoints enable container orchestrators (Kubernetes, ECS) and load balancers to monitor application health and route traffic away from unhealthy instances. Kubernetes conventions use two endpoints: a liveness probe (is the process alive?) and a readiness probe (are all dependencies healthy?). Beluga's `o11y.HealthRegistry` runs the dependency checks concurrently; you expose the results through your own HTTP handlers.
 
 The readiness check is particularly important for AI services because LLM provider outages are common and may not cause the process to crash. Without a readiness check, traffic continues flowing to instances that cannot serve requests because their LLM provider is down.
 
 ```go
-import "github.com/lookatitude/beluga-ai/o11y"
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
-health := o11y.NewHealthChecker()
+health := o11y.NewHealthRegistry()
+
+// check adapts an error-returning probe to an o11y.HealthChecker.
+check := func(probe func(ctx context.Context) error) o11y.HealthChecker {
+	return o11y.HealthCheckerFunc(func(ctx context.Context) o11y.HealthResult {
+		if err := probe(ctx); err != nil {
+			return o11y.HealthResult{Status: o11y.Unhealthy, Message: err.Error()}
+		}
+		return o11y.HealthResult{Status: o11y.Healthy}
+	})
+}
 
 // Register checks
-health.Register("llm", func(ctx context.Context) error {
+health.Register("llm", check(func(ctx context.Context) error {
 	_, err := model.Generate(ctx, []schema.Message{
 		schema.NewHumanMessage("ping"),
 	}, llm.WithMaxTokens(1))
 	return err
-})
+}))
 
-health.Register("vectorstore", func(ctx context.Context) error {
+health.Register("vectorstore", check(func(ctx context.Context) error {
 	_, err := store.Search(ctx, []float32{0.1}, 1)
 	return err
-})
+}))
 
-health.Register("redis", func(ctx context.Context) error {
+health.Register("redis", check(func(ctx context.Context) error {
 	return redisClient.Ping(ctx).Err()
+}))
+
+// Liveness: the process is up.
+http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 })
 
-// Expose HTTP endpoints
-http.HandleFunc("/healthz", health.LivenessHandler())   // Basic alive check
-http.HandleFunc("/readyz", health.ReadinessHandler())    // Full dependency check
+// Readiness: every registered dependency is healthy.
+http.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+	results := health.CheckAll(r.Context())
+	status := http.StatusOK
+	for _, res := range results {
+		if res.Status != o11y.Healthy {
+			status = http.StatusServiceUnavailable
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		log.Printf("encode health results: %v", err)
+	}
+})
 ```
 
 ### Health Check Response Format
 
-The response includes per-dependency status and latency, making it straightforward to identify which dependency is causing readiness failures.
+The handler above encodes the `[]o11y.HealthResult` slice, so each dependency reports its status, message and check time, making it straightforward to identify which dependency is causing readiness failures.
 
 ```json
-{
-  "status": "healthy",
-  "checks": {
-    "llm": {"status": "healthy", "latency_ms": 245},
-    "vectorstore": {"status": "healthy", "latency_ms": 12},
-    "redis": {"status": "healthy", "latency_ms": 1}
-  }
-}
+[
+  {"Status": "healthy", "Message": "", "Component": "llm", "Timestamp": "2026-01-01T12:00:00Z"},
+  {"Status": "healthy", "Message": "", "Component": "vectorstore", "Timestamp": "2026-01-01T12:00:00Z"},
+  {"Status": "unhealthy", "Message": "dial tcp: connection refused", "Component": "redis", "Timestamp": "2026-01-01T12:00:00Z"}
+]
 ```
 
 ## LLM-Specific Exporters
@@ -300,8 +325,8 @@ In addition to general-purpose OTel backends, Beluga supports exporters for LLM-
 
 ```go
 import (
-	_ "github.com/lookatitude/beluga-ai/o11y/providers/langfuse"
-	_ "github.com/lookatitude/beluga-ai/o11y/providers/langsmith"
+	_ "github.com/lookatitude/beluga-ai/v2/o11y/providers/langfuse"
+	_ "github.com/lookatitude/beluga-ai/v2/o11y/providers/langsmith"
 )
 ```
 
@@ -354,7 +379,7 @@ groups:
 
 ## Next Steps
 
-- [Working with LLMs](/docs/guides/working-with-llms/) — LLM middleware and hooks for automatic instrumentation
+- [Working with LLMs](/docs/guides/foundations/working-with-llms/) — LLM middleware and hooks for automatic instrumentation
 - [Safety & Guards](/docs/guides/production/safety-and-guards/) — Monitor and audit guard decisions
 - [Deploying to Production](/docs/guides/production/deployment/) — Production observability setup with container orchestration
-- [RAG Pipeline](/docs/guides/rag-pipeline/) — Trace retrieval performance and embedding latency
+- [RAG Pipeline](/docs/guides/capabilities/rag/rag-pipeline/) — Trace retrieval performance and embedding latency

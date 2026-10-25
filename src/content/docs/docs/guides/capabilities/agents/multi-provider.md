@@ -17,7 +17,7 @@ An application that uses OpenAI and Anthropic interchangeably, with normalized t
 ## Prerequisites
 
 - API keys for at least two providers (OpenAI, Anthropic, or others)
-- Understanding of the [registry pattern](/docs/guides/architecture)
+- Understanding of the [registry pattern](/docs/reference/architecture/overview/)
 
 ## Step 1: Create Models from the Registry
 
@@ -33,11 +33,11 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {

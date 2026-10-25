@@ -30,8 +30,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/rag/splitter"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/rag/splitter"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -111,7 +111,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // Reranker scores and reorders documents by relevance to a query.
@@ -202,8 +202,8 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/lookatitude/beluga-ai/rag/loader"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/rag/loader"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // ParallelLoader loads documents from multiple sources concurrently.
@@ -290,8 +290,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/rag/loader"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/rag/loader"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // ResilientLoader wraps a DocumentLoader and skips corrupt files.
@@ -370,8 +370,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
 )
 
 // BatchEmbed processes texts in batches for optimal throughput.
@@ -451,10 +451,10 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	"github.com/lookatitude/beluga-ai/rag/vectorstore"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -559,8 +559,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/rag/splitter"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/rag/splitter"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -633,8 +633,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/rag/splitter"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/rag/splitter"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -689,10 +689,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	"github.com/lookatitude/beluga-ai/rag/vectorstore"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // IndexStatus tracks the state of the reindexing operation.
@@ -838,10 +838,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/rag/embedding"
-	"github.com/lookatitude/beluga-ai/rag/retriever"
-	"github.com/lookatitude/beluga-ai/rag/vectorstore"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/rag/embedding"
+	"github.com/lookatitude/beluga-ai/v2/rag/retriever"
+	"github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // bm25Impl is a stub BM25Searcher — replace with a real implementation (Elasticsearch, Typesense, etc.).

@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 ```
 
 Package resilience provides fault-tolerance primitives for the Beluga AI

@@ -14,7 +14,7 @@ Hybrid semantic search combines vector and keyword retrieval to achieve 90%+ rel
 
 ## Solution Architecture
 
-Beluga AI's retriever package enables hybrid search combining semantic and keyword retrieval. The system analyzes query intent, searches using both methods, merges results with regulatory relationship context, and ranks by relevance.
+Beluga AI's retriever package enables hybrid search combining semantic and keyword retrieval: `retriever.NewHybridRetriever` (RRF fusion) or, as here, `retriever.NewEnsembleRetriever` with a `retriever.NewWeightedStrategy` when you want explicit weights. The system analyzes query intent, searches using both methods, merges results with regulatory relationship context, and ranks by relevance.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -54,40 +54,49 @@ Beluga AI's retriever package enables hybrid search combining semantic and keywo
 The regulatory search engine combines semantic and keyword retrieval with relationship enhancement:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
+    "log"
     "sort"
 
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    "github.com/lookatitude/beluga-ai/schema"
-
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/hybrid"
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/vector"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // RegulatorySearchEngine searches regulatory policies using hybrid retrieval.
 type RegulatorySearchEngine struct {
+    embedder          embedding.Embedder
+    store             vectorstore.VectorStore
     retriever         retriever.Retriever
     relationshipGraph *RelationshipGraph
 }
 
-func NewRegulatorySearchEngine(ctx context.Context) (*RegulatorySearchEngine, error) {
-    // Hybrid retriever combines vector and keyword search
-    ret, err := retriever.New("hybrid", retriever.Config{
-        VectorWeight:  0.7,
-        KeywordWeight: 0.3,
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
+// NewRegulatorySearchEngine combines a vector retriever with a keyword
+// retriever (your BM25 backend, e.g. Elasticsearch, implementing
+// retriever.Retriever) using weighted score fusion.
+func NewRegulatorySearchEngine(
+    emb embedding.Embedder,
+    store vectorstore.VectorStore,
+    keyword retriever.Retriever,
+) *RegulatorySearchEngine {
+    vector := retriever.NewVectorStoreRetriever(store, emb)
+
+    // 70% semantic, 30% keyword. Weighted fusion multiplies raw scores,
+    // so normalize keyword scores to 0-1 in your keyword retriever.
+    ret := retriever.NewEnsembleRetriever(
+        []retriever.Retriever{vector, keyword},
+        retriever.NewWeightedStrategy([]float64{0.7, 0.3}),
+    )
 
     return &RegulatorySearchEngine{
+        embedder:          emb,
+        store:             store,
         retriever:         ret,
         relationshipGraph: NewRelationshipGraph(),
-    }, nil
+    }
 }
 
 // Search searches for regulatory policies using hybrid retrieval.
@@ -99,7 +108,6 @@ func (r *RegulatorySearchEngine) Search(
     // Retrieve using hybrid search
     docs, err := r.retriever.Retrieve(ctx, query,
         retriever.WithTopK(20),
-        retriever.WithThreshold(0.7),
     )
     if err != nil {
         return nil, fmt.Errorf("retrieve documents: %w", err)
@@ -126,7 +134,7 @@ func (r *RegulatorySearchEngine) enhanceWithRelationships(
     results := make([]PolicyResult, len(docs))
 
     for i, doc := range docs {
-        policyID := doc.Metadata["policy_id"].(string)
+        policyID, _ := doc.Metadata["policy_id"].(string)
 
         // Get related policies from relationship graph
         related := r.relationshipGraph.GetRelatedPolicies(ctx, policyID)
@@ -168,11 +176,9 @@ func (r *RegulatorySearchEngine) rankResults(
     return results
 }
 
+// getRelevanceScore returns the fused score set by the retriever.
 func getRelevanceScore(doc schema.Document) float64 {
-    if score, ok := doc.Metadata["relevance_score"].(float64); ok {
-        return score
-    }
-    return 0.0
+    return doc.Score
 }
 
 type SearchFilters struct {
@@ -226,7 +232,10 @@ func (g *RelationshipGraph) AddRelationship(
 func (g *RelationshipGraph) BuildFromPolicies(ctx context.Context, policies []schema.Document) error {
     // Build relationships based on citations, amendments, and topic overlap
     for _, policy := range policies {
-        policyID := policy.Metadata["policy_id"].(string)
+        policyID, ok := policy.Metadata["policy_id"].(string)
+        if !ok {
+            continue
+        }
 
         // Find cited policies
         if citations, ok := policy.Metadata["citations"].([]string); ok {
@@ -275,8 +284,7 @@ func (t *PolicyUpdateTracker) Start(ctx context.Context) error {
             return ctx.Err()
         case update := <-t.updateChan:
             if err := t.processUpdate(ctx, update); err != nil {
-                // Log error but continue processing
-                continue
+                log.Printf("policy update %s: %v", update.PolicyID, err) // continue processing
             }
         }
     }
@@ -285,6 +293,7 @@ func (t *PolicyUpdateTracker) Start(ctx context.Context) error {
 func (t *PolicyUpdateTracker) processUpdate(ctx context.Context, update PolicyUpdate) error {
     // Index the new or updated policy
     doc := schema.Document{
+        ID:      update.PolicyID,
         Content: update.Content,
         Metadata: map[string]any{
             "policy_id":       update.PolicyID,
@@ -293,8 +302,15 @@ func (t *PolicyUpdateTracker) processUpdate(ctx context.Context, update PolicyUp
         },
     }
 
-    // Add to vector store for semantic search
-    // Implementation depends on vector store provider
+    // Add to the vector store for semantic search
+    vec, err := t.engine.embedder.EmbedSingle(ctx, update.Content)
+    if err != nil {
+        return fmt.Errorf("embed policy %s: %w", update.PolicyID, err)
+    }
+    if err := t.engine.store.Add(ctx, []schema.Document{doc}, [][]float32{vec}); err != nil {
+        return fmt.Errorf("index policy %s: %w", update.PolicyID, err)
+    }
+    // Index the same document in your keyword backend as well.
 
     // Update relationship graph
     t.engine.relationshipGraph.AddRelationship(update.PolicyID, RelatedPolicy{
@@ -318,7 +334,7 @@ type PolicyUpdate struct {
 
 ### Result Merging
 
-Implement score-based merging for hybrid results:
+`retriever.NewWeightedStrategy` already performs weighted score fusion. If you need custom merge rules (for example keying on `policy_id` instead of document ID), implement the merge yourself:
 
 ```go
 func (r *RegulatorySearchEngine) mergeResults(
@@ -331,13 +347,13 @@ func (r *RegulatorySearchEngine) mergeResults(
 
     // Combine scores from both retrievers
     for _, doc := range vectorResults {
-        id := doc.Metadata["policy_id"].(string)
+        id, _ := doc.Metadata["policy_id"].(string)
         score := getRelevanceScore(doc)
         scoreMap[id] = score * vectorWeight
     }
 
     for _, doc := range keywordResults {
-        id := doc.Metadata["policy_id"].(string)
+        id, _ := doc.Metadata["policy_id"].(string)
         score := getRelevanceScore(doc)
         scoreMap[id] += score * keywordWeight
     }
@@ -348,9 +364,9 @@ func (r *RegulatorySearchEngine) mergeResults(
 
     allDocs := append(vectorResults, keywordResults...)
     for _, doc := range allDocs {
-        id := doc.Metadata["policy_id"].(string)
+        id, _ := doc.Metadata["policy_id"].(string)
         if !seen[id] {
-            doc.Metadata["relevance_score"] = scoreMap[id]
+            doc.Score = scoreMap[id]
             merged = append(merged, doc)
             seen[id] = true
         }
@@ -416,6 +432,6 @@ Regulatory policy search delivered significant improvements:
 
 ## Related Resources
 
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for RAG pipeline patterns
-- [Multi-Document Summarizer](/docs/guides/multi-doc-summarizer/) for document processing
-- [Retriever Configuration](/docs/guides/rag-pipeline/) for hybrid search setup
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for RAG pipeline patterns
+- [Multi-Document Summarizer](/docs/guides/capabilities/documents/multi-doc-summarizer/) for document processing
+- [Retriever Configuration](/docs/guides/capabilities/rag/rag-pipeline/) for hybrid search setup

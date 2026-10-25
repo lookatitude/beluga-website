@@ -36,7 +36,7 @@ graph TB
 
 ## Support Agent Implementation
 
-Create a ReAct agent with tools for autonomous resolution. The agent is configured with three tools (knowledge base search, account actions, documentation lookup) and a buffer memory for conversation context. The `MaxIterations` limit of 10 prevents the agent from entering infinite reasoning loops on queries it cannot resolve, forcing escalation instead.
+Create a ReAct agent with tools for autonomous resolution. The agent is configured with three tools (knowledge base search, account actions, documentation lookup) and recall memory for conversation context. The `MaxIterations` limit of 10 prevents the agent from entering infinite reasoning loops on queries it cannot resolve, forcing escalation instead.
 
 ```go
 package main
@@ -46,15 +46,17 @@ import (
     "fmt"
     "log"
     "os"
-    "time"
+    "strings"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 type AutonomousSupportAgent struct {
@@ -80,10 +82,9 @@ func NewAutonomousSupportAgent(ctx context.Context) (*AutonomousSupportAgent, er
         createDocumentationTool(),
     }
 
-    // Setup memory for conversation context
-    mem := memory.NewBufferMemory(
-        memory.WithMaxTokens(2000),
-    )
+    // Setup recall memory for conversation context.
+    // In production, use a persistent MessageStore (for example memory/stores/redis).
+    mem := memory.NewRecall(inmemory.NewMessageStore())
 
     // Create ReAct agent
     ag := agent.New("autonomous-support",
@@ -94,7 +95,6 @@ func NewAutonomousSupportAgent(ctx context.Context) (*AutonomousSupportAgent, er
         }),
         agent.WithLLM(model),
         agent.WithTools(tools),
-        agent.WithMemory(mem),
         agent.WithMaxIterations(10),
     )
 
@@ -179,7 +179,7 @@ type SupportResponse struct {
 
 func (a *AutonomousSupportAgent) HandleInquiry(ctx context.Context, customerID string, inquiry string) (*SupportResponse, error) {
     // Load conversation history
-    history, err := a.memory.Load(ctx, map[string]any{"customer_id": customerID})
+    history, err := a.memory.Load(ctx, inquiry)
     if err != nil {
         log.Printf("Failed to load history: %v", err)
     }
@@ -222,11 +222,10 @@ If you cannot resolve the inquiry with available tools, respond with "ESCALATE:"
     }
 
     // Save to memory
-    if err := a.memory.Save(ctx, map[string]any{
-        "customer_id": customerID,
-        "inquiry":     inquiry,
-        "response":    result,
-    }); err != nil {
+    if err := a.memory.Save(ctx,
+        schema.NewHumanMessage(inquiry),
+        schema.NewAIMessage(result),
+    ); err != nil {
         log.Printf("Failed to save memory: %v", err)
     }
 
@@ -247,6 +246,14 @@ func needsEscalation(response string) bool {
 Implement intelligent escalation based on confidence scoring. The confidence model is intentionally simple: it measures what fraction of tool calls succeeded and gives a bonus for knowledge base hits. This heuristic avoids the overhead of training a dedicated confidence model while providing a useful signal for escalation decisions. The threshold (0.7) can be tuned per deployment based on the cost of false escalations versus incorrect answers.
 
 ```go
+// ToolUsage records one tool call made while handling an inquiry.
+// Collect these from agent.EventToolCall / agent.EventToolResult events.
+type ToolUsage struct {
+    ToolName string
+    Result   string
+    Error    error
+}
+
 type EscalationHandler struct {
     confidenceThreshold float64
 }
@@ -257,7 +264,7 @@ func NewEscalationHandler() *EscalationHandler {
     }
 }
 
-func (h *EscalationHandler) ShouldEscalate(ctx context.Context, response string, toolUsage []tool.ToolCall) bool {
+func (h *EscalationHandler) ShouldEscalate(ctx context.Context, response string, toolUsage []ToolUsage) bool {
     // Check explicit escalation keywords
     if needsEscalation(response) {
         return true
@@ -268,7 +275,7 @@ func (h *EscalationHandler) ShouldEscalate(ctx context.Context, response string,
     return confidence < h.confidenceThreshold
 }
 
-func (h *EscalationHandler) calculateConfidence(toolUsage []tool.ToolCall) float64 {
+func (h *EscalationHandler) calculateConfidence(toolUsage []ToolUsage) float64 {
     if len(toolUsage) == 0 {
         return 0.3 // Low confidence if no tools used
     }
@@ -349,7 +356,7 @@ Track resolution rates, response times, and escalation reasons:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
@@ -387,7 +394,7 @@ func (a *AutonomousSupportAgent) HandleInquiryWithMetrics(ctx context.Context, c
 Implement retries and health checks for tools:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 func createRobustKnowledgeBaseTool() tool.Tool {
     baseTool := createKnowledgeBaseTool()
@@ -479,6 +486,6 @@ Organizations using autonomous support with Beluga AI achieve:
 
 ## Related Resources
 
-- [Agent Types Guide](/docs/guides/agent-types/) for ReAct agent patterns
-- [Tool Integration](/docs/guides/tool-integration/) for tool development
-- [Memory Systems](/docs/guides/memory/) for conversation context management
+- [Agent Types Guide](/docs/guides/capabilities/agents/) for ReAct agent patterns
+- [Tool Integration](/docs/guides/capabilities/agents/tools-and-mcp/) for tool development
+- [Memory Systems](/docs/guides/capabilities/memory/memory-system/) for conversation context management

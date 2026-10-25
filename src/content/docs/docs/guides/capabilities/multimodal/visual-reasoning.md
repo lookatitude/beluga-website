@@ -26,7 +26,7 @@ A visual analysis pipeline that sends images (both URL-based and base64-encoded)
 Every message in Beluga AI contains a slice of `ContentPart` values. The `schema` package provides typed parts for different media. `ImagePart` supports two modes: URL-based (the provider fetches the image from the URL) and data-based (raw bytes are base64-encoded and sent inline). URL-based is more efficient for large images because the provider downloads them directly, while data-based is necessary for local files or private images that the provider cannot reach.
 
 ```go
-import "github.com/lookatitude/beluga-ai/schema"
+import "github.com/lookatitude/beluga-ai/v2/schema"
 
 // Text content.
 textPart := schema.TextPart{Text: "Describe this image."}
@@ -65,15 +65,13 @@ Create a vision-capable model via the registry pattern. GPT-4o is used here beca
 package main
 
 import (
-    "context"
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -86,11 +84,8 @@ func main() {
         return
     }
 
-    ctx := context.Background()
-
-    // Continue with visual reasoning examples...
-    _ = model
-    _ = ctx
+    // The functions in the following steps take this model and a context.Context.
+    fmt.Println("model ready:", model.ModelID())
 }
 ```
 

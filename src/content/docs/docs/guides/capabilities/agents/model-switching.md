@@ -16,7 +16,7 @@ Three model switching strategies -- reliability fallbacks, cost-optimizing routi
 
 ## Prerequisites
 
-- Understanding of the [ChatModel interface](/docs/guides/llm) and [middleware](/docs/guides/foundations/middleware-implementation)
+- Understanding of the [ChatModel interface](/docs/guides/foundations/working-with-llms/) and [middleware](/docs/guides/foundations/middleware-implementation)
 - API keys for at least two LLM providers
 
 ## Pattern 1: Fallback Middleware
@@ -33,11 +33,11 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {

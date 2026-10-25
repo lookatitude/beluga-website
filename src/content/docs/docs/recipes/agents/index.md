@@ -28,9 +28,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/core"
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/core"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // Wrap tools with error-handling middleware before passing to the agent.
@@ -99,8 +99,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // validateToolExists checks that the named tool is registered.
@@ -173,8 +173,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 func main() {
@@ -204,7 +204,7 @@ func main() {
 
 	// ParallelAgent runs all children concurrently and collects results.
 	parallel := workflow.NewParallelAgent("parallel-team",
-		researcher, writer, factChecker,
+		[]agent.Agent{researcher, writer, factChecker},
 	)
 
 	result, err := parallel.Invoke(ctx, "Write about quantum computing advances in 2025")
@@ -241,8 +241,8 @@ import (
 	"iter"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/tool"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 // ReviewAgent performs code review with a multi-pass approach.
@@ -347,7 +347,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func main() {
@@ -402,6 +402,9 @@ handoff := agent.Handoff{
 	Description: "Transfer to billing for payment issues",
 	InputFilter: func(input agent.HandoffInput) agent.HandoffInput {
 		// Add context from the triage conversation.
+		if input.Context == nil {
+			input.Context = map[string]any{}
+		}
 		input.Context["priority"] = "high"
 		input.Context["category"] = "billing"
 		return input
@@ -436,7 +439,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func main() {
@@ -502,8 +505,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 func main() {
@@ -535,7 +538,7 @@ func main() {
 
 	// Chain them: researcher -> writer -> editor.
 	pipeline := workflow.NewSequentialAgent("content-pipeline",
-		researcher, writer, editor,
+		[]agent.Agent{researcher, writer, editor},
 	)
 
 	result, err := pipeline.Invoke(ctx, "The impact of large language models on software engineering")
@@ -566,8 +569,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 func main() {
@@ -583,9 +586,10 @@ func main() {
 	// Loop until the output contains "APPROVED" or max 5 iterations.
 	loop := workflow.NewLoopAgent("refine-loop",
 		improver,
-		workflow.WithMaxIterations(5),
-		workflow.WithTermination(func(output string) bool {
-			return strings.Contains(output, "APPROVED")
+		workflow.WithLoopMaxIterations(5),
+		// The condition returns true to stop the loop.
+		workflow.WithLoopCondition(func(iteration int, lastResult string) bool {
+			return strings.Contains(lastResult, "APPROVED")
 		}),
 	)
 
@@ -604,9 +608,13 @@ func main() {
 
 **Problem:** You want an agent that remembers previous conversations and uses that context in future interactions.
 
-**Solution:** Attach a memory instance to the agent and use the `WithMemory` option.
+**Solution:** Keep a `memory.Memory` next to the agent: load relevant history before each turn, and save the turn afterwards.
 
-Stateless agents treat every interaction as independent, which limits their usefulness for ongoing conversations. Beluga AI's memory system follows the MemGPT 3-tier model: core memory (always in context), recall memory (searchable conversation history), and archival memory (vector-indexed long-term storage). By attaching memory to an agent with `agent.WithMemory`, previous conversations are automatically retrieved and included in the context window. The memory store is pluggable through the registry pattern -- use `inmemory` for development, then switch to `redis`, `postgres`, or `sqlite` in production by changing a single configuration string.
+Stateless agents treat every interaction as independent, which limits their usefulness for ongoing conversations. Beluga AI's memory system follows the MemGPT 3-tier model: core memory (always in context), recall memory (searchable conversation history), and archival memory (vector-indexed long-term storage). The memory store is pluggable through the registry pattern -- `recall` and `inmemory` work for development; database-backed message stores live under `memory/stores/`.
+
+:::caution
+`agent.WithMemory` exists, but its `agent.Memory` interface is not satisfied by `memory.Memory`, and the agent does not read or write it during `Invoke` today. Wire memory explicitly, as below.
+:::
 
 ```go
 package main
@@ -615,11 +623,42 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
+
+// chat runs one turn: it prepends stored history to the input, invokes the
+// agent, and saves the exchange.
+func chat(ctx context.Context, a agent.Agent, mem memory.Memory, input string) (string, error) {
+	history, err := mem.Load(ctx, "") // empty query returns all messages
+	if err != nil {
+		return "", fmt.Errorf("load memory: %w", err)
+	}
+
+	var b strings.Builder
+	for _, m := range history {
+		switch msg := m.(type) {
+		case *schema.HumanMessage:
+			fmt.Fprintf(&b, "User: %s\n", msg.Text())
+		case *schema.AIMessage:
+			fmt.Fprintf(&b, "Assistant: %s\n", msg.Text())
+		}
+	}
+	b.WriteString("User: " + input)
+
+	out, err := a.Invoke(ctx, b.String())
+	if err != nil {
+		return "", err
+	}
+	if err := mem.Save(ctx, schema.NewHumanMessage(input), schema.NewAIMessage(out)); err != nil {
+		return "", fmt.Errorf("save memory: %w", err)
+	}
+	return out, nil
+}
 
 func main() {
 	ctx := context.Background()
@@ -636,21 +675,20 @@ func main() {
 			Role: "Personal Assistant",
 			Goal: "Remember user preferences and provide personalized help",
 		}),
-		agent.WithMemory(mem),
 	)
 
 	// First conversation -- agent learns a preference.
-	result, err := a.Invoke(ctx, "My favorite programming language is Go")
+	result, err := chat(ctx, a, mem, "My favorite programming language is Go")
 	if err != nil {
-		slog.Error("first invoke failed", "error", err)
+		slog.Error("first turn failed", "error", err)
 		return
 	}
 	fmt.Println("Turn 1:", result)
 
-	// Second conversation -- agent recalls the preference.
-	result, err = a.Invoke(ctx, "What's my favorite language?")
+	// Second conversation -- the stored history is included in the input.
+	result, err = chat(ctx, a, mem, "What's my favorite language?")
 	if err != nil {
-		slog.Error("second invoke failed", "error", err)
+		slog.Error("second turn failed", "error", err)
 		return
 	}
 	fmt.Println("Turn 2:", result)

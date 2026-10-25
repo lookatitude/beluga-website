@@ -15,7 +15,7 @@ Choose pgvector when you already operate PostgreSQL and want to add vector searc
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector
 ```
 
 Ensure the pgvector extension is installed in your PostgreSQL database:
@@ -34,10 +34,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 func main() {
@@ -81,7 +81,7 @@ Use `EnsureTable` to create the table and enable the vector extension automatica
 
 ```go
 import (
-    pgvecstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    pgvecstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 store, err := pgvecstore.NewFromConfig(config.ProviderConfig{
@@ -120,7 +120,7 @@ For more control, construct with a custom `pgx` pool:
 ```go
 import (
     "github.com/jackc/pgx/v5/pgxpool"
-    pgvecstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    pgvecstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))

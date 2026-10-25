@@ -1,38 +1,45 @@
 ---
 title: Integrating with LiveKit and Vapi
-description: "Connect Beluga AI to LiveKit and Vapi in Go for WebRTC networking, room management, and scalable audio delivery — plug your voice agent into production platforms."
+description: "Connect a Beluga AI voice agent to WebRTC platforms like LiveKit and Vapi in Go — what works today, a WebSocket bridge pattern, and using Beluga as a custom LLM."
 head:
   - tag: meta
     attrs:
       name: keywords
-      content: "Beluga AI, Go, tutorial, LiveKit, Vapi, WebRTC, voice platform, room management, scalable"
+      content: "Beluga AI, Go, tutorial, LiveKit, Vapi, WebRTC, voice platform, WebSocket transport, custom LLM"
 ---
 
-Production voice applications require infrastructure for WebRTC networking, STUN/TURN servers, jitter buffering, and room management. Building this infrastructure from scratch is a multi-month effort that is tangential to the core value of your voice agent. Platforms like LiveKit and Vapi handle this infrastructure, allowing Beluga AI to focus on the intelligence layer -- STT, LLM reasoning, TTS, and conversation management. This tutorial demonstrates how to connect Beluga's voice backend to these platforms.
+Production voice applications need infrastructure for WebRTC networking, STUN/TURN servers, jitter buffering, and room management. Building it from scratch is a multi-month effort that is tangential to your voice agent. Platforms like LiveKit and Vapi provide this infrastructure, so Beluga AI can focus on the intelligence layer: STT, LLM reasoning, TTS, and conversation management. This tutorial explains what Beluga supports today and shows two integration patterns that work now.
+
+## Current Status
+
+- Beluga does not have a voice "backend" package that manages rooms or sessions on these platforms.
+- The `voice/transport/providers/livekit` package (registered as `"livekit"`) is a placeholder that does not connect to LiveKit: `transport.New("livekit", ...)` always returns an error wrapping `transport.ErrNotImplemented`. The `daily` and `pipecat` providers behave the same way.
+- There is no Vapi provider.
+- The working transport today is `transport.NewWebSocketTransport`, a WebSocket client that sends audio as binary messages and other frames as JSON.
 
 ## What You Will Build
 
-A voice agent that connects to a LiveKit room or Vapi endpoint, processes participant audio through Beluga's STT/TTS or S2S pipeline, and publishes agent audio back to the room.
+1. A Beluga voice pipeline that connects over WebSocket to a media bridge, which relays audio to and from a LiveKit room.
+2. A response handler that lets a hosted voice platform such as Vapi use Beluga as its LLM.
 
 ## Prerequisites
 
-- LiveKit API credentials (URL, API key, API secret) or Vapi API key
-- Completion of [Native S2S with Amazon Nova](/docs/guides/capabilities/voice/s2s-amazon-nova) or a working STT/TTS configuration
+- A working STT/TTS configuration (see [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming))
+- For LiveKit: a LiveKit server and a bridge process that forwards a participant's audio over WebSocket (built with LiveKit's server SDKs)
+- For Vapi: a Vapi account and assistant
 
-## Why Third-Party Backends?
+## Why Third-Party Platforms?
 
-While Beluga provides STT, TTS, and S2S capabilities, production voice applications need additional infrastructure that is outside the scope of an AI framework:
+Beluga provides STT, TTS, and S2S capabilities, but production voice applications need infrastructure outside the scope of an AI framework:
 
-- **WebRTC Networking** -- STUN/TURN servers, ICE candidates, jitter buffers. These handle NAT traversal, firewall bypass, and packet reordering that are required for real-time audio over the internet.
-- **Room Management** -- Multiple participants, track subscriptions, media routing. Managing who hears whom and how audio is mixed requires a dedicated media server.
-- **Global Edge Networks** -- Low-latency audio delivery across regions. Edge servers reduce the round-trip time between the user and the nearest processing node.
-- **Recording and Monitoring** -- Session recording, quality metrics, debugging tools. Operational visibility is essential for diagnosing audio quality issues in production.
+- **WebRTC networking**: STUN/TURN servers, ICE candidates, and jitter buffers handle NAT traversal, firewalls, and packet reordering for real-time audio over the internet.
+- **Room management**: multiple participants, track subscriptions, and media routing need a dedicated media server.
+- **Global edge networks**: edge servers reduce the round-trip time between the user and the nearest processing node.
+- **Recording and monitoring**: session recording, quality metrics, and debugging tools for diagnosing audio quality in production.
 
-Beluga's backend package integrates with these platforms so your agent logic remains the same regardless of the transport layer. You can switch from LiveKit to Vapi by changing the provider name without rewriting your agent callback or pipeline configuration.
+## Pattern 1: LiveKit Through a WebSocket Bridge
 
-## Step 1: Configure the LiveKit Backend
-
-Create a voice backend using the LiveKit provider. The backend uses Beluga's standard registry pattern -- the blank import registers the `"livekit"` factory, and `backend.NewBackend` creates a configured instance. The `vbiface.Config` struct centralizes all backend settings including provider credentials, pipeline type, concurrency limits, and observability flags.
+Until the LiveKit transport is functional, run a small bridge next to your LiveKit server. The bridge joins the room as a participant using LiveKit's server SDK, forwards the user's audio track as 16 kHz, 16-bit PCM binary WebSocket messages, and publishes binary messages it receives back into the room as the agent's audio track. Beluga connects to the bridge as a WebSocket client:
 
 ```go
 package main
@@ -40,157 +47,124 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
-	"time"
+	"os/signal"
 
-	"github.com/lookatitude/beluga-ai/voice/backend"
-	vbiface "github.com/lookatitude/beluga-ai/voice/backend/iface"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/livekit"
+	"github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice/transport"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
-func main() {
-	ctx := context.Background()
-
-	cfg := &vbiface.Config{
-		Provider:     "livekit",
-		PipelineType: vbiface.PipelineTypeS2S,
-		S2SProvider:  "openai_realtime",
-		ProviderConfig: map[string]any{
-			"url":        os.Getenv("LIVEKIT_URL"),
-			"api_key":    os.Getenv("LIVEKIT_API_KEY"),
-			"api_secret": os.Getenv("LIVEKIT_API_SECRET"),
-		},
-		MaxConcurrentSessions: 100,
-		LatencyTarget:         500 * time.Millisecond,
-		Timeout:               30 * time.Second,
-		EnableTracing:         true,
-		EnableMetrics:         true,
-	}
-
-	be, err := backend.NewBackend(ctx, "livekit", cfg)
+// runAgent connects to the bridge and runs a cascading pipeline over it.
+// sttStage, llmStage, and ttsStage are voice.FrameProcessor values, for example
+// stt.AsFrameProcessor(engine) and tts.AsFrameProcessor(engine, 16000).
+func runAgent(ctx context.Context, sttStage, llmStage, ttsStage voice.FrameProcessor) error {
+	ws, err := transport.NewWebSocketTransport(ctx, os.Getenv("BRIDGE_WS_URL"),
+		transport.WithWSSampleRate(16000),
+		transport.WithWSHeaders(http.Header{
+			"Authorization": {"Bearer " + os.Getenv("BRIDGE_TOKEN")},
+		}),
+	)
 	if err != nil {
-		log.Fatalf("create backend: %v", err)
+		return err
 	}
-	defer be.Stop(ctx)
+	defer ws.Close()
 
-	if err := be.Start(ctx); err != nil {
-		log.Fatalf("start backend: %v", err)
+	vad, err := voice.NewVAD("silero", map[string]any{"threshold": 0.5, "sample_rate": 16000})
+	if err != nil {
+		return err
 	}
 
-	log.Println("Backend started")
+	pipe := voice.NewPipeline(
+		voice.WithTransport(ws),
+		voice.WithVAD(vad),
+		voice.WithSTT(sttStage),
+		voice.WithLLM(llmStage),
+		voice.WithTTS(ttsStage),
+	)
+	return pipe.Run(ctx)
+}
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	// Build your STT, LLM, and TTS stages here; see the Voice AI Pipeline Guide.
+	var sttStage, llmStage, ttsStage voice.FrameProcessor
+	if sttStage == nil || llmStage == nil || ttsStage == nil {
+		log.Fatal("configure the STT, LLM, and TTS stages first")
+	}
+
+	if err := runAgent(ctx, sttStage, llmStage, ttsStage); err != nil && ctx.Err() == nil {
+		log.Fatal(err)
+	}
 }
 ```
 
-## Step 2: Create a Session
+Run one agent connection per participant or room, depending on how your bridge maps audio streams. The bridge also must use an audio format the TTS stage can produce: the `cartesia` TTS provider returns raw PCM, while `elevenlabs` returns MP3, which the bridge would need to decode.
 
-Each voice session represents one participant interaction in the room. The `AgentCallback` is the integration point between the backend infrastructure and your application logic -- it receives the transcribed text and returns the agent's response. This separation means your agent logic is transport-agnostic: the same callback works with LiveKit, Vapi, or any other backend provider.
+[Voice AI Pipeline Guide](/docs/guides/capabilities/voice/voice-ai) shows a complete pipeline, including an LLM stage built with `voice.FrameLoop`.
 
-```go
-	sessionCfg := &vbiface.SessionConfig{
-		UserID:        "user-001",
-		Transport:     "webrtc",
-		ConnectionURL: "wss://your-app.example.com/voice",
-		PipelineType:  vbiface.PipelineTypeS2S,
-		AgentCallback: func(ctx context.Context, transcript string) (string, error) {
-			// Process transcript and return response
-			return "You said: " + transcript, nil
-		},
-	}
+## Pattern 2: Beluga as the LLM Behind a Hosted Voice Platform
 
-	session, err := be.CreateSession(ctx, sessionCfg)
-	if err != nil {
-		log.Fatalf("create session: %v", err)
-	}
+Platforms such as Vapi can run the whole telephony, STT, and TTS loop themselves and call out to a URL you host for each response (Vapi calls this a custom LLM). In this model, Beluga provides only the reasoning. It's a good fit when you want phone (PSTN, SIP) support without operating telephony infrastructure.
 
-	if err := session.Start(ctx); err != nil {
-		log.Fatalf("start session: %v", err)
-	}
-	defer session.Stop(ctx)
-```
-
-For S2S pipelines, the callback is optional since the S2S model handles the full audio-to-audio flow. The callback is primarily used with STT/TTS pipelines where the application needs to process the transcribed text before generating a response.
-
-## Step 3: Handle Audio Events
-
-The session provides methods to receive participant audio and send agent audio back. The backend orchestrator handles the full pipeline flow: incoming audio goes through noise cancellation, VAD, and STT; the transcript is passed to the agent callback; and the response is synthesized and sent back. You only need to bridge the session's audio channel with your transport layer.
+The exact request and response format, including whether responses must be streamed, is defined by the platform; check its documentation. The core of the handler converts the conversation into Beluga messages and generates a reply:
 
 ```go
-	// Process incoming audio from the participant
-	go func() {
-		for audio := range session.ReceiveAudio() {
-			if err := session.ProcessAudio(ctx, audio); err != nil {
-				log.Printf("process audio error: %v", err)
-			}
+import (
+	"context"
+
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+)
+
+// ChatMessage is one message in an OpenAI-style chat request body.
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// reply converts platform messages to Beluga messages and generates a response.
+func reply(ctx context.Context, model llm.ChatModel, msgs []ChatMessage) (string, error) {
+	history := make([]schema.Message, 0, len(msgs))
+	for _, m := range msgs {
+		switch m.Role {
+		case "system":
+			history = append(history, schema.NewSystemMessage(m.Content))
+		case "assistant":
+			history = append(history, schema.NewAIMessage(m.Content))
+		default:
+			history = append(history, schema.NewHumanMessage(m.Content))
 		}
-	}()
-```
-
-## Step 4: Vapi Integration
-
-Vapi provides a managed voice pipeline where Beluga acts as the "brain" (LLM) behind a Vapi call. In this model, Vapi handles the telephony, STT, and TTS; your application provides only the response logic. This architecture is useful when you want telephony support (PSTN, SIP) without managing telephony infrastructure, or when Vapi's built-in STT/TTS selection meets your needs and you want to minimize the components you operate.
-
-```go
-package main
-
-import (
-	"context"
-	"log"
-	"os"
-	"time"
-
-	"github.com/lookatitude/beluga-ai/voice/backend"
-	vbiface "github.com/lookatitude/beluga-ai/voice/backend/iface"
-	_ "github.com/lookatitude/beluga-ai/voice/backend/providers/vapi"
-)
-
-func main() {
-	ctx := context.Background()
-
-	cfg := &vbiface.Config{
-		Provider:     "vapi",
-		PipelineType: vbiface.PipelineTypeSTTTTS,
-		STTProvider:  "deepgram",
-		TTSProvider:  "elevenlabs",
-		ProviderConfig: map[string]any{
-			"api_key": os.Getenv("VAPI_API_KEY"),
-		},
-		Timeout:       30 * time.Second,
-		EnableTracing: true,
 	}
-
-	be, err := backend.NewBackend(ctx, "vapi", cfg)
+	resp, err := model.Generate(ctx, history)
 	if err != nil {
-		log.Fatalf("create Vapi backend: %v", err)
+		return "", err
 	}
-	defer be.Stop(ctx)
-
-	log.Println("Vapi backend ready for incoming calls")
+	return resp.Text(), nil
 }
 ```
+
+To stream the reply token by token, use `model.Stream(ctx, history)` and forward each chunk's `Delta` in the platform's streaming format. You can also put a full Beluga agent (`agent.New` with tools and memory) behind the same handler.
 
 ## Architecture
 
 ```
-┌───────────────────────────────────────────────────┐
-│                   LiveKit Room                     │
-│                                                    │
-│  User ◀──WebRTC──▶ LiveKit Server ◀──▶ Beluga AI  │
-│                                                    │
-│         Audio In ──▶ [Pipeline] ──▶ Audio Out      │
-│                     STT/TTS or S2S                 │
-└───────────────────────────────────────────────────┘
+Pattern 1:  User ◀─WebRTC─▶ LiveKit ◀─▶ Bridge ◀─WebSocket─▶ Beluga pipeline (VAD → STT → LLM → TTS)
+
+Pattern 2:  Caller ◀─PSTN/WebRTC─▶ Vapi (STT, TTS) ──HTTP──▶ Beluga reply handler (LLM / agent)
 ```
 
 ## Verification
 
-1. Start a LiveKit room via the LiveKit dashboard or CLI.
-2. Run the Beluga application and verify the backend starts without errors.
-3. Join the room as a participant and speak.
-4. Confirm the agent responds with synthesized audio.
-5. Check `GetActiveSessionCount()` reflects the active sessions.
+1. Pattern 1: start the bridge and a LiveKit room, run the agent, join the room, and speak. Check that the agent's audio track plays in the room.
+2. Pattern 1: stop the bridge and confirm the agent exits with a transport error rather than hanging.
+3. Pattern 2: call your handler with a sample request body and check the reply; then point a Vapi assistant at it and place a test call.
 
 ## Next Steps
 
-- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) -- Optimize VAD and turn detection for your environment
-- [Scalable Voice Backend](/docs/guides/capabilities/voice/scalable-backend) -- Scale to hundreds of concurrent sessions
-- [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming) -- Use custom STT with backend providers
+- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) -- Optimize VAD for your environment
+- [Scalable Voice Backend](/docs/guides/capabilities/voice/scalable-backend) -- Scale to many concurrent sessions
+- [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming) -- Streaming transcription

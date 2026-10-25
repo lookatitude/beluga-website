@@ -47,11 +47,13 @@ import (
     "context"
     "encoding/json"
     "fmt"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // EntityExtractor extracts and validates legal entities from documents.
@@ -61,7 +63,10 @@ type EntityExtractor struct {
 }
 
 func NewEntityExtractor(ctx context.Context) (*EntityExtractor, error) {
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -94,12 +99,8 @@ Return entities as a JSON array.`, documentText)
 
     // Extract entities using LLM
     msgs := []schema.Message{
-        &schema.SystemMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: "You are a legal entity extraction expert. Extract entities accurately in JSON format."},
-        }},
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: promptText},
-        }},
+        schema.NewSystemMessage("You are a legal entity extraction expert. Extract entities accurately in JSON format."),
+        schema.NewHumanMessage(promptText),
     }
 
     resp, err := e.model.Generate(ctx, msgs)
@@ -108,7 +109,7 @@ Return entities as a JSON array.`, documentText)
     }
 
     // Parse and validate entities
-    entities, err := e.parseAndValidateEntities(ctx, resp.Parts[0].(schema.TextPart).Text, docID)
+    entities, err := e.parseAndValidateEntities(ctx, resp.Text(), docID)
     if err != nil {
         return nil, fmt.Errorf("validation failed: %w", err)
     }
@@ -455,6 +456,6 @@ Legal entity extraction delivered significant improvements:
 
 ## Related Resources
 
-- [Few-Shot SQL Generation](/docs/guides/few-shot-sql/) for structured output patterns
-- [Schema Validation Guide](/docs/guides/schema-validation/) for validation setup
-- [LLM Configuration](/docs/guides/production/integrations/llm-providers/) for provider-specific tuning
+- [Few-Shot SQL Generation](/docs/guides/capabilities/agents/few-shot-sql/) for structured output patterns
+- [Schema Validation Guide](/docs/recipes/infrastructure/schema-validation/) for validation setup
+- [LLM Configuration](/docs/reference/providers/llm/) for provider-specific tuning

@@ -12,11 +12,15 @@ Beluga AI provides a unified `transport.AudioTransport` interface for bidirectio
 
 ## How It Works
 
+:::caution[Provider status]
+The `livekit`, `daily`, and `pipecat` providers are registered but not implemented: `transport.New` returns an error wrapping `transport.ErrNotImplemented` for each of them, so check for it with `errors.Is` and fall back to another transport. The built-in WebSocket transport (`transport.NewWebSocketTransport`) works today.
+:::
+
 All transport providers implement the same interface:
 
 ```go
 type AudioTransport interface {
-    Recv(ctx context.Context) (<-chan voice.Frame, error)
+    Recv(ctx context.Context) iter.Seq2[voice.Frame, error]
     Send(ctx context.Context, frame voice.Frame) error
     AudioOut() io.Writer
     Close() error
@@ -29,8 +33,8 @@ You can instantiate any provider two ways:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/transport"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+    "github.com/lookatitude/beluga-ai/v2/voice/transport"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 )
 
 t, err := transport.New("livekit", transport.Config{
@@ -42,7 +46,7 @@ t, err := transport.New("livekit", transport.Config{
 **Via direct construction** (for compile-time type safety):
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/livekit"
 
 t, err := livekit.New(transport.Config{
     URL:   "wss://myapp.livekit.cloud",
@@ -86,7 +90,7 @@ transport.WithChannels(1)(&cfg)
 The `transport` package includes a built-in WebSocket transport that requires no additional imports:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport"
 
 t, err := transport.New("websocket", transport.Config{
     URL:        "ws://localhost:8080/audio",

@@ -20,8 +20,11 @@ concurrency:
   group: "pages"
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "22.23.4"
   BELUGA_AI_REPO: "lookatitude/beluga-ai"
 
 jobs:
@@ -31,24 +34,33 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "yarn"
 
+      # Event values reach the shell only through env, never through
+      # ${{ }} interpolation inside run:, and the tag is validated before use.
       - name: Resolve docs bundle tag
         id: tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          INPUT_TAG: ${{ inputs.framework_tag }}
         run: |
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            TAG="${{ github.event.client_payload.tag }}"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.framework_tag }}" ]; then
-            TAG="${{ inputs.framework_tag }}"
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            TAG="$DISPATCH_TAG"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
           else
             TAG=$(gh release view --repo "$BELUGA_AI_REPO" --json tagName --jq .tagName)
+          fi
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid framework tag: '$TAG' (expected vMAJOR.MINOR.PATCH)"
+            exit 1
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "Using docs bundle from ${BELUGA_AI_REPO}@${TAG}"
@@ -56,7 +68,11 @@ jobs:
       - name: Fetch docs bundle from beluga-ai release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: scripts/fetch-docs-bundle.sh "${{ steps.tag.outputs.tag }}"
+          TAG: ${{ steps.tag.outputs.tag }}
+          # A release-triggered build without its bundle is a real failure;
+          # push and manual builds keep the soft-fail behaviour.
+          DOCS_BUNDLE_REQUIRED: ${{ github.event_name == 'repository_dispatch' && '1' || '0' }}
+        run: scripts/fetch-docs-bundle.sh "$TAG"
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
@@ -65,7 +81,7 @@ jobs:
         run: yarn build
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: dist/
 
@@ -82,4 +98,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

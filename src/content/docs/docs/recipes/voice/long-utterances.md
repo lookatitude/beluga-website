@@ -16,7 +16,7 @@ The challenge is processing long audio incrementally without fragmenting coheren
 
 ## Solution
 
-Chunk audio into fixed-duration segments that STT providers handle efficiently (typically 2-5 seconds), use turn detection to identify natural boundaries within long speech for flushing accumulated transcripts, and optionally provide incremental feedback to users indicating continued processing. Chunking keeps buffer sizes bounded and ensures each STT request stays within provider limits. Turn detection identifies sentence boundaries or natural pauses within long monologues where it is safe to flush accumulated transcripts and begin agent processing without fragmenting the user's thought.
+Chunk audio into fixed-duration segments that STT providers handle efficiently (typically 2-5 seconds), use voice activity detection to identify natural boundaries within long speech for flushing accumulated transcripts, and optionally provide incremental feedback to users indicating continued processing. Chunking keeps buffer sizes bounded and ensures each STT request stays within provider limits. Turn detection identifies sentence boundaries or natural pauses within long monologues where it is safe to flush accumulated transcripts and begin agent processing without fragmenting the user's thought.
 
 The architecture buffers incoming audio until reaching either a chunk duration limit or a turn boundary detected by turn detection. At chunk boundaries, the system sends audio to STT and accumulates the resulting transcript. At turn boundaries (detected via sentence markers and silence), the system flushes accumulated transcripts to the agent for processing and begins a new accumulation cycle. This two-level buffering (chunk-level for STT, turn-level for agent processing) balances STT efficiency with natural conversation flow.
 
@@ -24,68 +24,141 @@ Optional incremental feedback provides users with acknowledgment during long inp
 
 ## Code Example
 
+Beluga has no separate turn-detection package, so this example detects the turn boundary itself: a `voice.ActivityDetector` classifies each 20 ms frame, and a run of silence (or a maximum turn duration) ends the turn. Audio is sent to the `stt.STT` engine in 3-second chunks as it accumulates.
+
 ```go
 package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/lookatitude/beluga-ai/voice/session"
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	"github.com/lookatitude/beluga-ai/voice/turndetection"
+	"github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
-var tracer = otel.Tracer("beluga.voice.session.long_utterances")
+var tracer = otel.Tracer("beluga.voice.long_utterances")
 
 const (
 	chunkDuration = 3 * time.Second
+	maxTurn       = 30 * time.Second
+	minSilence    = 600 * time.Millisecond
 	sampleRate    = 16000
-	bytesPerSec   = sampleRate * 2 // 16-bit mono
+	bytesPerSec   = sampleRate * 2   // 16-bit mono
+	frameBytes    = bytesPerSec / 50 // 20 ms frames
 )
+
+// utteranceBuffer transcribes audio in fixed-size chunks and returns the
+// joined transcript when the turn ends.
+type utteranceBuffer struct {
+	engine  stt.STT
+	vad     voice.ActivityDetector
+	pending []byte
+	parts   []string
+	turn    time.Duration
+	silence time.Duration
+}
+
+// Push adds one frame. It returns the transcript and true when a turn ends.
+func (b *utteranceBuffer) Push(ctx context.Context, frame []byte) (string, bool, error) {
+	res, err := b.vad.DetectActivity(ctx, frame)
+	if err != nil {
+		return "", false, fmt.Errorf("vad: %w", err)
+	}
+	frameDur := time.Duration(len(frame)) * time.Second / bytesPerSec
+	b.turn += frameDur
+	if res.IsSpeech {
+		b.silence = 0
+	} else {
+		b.silence += frameDur
+	}
+	b.pending = append(b.pending, frame...)
+
+	if time.Duration(len(b.pending))*time.Second/bytesPerSec >= chunkDuration {
+		if err := b.transcribePending(ctx); err != nil {
+			return "", false, err
+		}
+	}
+	if b.silence < minSilence && b.turn < maxTurn {
+		return "", false, nil
+	}
+
+	// Turn boundary: flush the remaining audio and the accumulated text.
+	if err := b.transcribePending(ctx); err != nil {
+		return "", false, err
+	}
+	text := strings.Join(b.parts, " ")
+	b.parts, b.turn, b.silence = nil, 0, 0
+	return text, text != "", nil
+}
+
+func (b *utteranceBuffer) transcribePending(ctx context.Context) error {
+	if len(b.pending) == 0 {
+		return nil
+	}
+	ctx, span := tracer.Start(ctx, "transcribe_chunk",
+		trace.WithAttributes(attribute.Int("chunk_bytes", len(b.pending))))
+	defer span.End()
+
+	text, err := b.engine.Transcribe(ctx, b.pending,
+		stt.WithSampleRate(sampleRate), stt.WithEncoding("linear16"))
+	b.pending = b.pending[:0]
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return fmt.Errorf("transcribe: %w", err)
+	}
+	span.SetStatus(codes.Ok, "")
+	if text != "" {
+		b.parts = append(b.parts, text)
+	}
+	return nil
+}
 
 func main() {
 	ctx := context.Background()
-	ctx, span := tracer.Start(ctx, "long_utterance_handler")
-	defer span.End()
 
-	sttProv, _ := stt.NewProvider(ctx, "openai", stt.DefaultConfig(), stt.WithAPIKey("your-key"))
-	ttsProv, _ := tts.NewProvider(ctx, "openai", tts.DefaultConfig(), tts.WithAPIKey("your-key"))
-	td, _ := turndetection.NewProvider(ctx, "heuristic", turndetection.DefaultConfig(),
-		turndetection.WithMaxTurnLength(10000),
-		turndetection.WithMinSilenceDuration(600*time.Millisecond),
-	)
-
-	sess, err := session.NewVoiceSession(ctx,
-		session.WithSTTProvider(sttProv),
-		session.WithTTSProvider(ttsProv),
-		session.WithTurnDetector(td),
-		session.WithConfig(session.DefaultConfig()),
-	)
+	engine, err := stt.New("deepgram", stt.Config{
+		Extra: map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
+	})
 	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(trace.StatusError, err.Error())
-		log.Fatalf("session: %v", err)
+		log.Fatalf("stt: %v", err)
 	}
 
-	chunkSize := int(chunkDuration.Seconds() * float64(bytesPerSec))
-	span.SetAttributes(attribute.Int("chunk_size_bytes", chunkSize))
-	_ = sess
+	buf := &utteranceBuffer{
+		engine: engine,
+		vad:    voice.NewEnergyVAD(voice.EnergyVADConfig{Threshold: 1000}),
+	}
+
+	audio, err := os.ReadFile("monologue.pcm") // 16 kHz 16-bit mono PCM
+	if err != nil {
+		log.Fatalf("read audio: %v", err)
+	}
+	for _, frame := range chunkAudio(audio, frameBytes) {
+		text, done, err := buf.Push(ctx, frame)
+		if err != nil {
+			log.Fatalf("push: %v", err)
+		}
+		if done {
+			fmt.Println("turn:", text) // hand the whole turn to the agent
+		}
+	}
 }
 
 func chunkAudio(audio []byte, size int) [][]byte {
 	var chunks [][]byte
 	for len(audio) > 0 {
-		n := size
-		if n > len(audio) {
-			n = len(audio)
-		}
+		n := min(size, len(audio))
 		chunks = append(chunks, audio[:n])
 		audio = audio[n:]
 	}
@@ -93,17 +166,17 @@ func chunkAudio(audio []byte, size int) [][]byte {
 }
 ```
 
-The code calculates chunk size based on duration and sample rate (3 seconds x 16kHz x 2 bytes per sample = 96,000 bytes per chunk). This ensures consistent chunk sizes regardless of sample rate changes. Turn detection configuration uses high `MaxTurnLength` (10,000 characters) and long silence duration (600ms) appropriate for extended monologues.
+The chunk size follows from duration and sample rate (3 seconds x 16kHz x 2 bytes per sample = 96,000 bytes per chunk). The turn ends after 600 ms of continuous silence or after 30 seconds, whichever comes first.
 
 ## Explanation
 
-1. **Chunk size** -- Deriving chunk size from duration and sample rate ensures audio chunks contain the right amount of data for efficient STT processing. Three-second chunks provide enough context for accurate transcription without overwhelming provider APIs or exceeding request size limits. The calculation (`chunkDuration * sampleRate * bytesPerSample`) produces byte counts that work consistently across different audio formats. For 16-bit mono audio at 16kHz (common for speech), this yields 96,000 bytes per chunk. For different formats (8kHz narrow-band, 48kHz wideband), adjust the sample rate and bytes per sample accordingly. Keep chunks between 2-5 seconds: shorter chunks increase API call overhead and may lack sufficient context for accurate transcription, longer chunks approach provider limits and increase memory usage.
+1. **Chunk size** -- Deriving chunk size from duration and sample rate ensures audio chunks contain the right amount of data for efficient STT processing. Three-second chunks provide enough context for accurate transcription without overwhelming provider APIs or exceeding request size limits. For 16-bit mono audio at 16kHz (common for speech), this yields 96,000 bytes per chunk. For different formats (8kHz narrow-band, 48kHz wideband), adjust the sample rate and bytes per sample accordingly. Keep chunks between 2-5 seconds: shorter chunks increase API call overhead and may lack sufficient context for accurate transcription, longer chunks approach provider limits and increase memory usage.
 
-2. **Turn detection** -- High `MaxTurnLength` (10,000 characters) and extended `MinSilenceDuration` (600ms) accommodate long-form speech patterns. Users delivering detailed explanations or narratives naturally pause for breath or thought, creating silence periods that should not trigger premature turn boundaries. The 600ms threshold is long enough to distinguish true turn boundaries from mid-thought pauses but short enough to detect natural segment endings. `MaxTurnLength` ensures that even rambling monologues eventually flush accumulated transcripts and trigger agent processing, preventing unbounded memory growth and providing periodic feedback to users. When turn detection signals turn completion, the session flushes all accumulated transcript chunks to the agent, processes them as a single coherent input, and begins accumulating a new turn.
+2. **Turn boundary** -- A long `minSilence` (600ms) accommodates long-form speech: users delivering detailed explanations pause for breath or thought, and those pauses should not end the turn. `maxTurn` ensures that even rambling monologues eventually flush accumulated transcripts and trigger agent processing, preventing unbounded memory growth and providing periodic feedback. When the turn ends, all accumulated transcript chunks go to the agent as a single coherent input. In a `voice.VoicePipeline`, the same idea applies to the VAD you pass with `voice.WithVAD`: the pipeline ends the turn when the detector reports `voice.VADSpeechEnd`.
 
-3. **Buffering** -- Accumulating audio until reaching chunk size or turn boundary keeps memory usage bounded while maintaining conversation coherence. The buffer holds unprocessed audio (not yet sent to STT) and accumulated transcripts (STT results not yet sent to agent). Double-buffering prevents loss during processing: while one buffer is being transcribed, the other accumulates new audio. Flush buffers at turn boundaries detected by turn detection rather than arbitrary time limits to avoid fragmenting user thoughts. For very long monologues where users never pause, the `MaxTurnLength` acts as a safety valve, forcing a flush after a configured character count to provide periodic feedback and prevent resource exhaustion.
+3. **Buffering** -- Accumulating audio until reaching chunk size or a turn boundary keeps memory usage bounded while maintaining conversation coherence. The buffer holds unprocessed audio (not yet sent to STT) and accumulated transcripts (STT results not yet sent to the agent). Flush at turn boundaries rather than arbitrary time limits to avoid fragmenting user thoughts; the `maxTurn` cap is the safety valve for users who never pause.
 
-**Key insight:** Long utterances are manageable with chunking for STT efficiency, turn-aware flushing for conversation coherence, and optional incremental processing for user feedback. The combination keeps resource usage bounded, maintains natural conversation flow by respecting turn boundaries, and prevents the system from appearing unresponsive during extended input. Users should receive acknowledgment at least every 10-15 seconds during long monologues, either through partial agent responses ("I understand so far...") or simple auditory cues, confirming the system has not stopped listening.
+**Key insight:** Long utterances are manageable with chunking for STT efficiency, turn-aware flushing for conversation coherence, and optional incremental processing for user feedback. Users should receive acknowledgment at least every 10-15 seconds during long monologues, either through partial agent responses ("I understand so far...") or simple auditory cues, confirming the system has not stopped listening.
 
 ## Variations
 
@@ -113,19 +186,25 @@ Adjust chunk size based on environment or provider constraints. Mobile connectio
 
 ### Incremental Feedback
 
-Use the session's `Say` method to play short acknowledgments during long turns, reassuring users the system is processing their input.
+Synthesize a short acknowledgment with your `tts.TTS` engine and send it to the caller during long turns, reassuring users the system is processing their input.
 
 ```go
 // After each chunk or after N seconds of continuous input
-sess.Say(ctx, "Got it, go on")
+ack, err := ttsEngine.Synthesize(ctx, "Got it, go on")
+if err != nil {
+	return fmt.Errorf("synthesize ack: %w", err)
+}
+if err := transport.Send(ctx, voice.NewAudioFrame(ack, 24000)); err != nil {
+	return fmt.Errorf("send ack: %w", err)
+}
 ```
 
 ### Max Utterance Duration
 
-Enforce a hard time-based cap (e.g., 30 seconds) in addition to character-based `MaxTurnLength`. Flush and process when reached even without turn end signals, ensuring timely feedback and preventing abuse or accidental microphone activation from consuming unlimited resources.
+The `maxTurn` cap in the example is a hard time-based limit. Tune it to your use case: flushing even without a silence boundary ensures timely feedback and prevents accidental microphone activation from consuming unlimited resources.
 
 ## Related Recipes
 
-- **[Preemptive Generation](./voice-preemptive-gen)** -- Interim results and latency reduction
-- **[Sentence-Boundary Turns](./sentence-boundary-turns)** -- Turn boundaries with sentence detection
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
+- **[Preemptive Generation](/docs/guides/capabilities/voice/preemptive-generation/)** -- Interim results and latency reduction
+- **[Sentence-Boundary Turns](/docs/guides/capabilities/voice/sentence-boundary/)** -- Turn boundaries with sentence detection
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup

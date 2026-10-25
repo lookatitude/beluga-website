@@ -8,7 +8,7 @@ alwaysApply: true
 
 ## Stack
 
-- Astro 5 + Starlight (see `CLAUDE.md` for the full override list and architecture notes)
+- Astro 7 + Starlight 0.42 (see `CLAUDE.md` for the full override list and architecture notes)
 - React 19 for interactive components
 - Tailwind v4 via `@tailwindcss/vite`
 - MDX for documentation pages
@@ -17,7 +17,7 @@ alwaysApply: true
 ## Content rules
 
 - All Go code examples in blog posts, tutorials, and guides must compile. Verify with `go build` in a throwaway directory before committing.
-- Examples include full imports (`github.com/lookatitude/beluga-ai/...`), never abbreviated or assumed.
+- Examples include full imports (`github.com/lookatitude/beluga-ai/v2/...`), never abbreviated or assumed.
 - Errors in examples must be handled explicitly — never `_` for error returns.
 - No placeholder Lorem ipsum — real content only.
 - Link to runnable examples (`lookatitude/beluga-examples`) whenever a tutorial or guide would benefit from a working companion.

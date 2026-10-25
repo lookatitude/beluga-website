@@ -43,12 +43,11 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/prompt"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/prompt"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 type CodeGenerator struct {
@@ -72,7 +71,10 @@ func NewCodeGenerator(ctx context.Context) (*CodeGenerator, error) {
         return nil, fmt.Errorf("create model: %w", err)
     }
 
-    template, err := prompt.NewTemplate(`Generate {{.language}} code for: {{.description}}
+    template := &prompt.Template{
+        Name:    "codegen",
+        Version: "1.0.0",
+        Content: `Generate {{.language}} code for: {{.description}}
 
 Pattern: {{.pattern}}
 
@@ -85,9 +87,10 @@ Generate production-ready code with:
 - Comments and documentation
 - Following {{.pattern}} pattern
 - Type safety and validation
-`)
-    if err != nil {
-        return nil, fmt.Errorf("create template: %w", err)
+`,
+    }
+    if err := template.Validate(); err != nil {
+        return nil, fmt.Errorf("invalid template: %w", err)
     }
 
     return &CodeGenerator{
@@ -140,7 +143,7 @@ func (g *CodeGenerator) GenerateCode(ctx context.Context, req CodeRequest) (stri
     }
 
     // Format prompt from template
-    promptText, err := g.template.Format(map[string]interface{}{
+    promptText, err := g.template.Render(map[string]any{
         "description": req.Description,
         "language":    req.Language,
         "pattern":     req.Pattern,
@@ -165,7 +168,7 @@ func (g *CodeGenerator) GenerateCode(ctx context.Context, req CodeRequest) (stri
         return "", fmt.Errorf("generate code: %w", err)
     }
 
-    code := resp.Parts[0].(schema.TextPart).Text
+    code := resp.Text()
 
     // Validate generated code
     if err := g.validateCode(ctx, code, req.Language); err != nil {
@@ -244,7 +247,7 @@ Include:
         return "", fmt.Errorf("generate tests: %w", err)
     }
 
-    return resp.Parts[0].(schema.TextPart).Text, nil
+    return resp.Text(), nil
 }
 
 func (g *CodeGenerator) formatCode(ctx context.Context, code, language string) (string, error) {
@@ -271,7 +274,7 @@ func (g *CodeGenerator) StreamCode(ctx context.Context, req CodeRequest) iter.Se
             return
         }
 
-        promptText, err := g.template.Format(map[string]interface{}{
+        promptText, err := g.template.Render(map[string]any{
             "description": req.Description,
             "language":    req.Language,
             "pattern":     req.Pattern,
@@ -310,7 +313,7 @@ Track generation quality and performance:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 
@@ -355,6 +358,6 @@ After implementing automated code generation, the team achieved:
 
 ## Related Resources
 
-- [LLM Integration Guide](/docs/guides/llm-integration/) for model selection and configuration
-- [Prompt Engineering](/docs/guides/prompt-engineering/) for effective prompt design
-- [Structured Output](/docs/guides/structured-output/) for type-safe code generation
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for model selection and configuration
+- [Prompt Engineering](/docs/guides/foundations/prompt-engineering/) for effective prompt design
+- [Structured Output](/docs/guides/foundations/structured-output/) for type-safe code generation

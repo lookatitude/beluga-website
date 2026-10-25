@@ -29,7 +29,7 @@ The trade-off is clear: predictable token usage and zero latency overhead, but c
 package main
 
 import (
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // WindowMemory retains only the last windowSize messages.
@@ -80,7 +80,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 // SummaryMemory maintains a running summary of the conversation.
@@ -210,6 +210,30 @@ func (m *HybridMemory) AddMessage(ctx context.Context, msg schema.Message) error
         }
     }
 
+    return nil
+}
+
+// summarizeMessages folds the given messages into the running summary.
+func (m *HybridMemory) summarizeMessages(ctx context.Context, msgs []schema.Message) error {
+    var conversation string
+    for _, msg := range msgs {
+        for _, part := range msg.GetContent() {
+            if tp, ok := part.(schema.TextPart); ok {
+                conversation += fmt.Sprintf("[%s]: %s\n", msg.GetRole(), tp.Text)
+                break
+            }
+        }
+    }
+
+    resp, err := m.summarizer.Generate(ctx, []schema.Message{
+        schema.NewSystemMessage("You are a conversation summarizer. Produce a concise summary preserving key facts."),
+        schema.NewHumanMessage(fmt.Sprintf("Current summary:\n%s\n\nNew conversation:\n%s\n\nWrite an updated summary.", m.summary, conversation)),
+    }, llm.WithMaxTokens(500))
+    if err != nil {
+        return fmt.Errorf("summarize: %w", err)
+    }
+
+    m.summary = resp.Text()
     return nil
 }
 

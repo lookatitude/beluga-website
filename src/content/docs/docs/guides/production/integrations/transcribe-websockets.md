@@ -12,18 +12,18 @@ For organizations already operating within the AWS ecosystem, AWS Transcribe pro
 
 ## Overview
 
-The Amazon Transcribe integration wraps the AWS Transcribe Streaming API to implement the Beluga AI STT provider interface. Audio is streamed over WebSocket for low-latency transcription with support for multiple languages and speaker diarization.
+Beluga AI does not ship an AWS Transcribe provider. This guide wraps the AWS Transcribe Streaming SDK in a small type that implements the `stt.STT` interface (`Transcribe` and `TranscribeStream`), so it can be used anywhere a built-in STT provider can. Audio is streamed over WebSocket for low-latency transcription with support for multiple languages and speaker diarization.
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - AWS account with Transcribe access
 - AWS credentials configured (IAM role or access keys)
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 go get github.com/aws/aws-sdk-go-v2/service/transcribestreaming
 ```
 
@@ -66,7 +66,10 @@ func main() {
 
     provider := NewAWSTranscribeSTT(client, "en-US")
 
-    audio := loadAudioData()
+    audio, err := os.ReadFile("sample.pcm")
+    if err != nil {
+        log.Fatalf("Failed to read audio: %v", err)
+    }
     transcript, err := provider.Transcribe(ctx, audio)
     if err != nil {
         log.Fatalf("Transcription failed: %v", err)
@@ -80,44 +83,80 @@ func main() {
 
 ### Custom Provider Wrapper
 
-Wrap the AWS Transcribe client to implement the Beluga AI STT interface:
+Wrap the AWS Transcribe client to implement `stt.STT`. The streaming call itself (`StartStreamTranscription`, sending `AudioEvent`s, reading `TranscriptEvent`s) is AWS SDK code and is left as an outline here:
 
 ```go
+import (
+    "context"
+    "errors"
+    "iter"
+    "strings"
+
+    "github.com/aws/aws-sdk-go-v2/service/transcribestreaming"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+)
+
 type AWSTranscribeSTT struct {
     client   *transcribestreaming.Client
     language string
 }
 
+var _ stt.STT = (*AWSTranscribeSTT)(nil)
+
 func NewAWSTranscribeSTT(client *transcribestreaming.Client, language string) *AWSTranscribeSTT {
-    return &AWSTranscribeSTT{
-        client:   client,
-        language: language,
+    return &AWSTranscribeSTT{client: client, language: language}
+}
+
+// Transcribe streams a complete buffer and joins the final results.
+func (t *AWSTranscribeSTT) Transcribe(ctx context.Context, audio []byte, opts ...stt.Option) (string, error) {
+    single := func(yield func([]byte, error) bool) { yield(audio, nil) }
+    var parts []string
+    for event, err := range t.TranscribeStream(ctx, single, opts...) {
+        if err != nil {
+            return "", err
+        }
+        if event.IsFinal {
+            parts = append(parts, event.Text)
+        }
+    }
+    return strings.Join(parts, " "), nil
+}
+
+// TranscribeStream sends audio chunks to AWS Transcribe and yields events.
+func (t *AWSTranscribeSTT) TranscribeStream(ctx context.Context, audio iter.Seq2[[]byte, error], opts ...stt.Option) iter.Seq2[stt.TranscriptEvent, error] {
+    return func(yield func(stt.TranscriptEvent, error) bool) {
+        // 1. Call t.client.StartStreamTranscription with t.language and the
+        //    sample rate from stt.ApplyOptions(opts...).SampleRate.
+        // 2. Forward each chunk from audio as an AudioEvent.
+        // 3. For each result, yield stt.TranscriptEvent{Text: ..., IsFinal: !result.IsPartial}.
+        yield(stt.TranscriptEvent{}, errors.New("aws transcribe: streaming not implemented"))
     }
 }
-
-func (t *AWSTranscribeSTT) Transcribe(ctx context.Context, audio []byte) (string, error) {
-    // Implementation handles WebSocket connection,
-    // audio chunking, and result parsing via the
-    // AWS Transcribe Streaming API.
-    return "", nil
-}
 ```
 
-### Voice Session Integration
+### Voice Pipeline Integration
 
-Use the Transcribe provider within a Beluga AI voice session:
+Wrap the provider with `stt.AsFrameProcessor` to use it as the STT stage of a `voice.VoicePipeline`:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/session"
-
-sess, err := session.NewVoiceSession(ctx,
-    session.WithSTTProvider(provider),
-    session.WithConfig(session.DefaultConfig()),
+import (
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
 )
-if err != nil {
-    log.Fatalf("Failed to create session: %v", err)
+
+pipe := voice.NewPipeline(
+    voice.WithTransport(transport),
+    voice.WithVAD(voice.NewEnergyVAD(voice.EnergyVADConfig{})),
+    voice.WithSTT(stt.AsFrameProcessor(provider, stt.WithSampleRate(16000))),
+    voice.WithLLM(llmStage),
+    voice.WithTTS(ttsStage),
+)
+if err := pipe.Run(ctx); err != nil {
+    log.Fatalf("pipeline: %v", err)
 }
 ```
+
+You can also register the wrapper with `stt.Register("aws-transcribe", factory)` so it can be selected by name with `stt.New`.
 
 ## Configuration Reference
 
@@ -150,4 +189,4 @@ AWS Transcribe Streaming is not available in all regions. Use a supported region
 ## Related Resources
 
 - [Deepgram Live Streams](/docs/guides/production/integrations/deepgram-streams)
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services)
+- [Voice Services Overview](/docs/reference/providers/voice/)

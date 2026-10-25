@@ -11,7 +11,7 @@ head:
 ## eval
 
 ```go
-import "github.com/lookatitude/beluga-ai/eval"
+import "github.com/lookatitude/beluga-ai/v2/eval"
 ```
 
 Package eval provides an evaluation framework for measuring the quality of
@@ -82,7 +82,7 @@ for name, avg := range report.Metrics {
 ## metrics
 
 ```go
-import "github.com/lookatitude/beluga-ai/eval/metrics"
+import "github.com/lookatitude/beluga-ai/v2/eval/metrics"
 ```
 
 Package metrics provides built-in evaluation metrics for the Beluga AI
@@ -137,7 +137,7 @@ score, err = lat.Score(ctx, sample)
 ## braintrust
 
 ```go
-import "github.com/lookatitude/beluga-ai/eval/providers/braintrust"
+import "github.com/lookatitude/beluga-ai/v2/eval/providers/braintrust"
 ```
 
 Package braintrust provides a Braintrust evaluation metric for the Beluga AI
@@ -178,7 +178,7 @@ score, err := metric.Score(ctx, sample)
 ## deepeval
 
 ```go
-import "github.com/lookatitude/beluga-ai/eval/providers/deepeval"
+import "github.com/lookatitude/beluga-ai/v2/eval/providers/deepeval"
 ```
 
 Package deepeval provides a DeepEval evaluation metric for the Beluga AI
@@ -218,7 +218,7 @@ score, err := metric.Score(ctx, sample)
 ## ragas
 
 ```go
-import "github.com/lookatitude/beluga-ai/eval/providers/ragas"
+import "github.com/lookatitude/beluga-ai/v2/eval/providers/ragas"
 ```
 
 Package ragas provides RAGAS (Retrieval Augmented Generation Assessment)

@@ -40,7 +40,7 @@ The architecture uses vector memory (not buffer or window memory) because code c
 
 ### Project Memory Setup
 
-The context manager maintains project-specific memory with semantic indexing. Each project gets its own namespace in the vector store, providing isolation between projects. The `text-embedding-3-small` model is chosen for IDE performance — it produces embeddings fast enough for real-time indexing without blocking the editor, while still providing sufficient semantic quality for code retrieval.
+The context manager maintains project-specific memory with semantic indexing. Code from every project goes into one vector store tagged with a `project_id` metadata field, and searches filter on that field to keep projects isolated. Each project also gets its own recall memory for conversation history. The `text-embedding-3-small` model is chosen for IDE performance — it produces embeddings fast enough for real-time indexing without blocking the editor, while still providing sufficient semantic quality for code retrieval.
 
 ```go
 package main
@@ -48,15 +48,18 @@ package main
 import (
     "context"
     "fmt"
+    "os"
+    "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type IDEContextManager struct {
@@ -66,15 +69,16 @@ type IDEContextManager struct {
 }
 
 func NewIDEContextManager(ctx context.Context) (*IDEContextManager, error) {
-    embedder, err := embedding.New("openai", embedding.ProviderConfig{
-        Model: "text-embedding-3-small", // Smaller model for IDE performance
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small", // Smaller model for IDE performance
     })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", vectorstore.ProviderConfig{
-        ConnectionString: "postgresql://localhost/ide_context",
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: "postgresql://localhost/ide_context", // connection string
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
@@ -92,11 +96,10 @@ func (m *IDEContextManager) GetProjectMemory(ctx context.Context, projectID stri
         return mem, nil
     }
 
-    // Create vector-backed memory for project
-    mem := memory.NewVectorMemory(m.store,
-        memory.WithNamespace(fmt.Sprintf("project_%s", projectID)),
-        memory.WithEmbedder(m.embedder),
-    )
+    // Create conversation memory for the project.
+    // In production, use a persistent MessageStore such as memory/stores/redis
+    // with one key per project.
+    mem := memory.NewRecall(inmemory.NewMessageStore())
 
     m.projectMemories[projectID] = mem
     return mem, nil
@@ -163,9 +166,8 @@ func (m *IDEContextManager) GetRelevantContext(ctx context.Context, projectID, q
     }
 
     // Search with project filter
-    results, err := m.store.SimilaritySearch(ctx, queryEmbedding,
-        vectorstore.WithTopK(topK),
-        vectorstore.WithMetadataFilter(map[string]interface{}{
+    results, err := m.store.Search(ctx, queryEmbedding, topK,
+        vectorstore.WithFilter(map[string]any{
             "project_id": projectID,
         }),
     )
@@ -176,7 +178,7 @@ func (m *IDEContextManager) GetRelevantContext(ctx context.Context, projectID, q
     // Build context from results
     var context string
     for _, result := range results {
-        filePath := result.Metadata["file_path"].(string)
+        filePath, _ := result.Metadata["file_path"].(string)
         context += fmt.Sprintf("File: %s\n```\n%s\n```\n\n", filePath, result.Content)
     }
 
@@ -190,9 +192,9 @@ Provide AI assistance grounded in project context:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func (m *IDEContextManager) ProvideAssistance(ctx context.Context, projectID, query string) (string, error) {
@@ -208,16 +210,9 @@ func (m *IDEContextManager) ProvideAssistance(ctx context.Context, projectID, qu
         return "", fmt.Errorf("get memory: %w", err)
     }
 
-    rawHistory, err := projectMem.Load(ctx, projectID)
+    history, err := projectMem.Load(ctx, query)
     if err != nil {
         return "", fmt.Errorf("load history: %w", err)
-    }
-    // Convert stored items back to schema.Message for context assembly
-    history := make([]schema.Message, 0, len(rawHistory))
-    for _, item := range rawHistory {
-        if msg, ok := item.(schema.Message); ok {
-            history = append(history, msg)
-        }
     }
 
     // Build messages with context
@@ -234,7 +229,10 @@ func (m *IDEContextManager) ProvideAssistance(ctx context.Context, projectID, qu
     messages = append(messages, schema.NewHumanMessage(query))
 
     // Generate response
-    model, err := llm.New("openai", config.ProviderConfig{Model: "gpt-4o"})
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return "", fmt.Errorf("create model: %w", err)
     }
@@ -246,12 +244,9 @@ func (m *IDEContextManager) ProvideAssistance(ctx context.Context, projectID, qu
 
     response := resp.Text()
 
-    // Save to memory (session-scoped; projectID is used as the session key)
-    if err := projectMem.Save(ctx, projectID, []any{
-        schema.NewHumanMessage(query),
-        resp,
-    }); err != nil {
-        // Log error but return response
+    // Save the turn to the project's memory; log the error but still return the response
+    if err := projectMem.Save(ctx, schema.NewHumanMessage(query), resp); err != nil {
+        fmt.Printf("save history: %v\n", err)
     }
 
     return response, nil
@@ -274,7 +269,7 @@ func (w *FileWatcher) OnFileChange(ctx context.Context, filePath, content string
     // Index changed file asynchronously to avoid blocking IDE
     go func() {
         if err := w.manager.IndexCode(context.Background(), w.projectID, filePath, content); err != nil {
-            // Log error
+            fmt.Printf("index %s: %v\n", filePath, err)
         }
     }()
     return nil
@@ -304,22 +299,23 @@ func (m *IDEContextManager) GetRelevantContextWithLimit(ctx context.Context, pro
 
 ### Privacy
 
-Store sensitive code locally rather than in cloud vector stores:
+Store sensitive code locally rather than in cloud vector stores. The `sqlitevec` provider needs CGO and the sqlite-vec extension (build with `CGO_ENABLED=1`):
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlite"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlitevec"
 
 func NewLocalIDEContextManager(ctx context.Context, dbPath string) (*IDEContextManager, error) {
-    embedder, err := embedding.New("openai", embedding.ProviderConfig{
-        Model: "text-embedding-3-small",
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
     })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
     // Use local SQLite vector store
-    store, err := vectorstore.New("sqlite", vectorstore.ProviderConfig{
-        Path: dbPath,
+    store, err := vectorstore.New("sqlitevec", config.ProviderConfig{
+        BaseURL: dbPath, // path to the SQLite database file
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
@@ -355,6 +351,6 @@ After implementing the context-aware IDE extension, the team achieved:
 
 ## Related Resources
 
-- [Memory Guide](/docs/guides/memory/) for memory patterns and configuration
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for semantic search setup
-- [LLM Integration Guide](/docs/guides/llm-integration/) for AI assistant implementation
+- [Memory Guide](/docs/guides/capabilities/memory/memory-system/) for memory patterns and configuration
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for semantic search setup
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for AI assistant implementation

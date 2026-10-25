@@ -45,7 +45,7 @@ If you need original research (competitive analysis, benchmarks, user surveys, c
 `@agent-content-writer` writes the blog post:
 - 800–1200 words
 - Hook / problem / solution / code / takeaway structure
-- Full compiling Go examples with full imports (`github.com/lookatitude/beluga-ai/...`)
+- Full compiling Go examples with full imports (`github.com/lookatitude/beluga-ai/v2/...`)
 - Link to a runnable example in `lookatitude/beluga-examples` if one exists
 - Cite the source material explicitly
 

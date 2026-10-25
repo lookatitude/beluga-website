@@ -354,5 +354,5 @@ spec:
 ## Related Resources
 
 - [Auth0 JWT Authentication](/docs/guides/production/integrations/auth0-jwt) -- Secure API endpoints
-- [Server Package Guide](/docs/reference/api/server) -- Beluga AI server configuration
-- [Observability Guide](/docs/guides/observability) -- Monitoring and tracing setup
+- [Server Package Guide](/docs/reference/api/protocol/server/) -- Beluga AI server configuration
+- [Observability Guide](/docs/guides/production/observability/) -- Monitoring and tracing setup

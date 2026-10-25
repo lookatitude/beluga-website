@@ -7,7 +7,7 @@ description: Website development patterns for the Beluga AI docs and marketing s
 
 ## Tech Stack
 
-- **Framework**: Astro 5 with Starlight documentation theme
+- **Framework**: Astro 7 with Starlight (0.42) documentation theme
 - **Styling**: Tailwind CSS 4 (via `@tailwindcss/vite` plugin)
 - **Components**: Astro components (`.astro`) — use React 19 (`.tsx`) only when client-side interactivity is required
 - **Build**: Vite 7, TypeScript 5
@@ -72,7 +72,7 @@ description: Website development patterns for the Beluga AI docs and marketing s
 ### Component Rules
 - Astro components for static/server-rendered UI (default choice)
 - React components only when `client:*` directives are needed (interactive widgets)
-- Component files use PascalCase: `HeroTabs.astro`, `LinkButton.astro`
+- Component files use PascalCase: `HeroTabs.astro`, `CodeProof.astro`
 - Override components mirror Starlight's naming in `override-components/` — only overrides listed in `astro.config.mjs` are active; files in the directory that aren't wired there are dead
 - Marketing primitives go in `components/marketing/`
 - User-facing reusable components go in `user-components/`

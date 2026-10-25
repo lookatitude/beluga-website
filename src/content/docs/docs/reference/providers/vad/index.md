@@ -36,8 +36,8 @@ You can instantiate any provider two ways:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
 vad, err := voice.NewVAD("silero", map[string]any{
@@ -48,7 +48,7 @@ vad, err := voice.NewVAD("silero", map[string]any{
 **Via direct construction** (for compile-time type safety):
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
+import "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 
 vad, err := silero.New(silero.Config{
     Threshold:  0.5,
@@ -71,7 +71,7 @@ VAD providers track state transitions between speech and silence:
 The `voice` package includes a built-in energy-threshold VAD that requires no external dependencies. It computes the RMS energy of 16-bit PCM audio and compares it against a configurable threshold:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice"
+import "github.com/lookatitude/beluga-ai/v2/voice"
 
 vad, err := voice.NewVAD("energy", map[string]any{
     "threshold": 1000.0,
@@ -83,7 +83,7 @@ vad, err := voice.NewVAD("energy", map[string]any{
 | Provider | Registry Name | Description |
 |----------|---------------|-------------|
 | Energy   | `energy`      | Built-in RMS energy threshold detector |
-| [Silero](/docs/reference/providers/vad/silero) | `silero` | ONNX model-based detection with energy fallback |
+| [Silero](/docs/reference/providers/vad/silero) | `silero` | Energy-based approximation of Silero's 0-1 scale (no ONNX inference) |
 | [WebRTC](/docs/reference/providers/vad/webrtc) | `webrtc` | Energy + zero-crossing rate analysis |
 
 ## Provider Discovery

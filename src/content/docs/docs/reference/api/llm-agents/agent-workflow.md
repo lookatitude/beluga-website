@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/agent/workflow"
+import "github.com/lookatitude/beluga-ai/v2/agent/workflow"
 ```
 
 Package workflow provides deterministic workflow agents that orchestrate

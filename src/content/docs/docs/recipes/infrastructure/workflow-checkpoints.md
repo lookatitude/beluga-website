@@ -41,7 +41,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.orchestration.checkpointing")
@@ -163,7 +163,7 @@ func (cw *CheckpointedWorkflow) Execute(ctx context.Context) error {
         newState, err := step.Execute(ctx, cw.state.State)
         if err != nil {
             span.RecordError(err)
-            span.SetStatus(trace.StatusError, err.Error())
+            span.SetStatus(codes.Error, err.Error())
             return fmt.Errorf("step %s failed: %w", step.ID, err)
         }
 
@@ -185,7 +185,7 @@ func (cw *CheckpointedWorkflow) Execute(ctx context.Context) error {
         }
     }
 
-    span.SetStatus(trace.StatusOK, "workflow completed")
+    span.SetStatus(codes.Ok, "workflow completed")
     return nil
 }
 
@@ -272,5 +272,5 @@ func (s *CheckpointStore) SaveCompressed(ctx context.Context, workflowID string,
 
 ## Related Recipes
 
-- [Parallel Node Execution in Graphs](/docs/recipes/parallel-nodes) — Parallel execution
-- [Core Advanced Context Timeout Management](/docs/recipes/core-advanced-context-timeout-management) — Timeout handling
+- [Parallel Node Execution in Graphs](/docs/recipes/infrastructure/parallel-nodes/) — Parallel execution
+- [Core Advanced Context Timeout Management](/docs/recipes/infrastructure/context-timeout/) — Timeout handling

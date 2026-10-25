@@ -42,13 +42,15 @@ import (
     "context"
     "fmt"
     "log"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type ContentItem struct {
@@ -64,7 +66,7 @@ type SearchService struct {
 }
 
 func NewSearchService(ctx context.Context) (*SearchService, error) {
-    embedder, err := embedding.New("openai", embedding.ProviderConfig{
+    embedder, err := embedding.New("openai", config.ProviderConfig{
         APIKey: os.Getenv("OPENAI_API_KEY"),
         Model:  "text-embedding-3-small",
     })
@@ -72,10 +74,13 @@ func NewSearchService(ctx context.Context) (*SearchService, error) {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", vectorstore.Config{
-        ConnectionString: os.Getenv("POSTGRES_CONNECTION_STRING"),
-        TableName:        "content_embeddings",
-        Dimensions:       1536,
+    // pgvector reads the connection string from BaseURL.
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: os.Getenv("POSTGRES_CONNECTION_STRING"),
+        Options: map[string]any{
+            "table":     "content_embeddings",
+            "dimension": float64(1536),
+        },
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
@@ -93,8 +98,8 @@ func (s *SearchService) IndexContent(ctx context.Context, items []ContentItem) e
         texts[i] = item.Text
     }
 
-    // Generate embeddings in batch
-    embeddings, err := s.embedder.EmbedBatch(ctx, texts)
+    // Generate embeddings in one batch call
+    embeddings, err := s.embedder.Embed(ctx, texts)
     if err != nil {
         return fmt.Errorf("embed documents: %w", err)
     }
@@ -103,22 +108,36 @@ func (s *SearchService) IndexContent(ctx context.Context, items []ContentItem) e
     docs := make([]schema.Document, len(items))
     for i, item := range items {
         docs[i] = schema.Document{
+            ID:      item.ID,
             Content: item.Text,
             Metadata: map[string]any{
-                "id":       item.ID,
                 "type":     item.Type,
                 "category": item.Category,
             },
         }
     }
 
-    // Store in vector database
+    // Store documents and their embeddings
     if err := s.vectorStore.Add(ctx, docs, embeddings); err != nil {
         return fmt.Errorf("store documents: %w", err)
     }
 
     log.Printf("Indexed %d items", len(items))
     return nil
+}
+
+func main() {
+    ctx := context.Background()
+    svc, err := NewSearchService(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    err = svc.IndexContent(ctx, []ContentItem{
+        {ID: "shoe-1", Text: "Budget-friendly jogging footwear", Type: "product", Category: "shoes"},
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
@@ -136,14 +155,14 @@ type SearchResult struct {
 
 func (s *SearchService) Search(ctx context.Context, query string, k int) ([]SearchResult, error) {
     // Generate query embedding
-    queryEmbedding, err := s.embedder.Embed(ctx, query)
+    queryEmbedding, err := s.embedder.EmbedSingle(ctx, query)
     if err != nil {
         return nil, fmt.Errorf("embed query: %w", err)
     }
 
-    // Retrieve similar documents
-    docs, scores, err := s.vectorStore.SimilaritySearch(ctx, queryEmbedding, k,
-        vectorstore.WithScoreThreshold(0.7),
+    // Retrieve similar documents; each result carries its similarity in Score
+    docs, err := s.vectorStore.Search(ctx, queryEmbedding, k,
+        vectorstore.WithThreshold(0.7),
     )
     if err != nil {
         return nil, fmt.Errorf("similarity search: %w", err)
@@ -152,11 +171,12 @@ func (s *SearchService) Search(ctx context.Context, query string, k int) ([]Sear
     // Convert to search results
     results := make([]SearchResult, len(docs))
     for i, doc := range docs {
+        docType, _ := doc.Metadata["type"].(string)
         results[i] = SearchResult{
-            ID:      doc.Metadata["id"].(string),
+            ID:      doc.ID,
             Content: doc.Content,
-            Score:   scores[i],
-            Type:    doc.Metadata["type"].(string),
+            Score:   doc.Score,
+            Type:    docType,
         }
     }
 
@@ -166,28 +186,22 @@ func (s *SearchService) Search(ctx context.Context, query string, k int) ([]Sear
 
 ## Hybrid Search with Retriever
 
-Use Beluga AI's hybrid retriever to combine vector similarity with BM25 keyword matching:
+Use Beluga AI's hybrid retriever to combine vector similarity with BM25 keyword matching. `retriever.NewHybridRetriever` fuses both result lists with Reciprocal Rank Fusion. Beluga AI does not bundle a BM25 index, so you pass in your own keyword backend through the `retriever.BM25Searcher` interface:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/hybrid"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
 )
 
-func (s *SearchService) HybridSearch(ctx context.Context, query string, k int) ([]schema.Document, error) {
-    ret, err := retriever.New("hybrid", retriever.Config{
-        VectorStore: s.vectorStore,
-        Embedder:    s.embedder,
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
-
-    docs, err := ret.Retrieve(ctx, query,
-        retriever.WithTopK(k),
-        retriever.WithThreshold(0.7),
-        retriever.WithHybridAlpha(0.5), // 0.5 = equal weight to vector and BM25
+// bm25 is your keyword index (Elasticsearch, OpenSearch, Typesense, ...)
+// wrapped to satisfy retriever.BM25Searcher:
+//   Search(ctx context.Context, query string, k int) ([]schema.Document, error)
+func (s *SearchService) HybridSearch(ctx context.Context, bm25 retriever.BM25Searcher, query string, k int) ([]schema.Document, error) {
+    ret := retriever.NewHybridRetriever(s.vectorStore, s.embedder, bm25,
+        retriever.WithHybridRRFK(60), // RRF constant; 60 is the standard value
     )
+
+    docs, err := ret.Retrieve(ctx, query, retriever.WithTopK(k))
     if err != nil {
         return nil, fmt.Errorf("retrieve: %w", err)
     }
@@ -202,43 +216,39 @@ Build a recommendation engine using user interaction history and item similarity
 
 ```go
 type Recommendation struct {
-    ItemID      string
-    Score       float64
-    Reason      string
+    ItemID string
+    Score  float64
+    Reason string
 }
 
 func (s *SearchService) GetRecommendations(ctx context.Context, userID string, count int) ([]Recommendation, error) {
-    // Get user's interaction history
+    // Get the user's interaction history (application-specific)
     history, err := getUserHistory(userID)
     if err != nil {
         return nil, err
     }
-
-    // Build user preference vector by averaging embeddings of liked items
-    var preferenceVector []float64
-    for _, itemID := range history.LikedItems {
-        doc, err := s.vectorStore.GetByID(ctx, itemID)
-        if err != nil {
-            continue
-        }
-
-        if preferenceVector == nil {
-            preferenceVector = doc.Embedding
-        } else {
-            for i := range preferenceVector {
-                preferenceVector[i] += doc.Embedding[i]
-            }
-        }
+    if len(history.LikedTexts) == 0 {
+        return nil, nil
     }
 
-    // Normalize the preference vector
+    // Build a preference vector by averaging embeddings of liked items
+    liked, err := s.embedder.Embed(ctx, history.LikedTexts)
+    if err != nil {
+        return nil, fmt.Errorf("embed liked items: %w", err)
+    }
+    preferenceVector := make([]float32, s.embedder.Dimensions())
+    for _, vec := range liked {
+        for i := range preferenceVector {
+            preferenceVector[i] += vec[i]
+        }
+    }
     for i := range preferenceVector {
-        preferenceVector[i] /= float64(len(history.LikedItems))
+        preferenceVector[i] /= float32(len(liked))
     }
 
     // Find similar items
-    docs, scores, err := s.vectorStore.SimilaritySearch(ctx, preferenceVector, count*2,
-        vectorstore.WithScoreThreshold(0.6),
+    docs, err := s.vectorStore.Search(ctx, preferenceVector, count*2,
+        vectorstore.WithThreshold(0.6),
     )
     if err != nil {
         return nil, fmt.Errorf("similarity search: %w", err)
@@ -246,15 +256,14 @@ func (s *SearchService) GetRecommendations(ctx context.Context, userID string, c
 
     // Filter out items the user has already seen
     recommendations := []Recommendation{}
-    for i, doc := range docs {
-        itemID := doc.Metadata["id"].(string)
-        if contains(history.SeenItems, itemID) {
+    for _, doc := range docs {
+        if contains(history.SeenItems, doc.ID) {
             continue
         }
 
         recommendations = append(recommendations, Recommendation{
-            ItemID: itemID,
-            Score:  scores[i],
+            ItemID: doc.ID,
+            Score:  doc.Score,
             Reason: "Similar to items you liked",
         })
 
@@ -269,41 +278,31 @@ func (s *SearchService) GetRecommendations(ctx context.Context, userID string, c
 
 ## Multi-Modal Search
 
-Extend search to handle both text and images using multi-modal embeddings:
+Extend search to images by storing image vectors in the same vector store. Beluga AI's `embedding.Embedder` is text-only, so image embeddings (for example from a CLIP model) are produced outside the framework and then searched with `VectorStore.Search`:
 
 ```go
-import (
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai" // Supports CLIP
-)
-
+// embedImage calls your multimodal embedding model (for example a CLIP
+// service you host). Beluga AI's embedding.Embedder interface is text-only,
+// so image vectors come from outside the framework.
 func (s *SearchService) ImageSearch(ctx context.Context, imageURL string, k int) ([]SearchResult, error) {
-    // OpenAI's CLIP model can embed both text and images
-    embedder, err := embedding.New("openai", embedding.ProviderConfig{
-        APIKey: os.Getenv("OPENAI_API_KEY"),
-        Model:  "clip-vit-large-patch14", // Multi-modal model
-    })
-    if err != nil {
-        return nil, err
-    }
-
-    // Embed image
-    imageEmbedding, err := embedder.EmbedImage(ctx, imageURL)
+    imageEmbedding, err := embedImage(ctx, imageURL)
     if err != nil {
         return nil, fmt.Errorf("embed image: %w", err)
     }
 
-    // Find similar content (text or images)
-    docs, scores, err := s.vectorStore.SimilaritySearch(ctx, imageEmbedding, k)
+    // The vector store does not care where a vector came from, as long as
+    // the dimension matches the index.
+    docs, err := s.vectorStore.Search(ctx, imageEmbedding, k)
     if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("similarity search: %w", err)
     }
 
     results := make([]SearchResult, len(docs))
     for i, doc := range docs {
         results[i] = SearchResult{
-            ID:      doc.Metadata["id"].(string),
+            ID:      doc.ID,
             Content: doc.Content,
-            Score:   scores[i],
+            Score:   doc.Score,
         }
     }
 
@@ -340,7 +339,8 @@ Track search performance and quality:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "time"
+
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
@@ -407,6 +407,6 @@ search:
 
 ## Related Resources
 
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for complete RAG setup
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for production RAG patterns
-- [Vector Store Integration](/docs/guides/production/integrations/vector-stores/) for provider-specific configuration
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for complete RAG setup
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for production RAG patterns
+- [Vector Store Integration](/docs/reference/providers/vectorstore/) for provider-specific configuration

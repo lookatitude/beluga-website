@@ -1,6 +1,6 @@
 ---
 title: Install and use the beluga CLI
-description: "Install the beluga CLI from v2.10.1, inspect its version and providers, and gate a CI check on provider availability using JSON output."
+description: "Install the beluga CLI, inspect its version and providers, and gate a CI check on provider availability using JSON output."
 head:
   - tag: meta
     attrs:
@@ -8,7 +8,7 @@ head:
       content: "Beluga AI, Go, CLI, beluga command, version, providers, JSON output, CI gate, tutorial"
 ---
 
-The `beluga` command-line tool ships with the framework as of v2.10.1. You install it with `go install`, inspect the framework version with `beluga version`, list the providers compiled into your binary with `beluga providers`, and parse that list with `beluga providers --output json` when you need machine-readable output. This guide walks through each of those steps and ends with a portable CI shell script you can drop into any pipeline that depends on Beluga.
+The `beluga` command-line tool ships with the framework (since v2.10.1). You install it with `go install`, inspect the framework version with `beluga version`, list the providers compiled into your binary with `beluga providers`, and parse that list with `beluga providers --output json` when you need machine-readable output. This guide walks through each of those steps and ends with a portable CI shell script you can drop into any pipeline that depends on Beluga.
 
 ## What you will build
 
@@ -16,7 +16,7 @@ A shell-based workflow that installs the CLI from a pinned framework version, in
 
 ## Prerequisites
 
-- Go 1.23 or later (`go version` should print `go1.23` or higher).
+- Go 1.26 or later (`go version` should print `go1.26` or higher).
 - [`jq`](https://jqlang.github.io/jq/) available on your `PATH` — the CI gate uses it to parse JSON.
 - A working `$GOPATH/bin` or `$GOBIN` on your shell's `PATH`, so that binaries from `go install` are discoverable.
 
@@ -24,10 +24,16 @@ You do not need Docker, Kubernetes, any cloud account, or an API key for any ste
 
 ## Step 1: Install the CLI
 
-Install the CLI from a pinned framework version. Pinning is important because the provider list you see is a property of the binary you compiled, not of the module proxy — a binary built against v2.10.1 reports only the providers blank-imported by that release.
+Install the CLI with `go install`. `@latest` resolves to the newest tagged release:
 
 ```bash
-go install github.com/lookatitude/beluga-ai/v2/cmd/beluga@v2.10.1
+go install github.com/lookatitude/beluga-ai/v2/cmd/beluga@latest
+```
+
+For reproducible installs (CI images, release pipelines), pin a release tag instead of `@latest`, for example `@v2.13.6`. Pinning matters because the provider list you see is a property of the binary you compiled, not of the module proxy: a binary built against a given release reports only the providers blank-imported by that release.
+
+```bash
+go install github.com/lookatitude/beluga-ai/v2/cmd/beluga@v2.13.6
 ```
 
 **Checkpoint.** The binary is on your `PATH`, and `beluga --help` lists the available subcommands.
@@ -73,12 +79,12 @@ beluga version
 
 ```console
 $ beluga version
-beluga v2.10.1
-go1.23.x
+beluga v2.13.6
+go1.26.x
 providers: llm=3 embedding=2 vectorstore=1 memory=5
 ```
 
-Your second line shows whichever Go toolchain produced the binary; any `go1.23+` release is fine. Each line has a job. The first line is what you assert on in a release test: the leading `beluga ` makes it trivial to cut with `awk '{print $2}'`. The second line is the Go toolchain, which matters when you are debugging a binary built in CI against one you compiled locally. The third line is a quick sanity check that the providers you expect to be compiled in actually are. If you expected `llm=5` and see `llm=3`, something in your release pipeline dropped two blank imports.
+Your second line shows whichever Go toolchain produced the binary; any `go1.26+` release is fine. Each line has a job. The first line is what you assert on in a release test: the leading `beluga ` makes it trivial to cut with `awk '{print $2}'`. The second line is the Go toolchain, which matters when you are debugging a binary built in CI against one you compiled locally. The third line is a quick sanity check that the providers you expect to be compiled in actually are. If you expected `llm=5` and see `llm=3`, something in your release pipeline dropped two blank imports.
 
 `beluga version` does not take `--output json`. The three-line format is stable, and `awk` is all you need to extract any of the three values. Scripts that need structured data should call `beluga providers --output json` instead, which is the focus of the next two steps.
 
@@ -90,7 +96,7 @@ Your second line shows whichever Go toolchain produced the binary; any `go1.23+`
 beluga providers
 ```
 
-**Checkpoint.** You see a row per `(category, provider)` pair. The v2.10.1 binary ships eleven rows across four categories.
+**Checkpoint.** You see a row per `(category, provider)` pair. The v2.13.6 binary ships eleven rows across four categories.
 
 ```console
 $ beluga providers
@@ -107,7 +113,7 @@ memory       inmemory
 memory       recall
 ```
 
-The registry is populated at link time by the blank imports in [`cmd/beluga/providers/providers.go`](https://github.com/lookatitude/beluga-ai/blob/v2.10.1/cmd/beluga/providers/providers.go). If you add a provider to your own build by forking the CLI and adding an import, that provider appears here. If you strip one out with build tags, it disappears. The list is a direct reflection of what is linked into this specific binary.
+The registry is populated at link time by the blank imports in [`cmd/beluga/providers/providers.go`](https://github.com/lookatitude/beluga-ai/blob/v2.13.6/cmd/beluga/providers/providers.go). If you add a provider to your own build by forking the CLI and adding an import, that provider appears here. If you strip one out with build tags, it disappears. The list is a direct reflection of what is linked into this specific binary.
 
 ## Step 4: Parse providers with `--output json`
 
@@ -176,7 +182,7 @@ Combine the pieces into a small shell script. The script asserts the framework v
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXPECTED_VERSION="v2.10.1"
+EXPECTED_VERSION="v2.13.6"  # the tag you pinned in Step 1
 REQUIRED_LLM="openai"
 
 ACTUAL_VERSION="$(beluga version | head -n1 | awk '{print $2}')"
@@ -200,7 +206,7 @@ echo "beluga ${ACTUAL_VERSION} OK: ${REQUIRED_LLM} LLM provider available"
 
 ```console
 $ bash ci/check-beluga.sh
-beluga v2.10.1 OK: openai LLM provider available
+beluga v2.13.6 OK: openai LLM provider available
 $ echo $?
 0
 ```
@@ -213,7 +219,7 @@ To confirm the gate really does fail, set `REQUIRED_LLM=does-not-exist` at the t
 
 You now have a repeatable, pinned workflow for CLI-driven Beluga checks:
 
-- Install from a specific framework version with `go install .../cmd/beluga@v2.10.1`.
+- Install with `go install .../cmd/beluga@latest`, or pin a release tag such as `@v2.13.6` for reproducible builds.
 - Assert the version and provider counts with `beluga version`.
 - Inspect providers in a human-readable table with `beluga providers`.
 - Consume the same list programmatically with `beluga providers --output json | jq`.
@@ -223,6 +229,6 @@ Because every command writes machine output to stdout and writes nothing to stde
 
 ## Next steps
 
-- Read the [v2.10.1 release notes on GitHub](https://github.com/lookatitude/beluga-ai/releases/tag/v2.10.1) for the full shipping scope and what is deliberately deferred.
-- Consult the [framework CLI reference](https://github.com/lookatitude/beluga-ai/blob/v2.10.1/docs/reference/cli.md) for every flag, exit code, and subcommand.
+- Read the [release notes on GitHub](https://github.com/lookatitude/beluga-ai/releases) for the full shipping scope and what is deliberately deferred.
+- Consult the [framework CLI reference](https://github.com/lookatitude/beluga-ai/blob/main/docs/reference/cli.md) for every flag, exit code, and subcommand.
 - Move from command-line inspection to building an agent with the same providers in the [Building Your First Agent](/docs/guides/foundations/first-agent/) guide.

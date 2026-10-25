@@ -14,7 +14,7 @@ Datadog is the preferred observability platform for teams that need a unified vi
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI application with the `o11y` package configured
 - A Datadog account with an API key
 - Datadog Agent installed (optional, for local development)
@@ -305,4 +305,4 @@ Confirm that the OTLP endpoint is correct for your Datadog site. For EU customer
 ## Related Resources
 
 - [LangSmith Debugging](/docs/guides/production/integrations/langsmith-debugging) -- LLM call debugging and tracing
-- [Observability and Tracing](/docs/guides/observability-tracing) -- Beluga AI observability setup
+- [Observability and Tracing](/docs/guides/production/otel-tracing/) -- Beluga AI observability setup

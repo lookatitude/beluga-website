@@ -12,24 +12,24 @@ This guide walks you through setting up a local development environment for cont
 
 ## Prerequisites
 
-Before you begin, make sure you have the following installed. Go 1.23+ is required because Beluga uses `iter.Seq2` (range-over-func iterators) for all streaming APIs — earlier versions will fail to compile:
+Before you begin, make sure you have the following installed. Go 1.26+ is required: the framework `go.mod` declares `go 1.26.0` (Beluga also relies on `iter.Seq2` range-over-func iterators, added in Go 1.23). Earlier versions will fail to compile:
 
 | Tool | Version | Required | Notes |
 |---|---|---|---|
-| **Go** | 1.23+ | Yes | Beluga uses `iter.Seq2` and other Go 1.23 features |
+| **Go** | 1.26+ | Yes | The framework `go.mod` declares `go 1.26.0`; streaming uses `iter.Seq2` |
 | **Git** | 2.x+ | Yes | For cloning and version control |
 | **Make** | Any | Recommended | Simplifies common tasks via Makefile targets |
-| **golangci-lint** | Latest | Recommended | Runs all configured linters in one pass |
+| **golangci-lint** | v2.x | Recommended | Runs all configured linters in one pass |
 | **Node.js** | 22+ | Docs only | Only needed if working on the documentation website |
 
 ### Installing golangci-lint
 
 ```bash
 # macOS / Linux
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
-# Or via Go
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+# Or via Go (the framework's .golangci.yml is v2 format; a v1 binary rejects it)
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 ```
 
 ## Fork and Clone
@@ -119,7 +119,7 @@ The linter checks are the same ones that run in CI, so fix any issues before ope
 
 ## Project Structure
 
-Beluga AI follows a flat package layout with no `pkg/` prefix. This keeps import paths short (`github.com/lookatitude/beluga-ai/llm` rather than `github.com/lookatitude/beluga-ai/pkg/llm`) and aligns with Go conventions for library modules. Here's a high-level overview:
+Beluga AI follows a flat package layout with no `pkg/` prefix. This keeps import paths short (`github.com/lookatitude/beluga-ai/v2/llm` rather than `github.com/lookatitude/beluga-ai/v2/pkg/llm`) and aligns with Go conventions for library modules. Here's a high-level overview:
 
 ```
 beluga-ai/

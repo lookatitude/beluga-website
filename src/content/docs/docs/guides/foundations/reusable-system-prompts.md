@@ -17,7 +17,7 @@ A prompt registry with persona definitions, template variable support, versionin
 ## Prerequisites
 
 - Understanding of [Message Template Design](/docs/guides/foundations/message-templates)
-- Familiarity with the [schema package](/docs/guides/schema)
+- Familiarity with the [schema package](/docs/reference/api/foundation/schema/)
 
 ## Step 1: Define Personas
 
@@ -31,7 +31,7 @@ import (
     "fmt"
     "text/template"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // Persona defines a reusable agent identity.
@@ -130,7 +130,7 @@ Integrate personas into LLM conversations. The persona generates a system messag
 import (
     "context"
 
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 func main() {

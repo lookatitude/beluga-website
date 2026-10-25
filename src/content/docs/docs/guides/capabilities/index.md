@@ -16,9 +16,9 @@ Every capability follows the same extensibility model: a small Go interface defi
 
 | Guide | Description |
 |-------|-------------|
-| [RAG Pipeline](./rag-pipeline/) | Build retrieval-augmented generation pipelines with embeddings, vector stores, and advanced retrieval strategies like hybrid search, CRAG, and HyDE |
-| [Document Processing](./document-processing/) | Load, parse, and chunk documents from multiple sources and formats for RAG pipelines and knowledge bases |
-| [Memory System](./memory-system/) | Implement persistent agent memory using the MemGPT-inspired 3-tier model — Core (always in context), Recall (conversation history), and Archival (vector-searchable long-term storage) |
-| [Tools & MCP](./tools-and-mcp/) | Create typed Go tools, organize them in registries, and connect to remote MCP servers for runtime tool discovery and interoperability |
-| [Voice AI](./voice-ai/) | Build real-time voice applications using a frame-based processing pipeline with STT, TTS, S2S, VAD, and pluggable transport layers |
-| [Multimodal](./multimodal/) | Process images, audio, and video with multimodal language models for document intelligence, visual Q&A, and content analysis |
+| [RAG Pipeline](/docs/guides/capabilities/rag/rag-pipeline/) | Build retrieval-augmented generation pipelines with embeddings, vector stores, and advanced retrieval strategies like hybrid search, CRAG, and HyDE |
+| [Document Processing](/docs/guides/capabilities/documents/document-processing/) | Load, parse, and chunk documents from multiple sources and formats for RAG pipelines and knowledge bases |
+| [Memory System](/docs/guides/capabilities/memory/memory-system/) | Implement persistent agent memory using the MemGPT-inspired 3-tier model — Core (always in context), Recall (conversation history), and Archival (vector-searchable long-term storage) |
+| [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) | Create typed Go tools, organize them in registries, and connect to remote MCP servers for runtime tool discovery and interoperability |
+| [Voice AI](/docs/guides/capabilities/voice/voice-ai/) | Build real-time voice applications using a frame-based processing pipeline with STT, TTS, S2S, VAD, and pluggable transport layers |
+| [Multimodal](/docs/guides/capabilities/multimodal/multimodal-overview/) | Process images, audio, and video with multimodal language models for document intelligence, visual Q&A, and content analysis |

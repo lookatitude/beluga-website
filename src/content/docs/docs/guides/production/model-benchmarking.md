@@ -45,13 +45,13 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 )
 
 type BenchmarkSuite struct {
@@ -322,7 +322,7 @@ Track benchmark execution with OpenTelemetry:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel/attribute"
 )
 
@@ -367,6 +367,6 @@ After implementing model benchmarking, the platform achieved:
 
 ## Related Resources
 
-- [LLM Integration Guide](/docs/guides/llm-integration/) for multi-provider setup
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for multi-provider setup
 - [LLM Providers](/docs/reference/providers/llm/) for available provider options
-- [Observability Guide](/docs/guides/observability/) for metrics and tracing setup
+- [Observability Guide](/docs/guides/production/observability/) for metrics and tracing setup

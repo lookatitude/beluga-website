@@ -16,7 +16,7 @@ A configuration system that loads defaults from a JSON file, overrides values wi
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Understanding of Go struct tags
 
 ## Configuration Precedence
@@ -40,7 +40,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
+    "github.com/lookatitude/beluga-ai/v2/config"
 )
 
 type AppConfig struct {
@@ -172,5 +172,5 @@ if err := config.Validate(&cfg); err != nil {
 
 ## Next Steps
 
-- [Vault Integration](/docs/guides/foundations/vault-integration) — Dynamic secret loading from HashiCorp Vault
+- [Vault Integration](/docs/guides/production/integrations/vault-connector/) — Dynamic secret loading from HashiCorp Vault
 - [Health Checks](/docs/guides/foundations/health-checks) — Monitor service and provider health

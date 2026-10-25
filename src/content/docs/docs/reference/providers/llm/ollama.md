@@ -15,7 +15,7 @@ Choose Ollama for local development, offline environments, or when data privacy 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/ollama
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/ollama
 ```
 
 **Prerequisites:** Install and start Ollama, then pull a model:
@@ -52,10 +52,10 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/ollama"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/ollama"
 )
 
 func main() {
@@ -154,7 +154,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/ollama"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/ollama"
 
 model, err := ollama.New(config.ProviderConfig{
     Model: "llama3.2",

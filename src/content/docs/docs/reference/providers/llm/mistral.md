@@ -15,7 +15,7 @@ Choose Mistral when you need competitive model quality with European data reside
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/mistral
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/mistral
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/mistral"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/mistral"
 )
 
 func main() {
@@ -161,7 +161,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/mistral"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/mistral"
 
 model, err := mistral.New(config.ProviderConfig{
     Model:  "mistral-large-latest",

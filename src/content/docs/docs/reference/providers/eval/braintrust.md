@@ -15,7 +15,7 @@ Choose Braintrust when you want a managed evaluation platform with a dashboard f
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/eval/providers/braintrust
+go get github.com/lookatitude/beluga-ai/v2/eval/providers/braintrust
 ```
 
 ## Configuration
@@ -45,8 +45,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/eval"
-    "github.com/lookatitude/beluga-ai/eval/providers/braintrust"
+    "github.com/lookatitude/beluga-ai/v2/eval"
+    "github.com/lookatitude/beluga-ai/v2/eval/providers/braintrust"
 )
 
 func main() {

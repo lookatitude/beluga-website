@@ -32,7 +32,6 @@ import (
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/metric"
-    "go.opentelemetry.io/otel/trace"
 )
 
 var tracer = otel.Tracer("beluga.voice.s2s.metrics")
@@ -163,12 +162,12 @@ func (vm *VoiceMetrics) RecordSilenceDuration(ctx context.Context, duration time
 }
 
 // handleS2SAudio demonstrates metrics usage in an S2S audio handler.
-func handleS2SAudio(ctx context.Context, metrics *VoiceMetrics, audioData []byte, sessionID string) {
+func handleS2SAudio(ctx context.Context, vm *VoiceMetrics, audioData []byte, sessionID string) {
     ctx, span := tracer.Start(ctx, "s2s.handle_audio")
     defer span.End()
 
-    metrics.RecordAudioChunk(ctx, int64(len(audioData)), sessionID)
-    metrics.RecordAudioBuffer(ctx, int64(len(audioData)), sessionID)
+    vm.RecordAudioChunk(ctx, int64(len(audioData)), sessionID)
+    vm.RecordAudioBuffer(ctx, int64(len(audioData)), sessionID)
 
     // ... process audio ...
 
@@ -238,4 +237,4 @@ func (vm *VoiceMetrics) RecordAudioChunkIfEnabled(ctx context.Context, enabled b
 
 ## Related Recipes
 
-- [Trace Aggregation for Multi-Agents](/docs/recipes/trace-aggregation) — Aggregate traces across agents
+- [Trace Aggregation for Multi-Agents](/docs/recipes/infrastructure/trace-aggregation/) — Aggregate traces across agents

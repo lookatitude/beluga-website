@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/splitter"
+import "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 ```
 
 Package splitter provides text splitting capabilities for the RAG pipeline.
@@ -36,7 +36,7 @@ The package follows Beluga's registry pattern. Implementations register via
 init() and are instantiated with `New`:
 
 ```go
-import "github.com/lookatitude/beluga-ai/config"
+import "github.com/lookatitude/beluga-ai/v2/config"
 
 s, err := splitter.New("recursive", config.ProviderConfig{
     Options: map[string]any{"chunk_size": 1000, "chunk_overlap": 200},

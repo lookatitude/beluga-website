@@ -35,7 +35,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.messaging.media")
@@ -70,7 +70,7 @@ func (mh *MediaHandler) DownloadMedia(ctx context.Context, mediaSID string, medi
     file, err := os.Create(tempFile)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return "", fmt.Errorf("failed to create temp file: %w", err)
     }
     defer file.Close()
@@ -78,14 +78,14 @@ func (mh *MediaHandler) DownloadMedia(ctx context.Context, mediaSID string, medi
     req, err := http.NewRequestWithContext(ctx, "GET", mediaURL, nil)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return "", err
     }
 
     resp, err := mh.downloadClient.Do(req)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return "", fmt.Errorf("failed to download: %w", err)
     }
     defer resp.Body.Close()
@@ -93,18 +93,18 @@ func (mh *MediaHandler) DownloadMedia(ctx context.Context, mediaSID string, medi
     if resp.StatusCode != http.StatusOK {
         err := fmt.Errorf("unexpected status: %d", resp.StatusCode)
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return "", err
     }
 
     if _, err = io.Copy(file, resp.Body); err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return "", fmt.Errorf("failed to save: %w", err)
     }
 
     span.SetAttributes(attribute.String("temp_file", tempFile))
-    span.SetStatus(trace.StatusOK, "media downloaded")
+    span.SetStatus(codes.Ok, "media downloaded")
 
     return tempFile, nil
 }
@@ -207,5 +207,5 @@ type CachedMediaHandler struct {
 
 ## Related Recipes
 
-- [Conversation Expiry Logic](/docs/recipes/conversation-expiry) -- Manage conversation lifecycle
-- [Memory TTL and Cleanup](/docs/recipes/memory-ttl-cleanup) -- Automatic resource cleanup strategies
+- [Conversation Expiry Logic](/docs/recipes/memory/conversation-expiry/) -- Manage conversation lifecycle
+- [Memory TTL and Cleanup](/docs/recipes/memory/memory-ttl-cleanup/) -- Automatic resource cleanup strategies

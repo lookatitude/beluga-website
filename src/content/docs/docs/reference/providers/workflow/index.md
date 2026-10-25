@@ -72,10 +72,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
 
     // Register the executor provider via blank import
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )
 
 func main() {
@@ -129,8 +129,8 @@ Beluga provides a built-in `DefaultExecutor` that runs workflows in goroutines w
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/workflow"
-    "github.com/lookatitude/beluga-ai/workflow/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow/providers/inmemory"
 )
 
 store := inmemory.New()
@@ -221,12 +221,20 @@ Beluga provides factory functions for common activity patterns:
 ```go
 // LLM-powered activity
 llmAct := workflow.LLMActivity(func(ctx context.Context, prompt string) (string, error) {
-    return model.Generate(ctx, prompt)
+    resp, err := model.Generate(ctx, []schema.Message{schema.NewHumanMessage(prompt)})
+    if err != nil {
+        return "", err
+    }
+    return resp.Text(), nil
 })
 
 // Tool execution activity
 toolAct := workflow.ToolActivity(func(ctx context.Context, name string, args map[string]any) (any, error) {
-    return registry.Execute(ctx, name, args)
+    t, err := toolRegistry.Get(name) // a *tool.Registry
+    if err != nil {
+        return nil, err
+    }
+    return t.Execute(ctx, args)
 })
 
 // Human-in-the-loop activity

@@ -16,8 +16,8 @@ JSON Schema validation is useful for verifying that data entering or leaving you
 
 ## Prerequisites
 
-- Go 1.23 or later
-- Beluga AI framework installed (`github.com/lookatitude/beluga-ai`)
+- Go 1.26 or later
+- Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - Familiarity with JSON Schema format (draft-07 or later)
 
 ## Installation
@@ -50,7 +50,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -190,7 +190,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 const documentSchema = `{
@@ -222,14 +222,14 @@ func main() {
 	}
 
 	doc := schema.Document{
-		PageContent: "Beluga AI is a Go-native agentic framework.",
+		Content: "Beluga AI is a Go-native agentic framework.",
 		Metadata: map[string]any{
 			"source": "docs",
 		},
 	}
 
 	dto := documentDTO{
-		PageContent: doc.PageContent,
+		PageContent: doc.Content,
 		Metadata:    doc.Metadata,
 	}
 
@@ -371,5 +371,5 @@ Required fields declared in the schema are missing from the data. Ensure all req
 ## Related Resources
 
 - [Go Struct Bridge](/docs/guides/production/integrations/go-struct-bridge/) -- Cross-language data exchange with Pydantic
-- [Schema Package](/docs/reference/api/schema/) -- Core message and document types
-- [Guard Pipeline](/docs/guides/safety-guards/) -- Safety pipeline integration
+- [Schema Package](/docs/reference/api/foundation/schema/) -- Core message and document types
+- [Guard Pipeline](/docs/guides/production/safety-and-guards/) -- Safety pipeline integration

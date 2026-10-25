@@ -24,7 +24,7 @@ Key benefits:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI project initialized with `go mod init`
 - An AWS account with Bedrock access enabled
 - AWS credentials configured (IAM role, environment variables, or AWS config file)
@@ -35,7 +35,7 @@ Key benefits:
 Install the Bedrock provider and AWS SDK dependencies:
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/bedrock
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock
 ```
 
 Configure AWS credentials using one of the standard methods:
@@ -65,10 +65,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -181,10 +181,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -252,16 +252,22 @@ model, err := llm.New("bedrock", config.ProviderConfig{
 
 ### LLM Router with Bedrock
 
-Use Beluga's LLM Router to route between Bedrock models based on cost, latency, or capability:
+Use Beluga's LLM router to spread load across Bedrock models, or fail over from one model to another. `llm.NewRouter` picks a model per request with a `llm.ModelSelector` (built-ins: `RoundRobin` and `FailoverChain`; implement `Select` yourself for cost- or capability-based routing). `llm.NewFailoverRouter` tries each model in order until one succeeds:
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm"
+import "github.com/lookatitude/beluga-ai/v2/llm"
 
+// Round-robin between two Bedrock models.
 router := llm.NewRouter(
-	llm.Route("complex", complexModel),
-	llm.Route("simple", simpleModel),
+	llm.WithModels(sonnetModel, haikuModel),
+	llm.WithStrategy(&llm.RoundRobin{}),
 )
+
+// Or: primary model with automatic failover to a cheaper one.
+failover := llm.NewFailoverRouter(sonnetModel, haikuModel)
 ```
+
+Both routers implement `llm.ChatModel`, so they can be passed anywhere a model is expected.
 
 ## Configuration Reference
 
@@ -296,6 +302,6 @@ Temporary AWS credentials (from STS or instance profiles) have expired. Refresh 
 
 ## Related Resources
 
-- [LLM Providers Overview](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
+- [LLM Providers Overview](/docs/reference/providers/llm/) -- All supported LLM providers
 - [Anthropic Claude Enterprise](/docs/guides/production/integrations/anthropic-enterprise) -- Direct Anthropic API access
-- [Resilience Package](/docs/guides/resilience) -- Retry and circuit breaker patterns
+- [Resilience Package](/docs/guides/production/resilience/) -- Retry and circuit breaker patterns

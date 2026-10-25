@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 ```
 
 Package tool provides the tool system for the Beluga AI framework.
@@ -47,7 +47,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 type SearchInput struct {
@@ -58,7 +58,7 @@ type SearchInput struct {
 func main() {
     search := tool.NewFuncTool("search", "Search the web",
         func(ctx context.Context, input SearchInput) (*tool.Result, error) {
-            results := doSearch(ctx, input.Query, input.Limit)
+            results := fmt.Sprintf("top %d results for %q", input.Limit, input.Query)
             return tool.TextResult(results), nil
         },
     )
@@ -112,15 +112,21 @@ def := tool.ToDefinition(myTool) // returns schema.ToolDefinition
 package main
 
 import (
+    "context"
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
     reg := tool.NewRegistry()
 
+    search := tool.NewFuncTool("search", "Search the web",
+        func(ctx context.Context, input struct{ Query string `json:"query"` }) (*tool.Result, error) {
+            return tool.TextResult("results for " + input.Query), nil
+        },
+    )
     if err := reg.Add(search); err != nil {
         log.Fatal(err)
     }
@@ -134,6 +140,7 @@ func main() {
     names := reg.List()       // sorted tool names
     all := reg.All()          // sorted tool instances
     defs := reg.Definitions() // []map[string]any for each tool
+    fmt.Println(len(names), len(all), len(defs))
 }
 ```
 
@@ -165,7 +172,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -232,7 +239,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -277,12 +284,11 @@ Applied via `ApplyMiddleware`. The first middleware in the list is the
 outermost wrapper and executes first:
 
 ```go
-package main
-
+package example
 import (
     "time"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func withResilience(t tool.Tool) tool.Tool {
@@ -300,13 +306,12 @@ optional; nil hooks are skipped. Compose multiple `Hooks` values with
 `ComposeHooks`, or wrap a tool with `WithHooks`:
 
 ```go
-package main
-
+package example
 import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func withLogging(t tool.Tool) tool.Tool {

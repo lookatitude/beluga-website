@@ -1,6 +1,6 @@
 ---
 title: Orchestration & Workflows
-description: "Coordinate agents with sequential pipelines, parallel fan-out, LLM-driven handoffs, supervisor delegation, and durable workflow execution with checkpointing."
+description: "Coordinate agents with sequential pipelines, parallel fan-out, LLM-driven handoffs, supervisor delegation, and workflow execution with activity retries, signals, and pluggable durable backends."
 head:
   - tag: meta
     attrs:
@@ -8,7 +8,7 @@ head:
       content: "Beluga AI, Go, orchestration, workflows, sequential agent, parallel, handoffs, durable execution"
 ---
 
-Beluga provides multiple orchestration patterns for coordinating agents, each designed for a specific type of coordination problem. Deterministic patterns (sequential, parallel, loop) provide predictable execution when you know the steps in advance. LLM-driven patterns (handoffs, supervisor) enable dynamic routing when the execution path depends on the input. Durable workflows add persistence and resumability for long-running processes that must survive restarts.
+Beluga provides multiple orchestration patterns for coordinating agents, each designed for a specific type of coordination problem. Deterministic patterns (sequential, parallel, loop) provide predictable execution when you know the steps in advance. LLM-driven patterns (handoffs, supervisor) enable dynamic routing when the execution path depends on the input. Workflows add activity retries, timeouts, and signals for long-running processes; run them on a durable provider such as Temporal when they must survive restarts.
 
 Choosing the right pattern depends on two questions: Does the execution path change based on input? And does the workflow need to survive process restarts? The decision table at the end of this guide maps common scenarios to recommended patterns.
 
@@ -22,8 +22,8 @@ Sequential agents run a series of agents in order, passing the output of each as
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/agent/workflow"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/agent/workflow"
 )
 
 researcher := agent.New("researcher",
@@ -148,7 +148,9 @@ handoff := agent.Handoff{
 	TargetAgent: premiumAgent,
 	Description: "Transfer to premium support",
 	IsEnabled: func(ctx context.Context) bool {
-		user := auth.UserFromContext(ctx)
+		// userFromContext is your application's helper that reads the
+		// authenticated user your middleware stored in ctx.
+		user := userFromContext(ctx)
 		return user != nil && user.Tier == "premium"
 	},
 	OnHandoff: func(ctx context.Context) error {
@@ -198,71 +200,85 @@ supervisor := agent.New("supervisor",
 
 ## Event Bus
 
-The agent `EventBus` enables decoupled, asynchronous communication between agents. Instead of direct invocations, agents publish events to named topics and subscribe to the topics they care about. This pattern supports reactive architectures where adding a new agent requires only subscribing to existing topics, with no changes to publishers.
+The agent `EventBus` interface (with the in-process `InMemoryBus` implementation) enables decoupled, asynchronous communication between agents. Instead of direct invocations, agents publish events to named topics and subscribe to the topics they care about. This pattern supports reactive architectures where adding a new agent requires only subscribing to existing topics, with no changes to publishers.
 
 The tradeoff is reduced visibility into the overall workflow: since there is no central orchestrator, you must rely on event tracing and correlation IDs to reconstruct the execution path.
 
 ```go
-bus := agent.NewEventBus()
+bus := agent.NewInMemoryBus()
 
 // Subscribe to events
-bus.Subscribe("task.complete", func(event agent.BusEvent) {
-	log.Printf("Task completed: %s", event.Data)
+sub, err := bus.Subscribe(ctx, "task.complete", func(event agent.AgentEvent) {
+	log.Printf("Task completed by %s: %v", event.SourceID, event.Payload)
 })
+if err != nil {
+	return err
+}
+defer sub.Unsubscribe()
 
 // Publish events from agents
-bus.Publish(agent.BusEvent{
-	Topic:   "task.complete",
-	AgentID: "researcher",
-	Data:    "Research phase finished",
-})
+if err := bus.Publish(ctx, "task.complete", agent.AgentEvent{
+	Type:      "task.complete",
+	SourceID:  "researcher",
+	Payload:   "Research phase finished",
+	Timestamp: time.Now(),
+}); err != nil {
+	return err
+}
 ```
 
 ## Durable Workflows
 
-The `workflow` package provides Beluga's own durable execution engine for long-running, resumable workflows. The framework owns this engine rather than defaulting to an external system like Temporal, because most agent workflows do not need the complexity of a distributed orchestration platform. For simple to moderate workflows, an embedded engine with persistent checkpointing avoids the operational overhead of deploying and maintaining external infrastructure.
-
-For teams that need Temporal's advanced features (versioning, cross-language workers, large-scale fan-out), Temporal is available as a provider option. The workflow abstraction is the same either way: define steps, connect them, and let the engine handle persistence and resumability.
+The `workflow` package provides a workflow engine for long-running, signal-driven work. A workflow is a plain Go function that receives a `workflow.WorkflowContext`; each unit of work runs as an activity through `ExecuteActivity`, with optional per-activity retry and timeout. The built-in `DefaultExecutor` runs workflows in-process, and external providers (Temporal, Dapr, Inngest, Kafka, NATS) plug in through the same `workflow.DurableExecutor` interface via the registry.
 
 ```go
-import "github.com/lookatitude/beluga-ai/workflow"
-
-// Define workflow steps
-wf := workflow.New("document-processing",
-	workflow.Step("ingest", func(ctx workflow.Context, input string) (string, error) {
-		// Load and validate documents
-		return "documents loaded", nil
-	}),
-	workflow.Step("process", func(ctx workflow.Context, input string) (string, error) {
-		// Process with AI
-		return "documents processed", nil
-	}),
-	workflow.Step("publish", func(ctx workflow.Context, input string) (string, error) {
-		// Publish results
-		return "published", nil
-	}),
+import (
+	"github.com/lookatitude/beluga-ai/v2/workflow"
+	"github.com/lookatitude/beluga-ai/v2/workflow/providers/inmemory"
 )
 
-// Run with automatic checkpointing
-engine := workflow.NewEngine(workflow.EngineConfig{
-	Store: workflowStore, // Persistent state store
-})
+// Each step is an activity: func(ctx context.Context, input any) (any, error)
+func ingest(ctx context.Context, input any) (any, error)  { return "documents loaded", nil }
+func process(ctx context.Context, input any) (any, error) { return "documents processed", nil }
+func publish(ctx context.Context, input any) (any, error) { return "published", nil }
 
-result, err := engine.Execute(ctx, wf, "start processing")
+func DocumentProcessing(ctx workflow.WorkflowContext, input any) (any, error) {
+	retry := workflow.WithActivityRetry(workflow.DefaultRetryPolicy())
+	out := input
+	for _, step := range []workflow.ActivityFunc{ingest, process, publish} {
+		var err error
+		out, err = ctx.ExecuteActivity(step, out, retry, workflow.WithActivityTimeout(2*time.Minute))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+executor := workflow.NewExecutor(workflow.WithStore(inmemory.New()))
+
+handle, err := executor.Execute(ctx, DocumentProcessing, workflow.WorkflowOptions{
+	ID:      "document-processing-42",
+	Input:   "start processing",
+	Timeout: 30 * time.Minute,
+})
+if err != nil {
+	return err
+}
+result, err := handle.Result(ctx)
 ```
 
-### Durable Execution Features
-
-The engine persists workflow state after each step completes. If the process crashes mid-workflow, restarting it resumes from the last successful checkpoint rather than replaying the entire workflow. This is particularly important for AI workflows where individual steps may involve expensive LLM calls that should not be repeated unnecessarily.
+### Execution Features
 
 | Feature | Description |
 |---------|-------------|
-| **Checkpointing** | State persisted after each step |
-| **Resumability** | Resume from last checkpoint after failure |
-| **Timeouts** | Per-step and total workflow timeouts |
-| **Retries** | Configurable retry with backoff |
-| **Signals** | External events trigger workflow transitions |
-| **Timers** | Schedule future actions within workflows |
+| **Retries** | Per-activity retry with exponential backoff (`WithActivityRetry`) |
+| **Timeouts** | Per-activity (`WithActivityTimeout`) and whole-workflow (`WorkflowOptions.Timeout`) |
+| **Signals** | External events delivered with `executor.Signal` and consumed with `ctx.ReceiveSignal` |
+| **Timers** | `ctx.Sleep` inside workflows |
+| **State store** | Workflow state saved to the configured `WorkflowStore` |
+
+The built-in executor saves workflow state when a run starts and when it finishes; it does not yet replay recorded activity results after a process crash. If a workflow must survive restarts mid-run without repeating expensive LLM calls, run it on a durable provider such as Temporal (`workflow.New("temporal", ...)`).
 
 ## Streaming Across Orchestration
 
@@ -297,11 +313,11 @@ Use this table to match your coordination requirements to the appropriate patter
 | **Loop** | Condition-based | Iterative refinement until a quality threshold is met |
 | **Handoff** | LLM-driven | Dynamic routing to specialists based on conversational context |
 | **Supervisor** | LLM-driven | Complex goals requiring decomposition, delegation, and synthesis |
-| **Durable Workflow** | Deterministic | Long-running processes that must survive restarts with checkpointed state |
+| **Durable Workflow** | Deterministic | Long-running, signal-driven processes (use a durable provider such as Temporal to survive restarts) |
 
 ## Next Steps
 
-- [Building Your First Agent](/docs/guides/first-agent/) — Single agent fundamentals
-- [Tools & MCP](/docs/guides/tools-and-mcp/) — Tool system for agents
+- [Building Your First Agent](/docs/guides/foundations/first-agent/) — Single agent fundamentals
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) — Tool system for agents
 - [Safety & Guards](/docs/guides/production/safety-and-guards/) — Guard multi-agent systems
 - [Deploying to Production](/docs/guides/production/deployment/) — Production orchestration

@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/runtime"
+import "github.com/lookatitude/beluga-ai/v2/runtime"
 ```
 
 Package runtime provides the lifecycle management layer for individual agents
@@ -29,8 +29,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/runtime"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/runtime"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 runner := runtime.NewRunner(myAgent,
@@ -113,9 +113,9 @@ import (
     "context"
     "log/slog"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/runtime"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/runtime"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type LoggingPlugin struct{}
@@ -210,7 +210,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/runtime"
+    "github.com/lookatitude/beluga-ai/v2/runtime"
 )
 
 team := runtime.NewTeam(

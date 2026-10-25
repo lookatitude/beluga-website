@@ -86,23 +86,23 @@ func TestAgent(t *testing.T) {
 
 ## Using Mocks
 
-Every public interface in Beluga AI has a corresponding mock in `internal/testutil/`. Use these shared mocks in your tests instead of creating ad-hoc implementations. This ensures consistent test behavior across the codebase and reduces the maintenance burden of keeping multiple mock implementations in sync with interface changes:
+Every public interface in Beluga AI has a corresponding mock under `internal/testutil/` (`mockllm`, `mockembedder`, `mockstore`, `mockmemory`, `mocktool`, `mockworkflow`, `mocktelephony`). Use these shared mocks in your tests instead of creating ad-hoc implementations. This ensures consistent test behavior across the codebase and reduces the maintenance burden of keeping multiple mock implementations in sync with interface changes:
 
 ```go
-import "github.com/lookatitude/beluga-ai/internal/testutil"
+import (
+    "context"
+    "testing"
+
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/internal/testutil/mockllm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+)
 
 func TestAgentWithMockModel(t *testing.T) {
-    mock := &testutil.MockChatModel{
-        GenerateFunc: func(ctx context.Context, msgs []schema.Message, opts ...llm.Option) (*schema.Message, error) {
-            return &schema.Message{
-                Role:    schema.RoleAssistant,
-                Content: "Hello from mock!",
-            }, nil
-        },
-    }
+    mock := mockllm.New(mockllm.WithResponse(schema.NewAIMessage("Hello from mock!")))
 
-    a := agent.New("test-agent", agent.WithModel(mock))
-    result, err := a.Run(context.Background(), "Hi")
+    a := agent.New("test-agent", agent.WithLLM(mock))
+    result, err := a.Invoke(context.Background(), "Hi")
     if err != nil {
         t.Fatal(err)
     }
@@ -147,7 +147,7 @@ Fuzz tests help find edge cases and unexpected inputs that table-driven tests mi
 make fuzz
 
 # Run a specific fuzz test
-go test -fuzz=FuzzParseMessage ./schema/...
+go test -fuzz=FuzzToolCallJSON ./schema/...
 ```
 
 ### Naming Convention
@@ -155,17 +155,16 @@ go test -fuzz=FuzzParseMessage ./schema/...
 Fuzz test functions must start with `Fuzz`:
 
 ```go
-func FuzzParseMessage(f *testing.F) {
-    f.Add([]byte(`{"role":"user","content":"hello"}`))
+func FuzzToolCallJSON(f *testing.F) {
+    f.Add([]byte(`{"ID":"call_1","Name":"search","Arguments":"{}"}`))
 
     f.Fuzz(func(t *testing.T, data []byte) {
-        msg, err := schema.ParseMessage(data)
-        if err != nil {
+        var call schema.ToolCall
+        if err := json.Unmarshal(data, &call); err != nil {
             return // invalid input is fine
         }
-        // If parsing succeeds, re-marshaling should not fail
-        _, err = json.Marshal(msg)
-        if err != nil {
+        // If decoding succeeds, re-marshaling should not fail
+        if _, err := json.Marshal(call); err != nil {
             t.Errorf("re-marshal failed: %v", err)
         }
     })
@@ -222,8 +221,8 @@ Coverage reports are generated in CI and included in PR checks.
 Testing `iter.Seq2` based streaming requires collecting events into a slice before making assertions. The `collectEvents` helper function below is the standard pattern used throughout the test suite. This pattern converts the push-based iterator into a collected slice that you can assert on with standard Go testing tools:
 
 ```go
-func collectEvents(seq iter.Seq2[schema.Event, error]) ([]schema.Event, error) {
-    var events []schema.Event
+func collectEvents(seq iter.Seq2[agent.Event, error]) ([]agent.Event, error) {
+    var events []agent.Event
     for event, err := range seq {
         if err != nil {
             return events, err

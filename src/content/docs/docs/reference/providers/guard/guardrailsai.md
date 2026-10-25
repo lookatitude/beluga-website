@@ -15,7 +15,7 @@ Choose Guardrails AI when you need a modular validation system with composable v
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/guard/providers/guardrailsai
+go get github.com/lookatitude/beluga-ai/v2/guard/providers/guardrailsai
 ```
 
 ## Quick Start
@@ -27,10 +27,9 @@ import (
     "context"
     "fmt"
     "log"
-    "os"
 
-    "github.com/lookatitude/beluga-ai/guard"
-    "github.com/lookatitude/beluga-ai/guard/providers/guardrailsai"
+    "github.com/lookatitude/beluga-ai/v2/guard"
+    "github.com/lookatitude/beluga-ai/v2/guard/providers/guardrailsai"
 )
 
 func main() {

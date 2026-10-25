@@ -34,10 +34,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -105,7 +105,7 @@ persona := agent.Persona{
 Tools give your agent the ability to interact with the outside world — querying APIs, reading databases, performing calculations, or any other side effect. `FuncTool` wraps any Go function into a tool that the agent can call. The function's input struct defines the tool's parameter schema: struct tags specify JSON field names, descriptions, and validation constraints. Beluga generates the JSON Schema automatically from these tags, so the LLM sees a properly documented schema and can decide when and how to invoke the tool.
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 
 type WeatherInput struct {
 	City string `json:"city" description:"City name" required:"true"`
@@ -257,15 +257,15 @@ Hooks provide observation and control points at each phase of agent execution wi
 a := agent.New("monitored",
 	agent.WithLLM(model),
 	agent.WithHooks(agent.Hooks{
-		OnStart: func(ctx context.Context, input any) error {
-			log.Printf("Agent started with: %v", input)
+		OnStart: func(ctx context.Context, input string) error {
+			log.Printf("Agent started with: %s", input)
 			return nil
 		},
-		OnEnd: func(ctx context.Context, result any, err error) {
-			log.Printf("Agent finished: result=%v, err=%v", result, err)
+		OnEnd: func(ctx context.Context, result string, err error) {
+			log.Printf("Agent finished: result=%s, err=%v", result, err)
 		},
-		OnToolCall: func(ctx context.Context, call any) error {
-			log.Printf("Tool call: %v", call)
+		OnToolCall: func(ctx context.Context, call agent.ToolCallInfo) error {
+			log.Printf("Tool call: %s(%s)", call.Name, call.Arguments)
 			return nil
 		},
 		OnError: func(ctx context.Context, err error) error {
@@ -306,11 +306,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/tool"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/tool"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 type SearchInput struct {
@@ -379,6 +379,6 @@ func main() {
 ## Next Steps
 
 - [Working with LLMs](/docs/guides/foundations/working-with-llms/) — Deep dive into the ChatModel interface
-- [Tools & MCP](/docs/guides/tools-and-mcp/) — Advanced tool patterns and MCP integration
-- [Orchestration & Workflows](/docs/guides/orchestration/) — Multi-agent coordination
-- [Memory System](/docs/guides/memory-system/) — Persistent agent memory
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) — Advanced tool patterns and MCP integration
+- [Orchestration & Workflows](/docs/guides/production/orchestration/) — Multi-agent coordination
+- [Memory System](/docs/guides/capabilities/memory/memory-system/) — Persistent agent memory

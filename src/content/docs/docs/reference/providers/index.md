@@ -10,7 +10,7 @@ head:
 
 Beluga AI v2 ships with 108 provider implementations across 15 categories. Every provider follows the same registry pattern: import the package, and it auto-registers via `init()`. Switch between providers by changing an import path and configuration — no code changes required.
 
-Each provider page documents configuration options, code examples, and guidance on when to choose that provider. All examples use the `github.com/lookatitude/beluga-ai` module path and handle errors explicitly.
+Each provider page documents configuration options, code examples, and guidance on when to choose that provider. All examples use the `github.com/lookatitude/beluga-ai/v2` module path and handle errors explicitly.
 
 ## Provider Categories
 
@@ -23,14 +23,15 @@ Each provider page documents configuration options, code examples, and guidance 
 | [Document Loader](./loader/) | 8 | `loader.DocumentLoader` | Cloud storage, Confluence, Firecrawl, Google Drive, GitHub, Notion |
 | [Guard](./guard/) | 5 | `guard.Guard` | Azure Safety, Guardrails AI, Lakera, LLM Guard, NeMo |
 | [Evaluation](./eval/) | 3 | `eval.Metric` | Braintrust, DeepEval, RAGAS |
-| [Observability](./observability/) | 4 | `o11y.TracerProvider` | Langfuse, LangSmith, Opik, Phoenix |
-| [Workflow](./workflow/) | 6 | `workflow.Engine` | Dapr, In-memory, Inngest, Kafka, NATS, Temporal |
-| [Transport](./transport/) | 3 | `transport.Transport` | Daily, LiveKit, Pipecat |
-| [VAD](./vad/) | 2 | `vad.Detector` | Silero, WebRTC |
-| [Cache](./cache/) | 1 | `cache.Store` | In-memory |
+| [Observability](./observability/) | 4 | `o11y.TraceExporter` | Langfuse, LangSmith, Opik, Phoenix |
+| [Workflow](./workflow/) | 6 | `workflow.DurableExecutor` | Dapr, In-memory, Inngest, Kafka, NATS, Temporal |
+| [Transport](./transport/) | 3 | `transport.AudioTransport` | Daily, LiveKit, Pipecat (adapters not yet functional; use the built-in WebSocket transport) |
+| [VAD](./vad/) | 2 | `voice.ActivityDetector` | Silero, WebRTC |
+| [Cache](./cache/) | 1 | `cache.Cache` | In-memory |
 | [State](./state/) | 1 | `state.Store` | In-memory |
-| [Prompt](./prompt/) | 1 | `prompt.Loader` | File-based |
+| [Prompt](./prompt/) | 1 | `prompt.PromptManager` | File-based |
 | [MCP](./mcp/) | 1 | MCP integration | Composio |
+| [Memory stores](/docs/reference/api/memory-rag/memory-stores/) | 8 | `memory.MessageStore` / `memory.GraphStore` | Postgres, Redis, MongoDB, SQLite, Dragonfly, Neo4j, Memgraph, In-memory (documented in the API reference) |
 
 ## Registry Pattern
 
@@ -38,10 +39,10 @@ Every provider category uses the same pattern:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"     // auto-registers
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"  // auto-registers
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"     // auto-registers
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"  // auto-registers
 )
 
 // Create by name

@@ -34,11 +34,11 @@ import (
     "net/http"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 type ChatRequest struct {
@@ -210,7 +210,7 @@ func main() {
 Create a multi-stage `Dockerfile` for a minimal production image. The multi-stage build compiles the Go binary in a full SDK image, then copies only the binary into a minimal Alpine image. `CGO_ENABLED=0` produces a statically linked binary that runs without libc dependencies. The `ca-certificates` package is required for HTTPS calls to LLM provider APIs.
 
 ```dockerfile
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download

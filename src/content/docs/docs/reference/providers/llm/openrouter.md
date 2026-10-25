@@ -15,7 +15,7 @@ Choose OpenRouter when you want to compare models across providers without manag
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/openrouter
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/openrouter
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openrouter"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openrouter"
 )
 
 func main() {
@@ -148,7 +148,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/openrouter"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/openrouter"
 
 model, err := openrouter.New(config.ProviderConfig{
     Model:  "anthropic/claude-sonnet-4-5-20250929",

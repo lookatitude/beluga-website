@@ -27,8 +27,8 @@ import (
     "text/template"
     "bytes"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 type MessageChainBuilder struct {
@@ -261,7 +261,7 @@ Static few-shot examples work when your use case is narrow, but they break down 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 )
 
 type ExampleSelector struct {

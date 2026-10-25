@@ -15,7 +15,7 @@ Choose Deepgram when you need real-time streaming STT with low latency and high 
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 ```
 
 The blank import registers the `"deepgram"` provider with the STT registry.
@@ -51,8 +51,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 func main() {
@@ -86,7 +86,7 @@ func main() {
 For compile-time type safety, use the provider package directly:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 
 engine, err := deepgram.New(stt.Config{
     Language:    "en",
@@ -137,7 +137,7 @@ for event, err := range engine.TranscribeStream(ctx, audioStream) {
 Wrap the engine as a `FrameProcessor` for use in a voice pipeline:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt"
 
 processor := stt.AsFrameProcessor(engine, stt.WithLanguage("en"))
 

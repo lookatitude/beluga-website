@@ -14,7 +14,7 @@ The challenge is not just storage but retrieval: a patient's 20-year medical his
 
 ## Solution Architecture
 
-Beluga AI's memory package combined with vector stores enables semantic retrieval of patient history. The architecture uses the MemGPT-inspired memory model: interactions are stored persistently in a vector store (archival memory) and indexed using embeddings for semantic search, while recent context stays in working memory for active conversations. This design means a query like "cardiac history" retrieves relevant entries even if the original notes used terms like "MI", "STEMI", or "troponin elevation". Access control integrates at the retrieval layer to enforce HIPAA requirements — every query is filtered by patient-provider authorization before results are returned.
+Beluga AI's embedders and vector stores enable semantic retrieval of patient history. Interactions are stored persistently in a vector store and indexed using embeddings for semantic search, with structured metadata (patient ID, type, provider) for exact filtering. If an assistant also needs conversation memory, the `memory` package's MemGPT-style tiers (`memory.NewArchival`, `memory.NewRecall`) can sit alongside this store. This design means a query like "cardiac history" retrieves relevant entries even if the original notes used terms like "MI", "STEMI", or "troponin elevation". Access control integrates at the retrieval layer to enforce HIPAA requirements — every query is filtered by patient-provider authorization before results are returned.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -41,51 +41,49 @@ Beluga AI's memory package combined with vector stores enables semantic retrieva
 The tracker maintains long-term patient history with semantic indexing:
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
+    "os"
+    "sort"
     "time"
 
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 type PatientHistoryTracker struct {
-    memory   memory.Memory
     embedder embedding.Embedder
     store    vectorstore.VectorStore
 }
 
 func NewPatientHistoryTracker(ctx context.Context) (*PatientHistoryTracker, error) {
-    embedder, err := embedding.New("openai", embedding.ProviderConfig{
-        Model: "text-embedding-3-large",
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-large",
     })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", vectorstore.ProviderConfig{
-        ConnectionString: "postgresql://localhost/patient_history",
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        // Require TLS to the database (sslmode=verify-full in production)
+        BaseURL: "postgresql://localhost/patient_history?sslmode=require",
+        Options: map[string]any{
+            "table":     "patient_history",
+            "dimension": float64(3072), // text-embedding-3-large
+        },
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
     }
 
-    // Use vector-backed memory for persistent, searchable history
-    mem := memory.NewVectorMemory(store,
-        memory.WithEmbedder(embedder),
-        memory.WithNamespace("patient_history"),
-    )
-
     return &PatientHistoryTracker{
-        memory:   mem,
         embedder: embedder,
         store:    store,
     }, nil
@@ -98,6 +96,7 @@ Each interaction is stored with both an embedding (for semantic search) and stru
 
 ```go
 type PatientInteraction struct {
+    ID         string
     PatientID  string
     Type       string // "visit", "diagnosis", "prescription", etc.
     Details    string
@@ -114,33 +113,25 @@ func (t *PatientHistoryTracker) RecordInteraction(ctx context.Context, interacti
     )
 
     // Generate embedding
-    embeddings, err := t.embedder.Embed(ctx, []string{historyText})
+    vec, err := t.embedder.EmbedSingle(ctx, historyText)
     if err != nil {
         return fmt.Errorf("embed interaction: %w", err)
     }
 
-    // Store with metadata
+    // Store with metadata used for exact filtering
     doc := schema.Document{
+        ID:      interaction.ID,
         Content: historyText,
-        Metadata: map[string]interface{}{
+        Metadata: map[string]any{
             "patient_id":  interaction.PatientID,
             "type":        interaction.Type,
             "provider_id": interaction.ProviderID,
-            "timestamp":   interaction.Timestamp,
+            "timestamp":   interaction.Timestamp.UTC().Format(time.RFC3339),
         },
     }
 
-    if err := t.store.Add(ctx, []schema.Document{doc}, [][]float64{embeddings[0]}); err != nil {
+    if err := t.store.Add(ctx, []schema.Document{doc}, [][]float32{vec}); err != nil {
         return fmt.Errorf("store interaction: %w", err)
-    }
-
-    // Also save to memory for conversation context
-    if err := t.memory.Save(ctx, []schema.Message{
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: historyText},
-        }},
-    }); err != nil {
-        return fmt.Errorf("save to memory: %w", err)
     }
 
     return nil
@@ -149,56 +140,48 @@ func (t *PatientHistoryTracker) RecordInteraction(ctx context.Context, interacti
 
 ### Retrieving History
 
-Retrieve patient history using semantic search:
+Retrieve patient history using semantic search, filtered to one patient with `vectorstore.WithFilter`:
 
 ```go
 type HistoryEntry struct {
     Content   string
-    Metadata  map[string]interface{}
+    Metadata  map[string]any
     Score     float64
     Timestamp time.Time
 }
 
+// GetHistory returns the topK entries for one patient that best match the
+// clinical question. Chronological "everything for this patient" listings
+// belong in your EHR database; the vector store answers relevance queries.
 func (t *PatientHistoryTracker) GetHistory(ctx context.Context, patientID, query string, topK int) ([]HistoryEntry, error) {
-    var results []schema.Document
-    var err error
+    queryVec, err := t.embedder.EmbedSingle(ctx, query)
+    if err != nil {
+        return nil, fmt.Errorf("embed query: %w", err)
+    }
 
-    if query != "" {
-        // Semantic search for specific query
-        queryEmbeddings, err := t.embedder.Embed(ctx, []string{query})
-        if err != nil {
-            return nil, fmt.Errorf("embed query: %w", err)
-        }
-
-        results, err = t.store.SimilaritySearch(ctx, queryEmbeddings[0],
-            vectorstore.WithTopK(topK),
-            vectorstore.WithMetadataFilter(map[string]interface{}{
-                "patient_id": patientID,
-            }),
-        )
-        if err != nil {
-            return nil, fmt.Errorf("similarity search: %w", err)
-        }
-    } else {
-        // Get all history for patient (chronological)
-        results, err = t.store.Filter(ctx,
-            vectorstore.WithMetadataFilter(map[string]interface{}{
-                "patient_id": patientID,
-            }),
-        )
-        if err != nil {
-            return nil, fmt.Errorf("filter by patient: %w", err)
-        }
+    // Semantic search restricted to this patient by metadata filter
+    results, err := t.store.Search(ctx, queryVec, topK,
+        vectorstore.WithFilter(map[string]any{
+            "patient_id": patientID,
+        }),
+    )
+    if err != nil {
+        return nil, fmt.Errorf("similarity search: %w", err)
     }
 
     // Convert to history entries
     entries := make([]HistoryEntry, len(results))
     for i, result := range results {
+        ts, _ := result.Metadata["timestamp"].(string)
+        when, err := time.Parse(time.RFC3339, ts)
+        if err != nil {
+            when = time.Time{} // unknown time sorts last
+        }
         entries[i] = HistoryEntry{
             Content:   result.Content,
             Metadata:  result.Metadata,
             Score:     result.Score,
-            Timestamp: result.Metadata["timestamp"].(time.Time),
+            Timestamp: when,
         }
     }
 
@@ -254,39 +237,37 @@ func (t *PatientHistoryTracker) auditLog(ctx context.Context, action, providerID
 
 ### Encryption
 
-Encrypt patient data at rest and in transit for HIPAA compliance:
+Encrypt patient data at rest and in transit for HIPAA compliance. Beluga AI's vector stores have no built-in encryption option, so use TLS to the database, encrypted volumes, and encrypt the stored text in the application:
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+// RecordEncrypted stores only ciphertext in the vector store's Content.
+// Beluga AI's vector stores do not encrypt content themselves:
+// combine TLS to the database, encrypted storage volumes, and
+// application-level encryption of the stored text.
+func (t *PatientHistoryTracker) RecordEncrypted(ctx context.Context, interaction PatientInteraction, encrypt func(string) (string, error)) error {
+    historyText := fmt.Sprintf("%s - %s: %s",
+        interaction.Type, interaction.Timestamp.Format("2006-01-02"), interaction.Details)
 
-func NewSecurePatientHistoryTracker(ctx context.Context, encryptionKey []byte) (*PatientHistoryTracker, error) {
-    embedder, err := embedding.New("openai", embedding.ProviderConfig{
-        Model: "text-embedding-3-large",
-    })
+    // Embed the plaintext (vectors are not reversible to the text, but
+    // treat them as sensitive too), then store only ciphertext as Content.
+    vec, err := t.embedder.EmbedSingle(ctx, historyText)
     if err != nil {
-        return nil, fmt.Errorf("create embedder: %w", err)
+        return fmt.Errorf("embed interaction: %w", err)
+    }
+    ciphertext, err := encrypt(historyText)
+    if err != nil {
+        return fmt.Errorf("encrypt interaction: %w", err)
     }
 
-    // Use encrypted vector store
-    store, err := vectorstore.New("pgvector", vectorstore.ProviderConfig{
-        ConnectionString: "postgresql://localhost/patient_history",
-        Encryption:       true,
-        EncryptionKey:    encryptionKey,
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create vector store: %w", err)
+    doc := schema.Document{
+        ID:      interaction.ID,
+        Content: ciphertext,
+        Metadata: map[string]any{
+            "patient_id": interaction.PatientID,
+            "timestamp":  interaction.Timestamp.UTC().Format(time.RFC3339),
+        },
     }
-
-    mem := memory.NewVectorMemory(store,
-        memory.WithEmbedder(embedder),
-        memory.WithNamespace("patient_history"),
-    )
-
-    return &PatientHistoryTracker{
-        memory:   mem,
-        embedder: embedder,
-        store:    store,
-    }, nil
+    return t.store.Add(ctx, []schema.Document{doc}, [][]float32{vec})
 }
 ```
 
@@ -295,18 +276,21 @@ func NewSecurePatientHistoryTracker(ctx context.Context, encryptionKey []byte) (
 Implement retention policies for regulatory compliance:
 
 ```go
+// PurgeOldRecords deletes entries past the retention period. VectorStore
+// deletes by document ID, so look the IDs up in your system of record
+// (idsOlderThan is your query against it).
 func (t *PatientHistoryTracker) PurgeOldRecords(ctx context.Context, retentionYears int) error {
     cutoff := time.Now().AddDate(-retentionYears, 0, 0)
 
-    // Delete records older than retention period
-    err := t.store.Delete(ctx,
-        vectorstore.WithMetadataFilter(map[string]interface{}{
-            "timestamp": map[string]interface{}{
-                "$lt": cutoff,
-            },
-        }),
-    )
+    ids, err := idsOlderThan(ctx, cutoff)
     if err != nil {
+        return fmt.Errorf("find expired records: %w", err)
+    }
+    if len(ids) == 0 {
+        return nil
+    }
+
+    if err := t.store.Delete(ctx, ids); err != nil {
         return fmt.Errorf("purge old records: %w", err)
     }
 
@@ -319,27 +303,23 @@ func (t *PatientHistoryTracker) PurgeOldRecords(ctx context.Context, retentionYe
 Track history access and performance for compliance and optimization:
 
 ```go
-import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "go.opentelemetry.io/otel/attribute"
-)
+import "github.com/lookatitude/beluga-ai/v2/o11y"
 
 func (t *PatientHistoryTracker) RecordInteractionWithTracing(ctx context.Context, interaction PatientInteraction) error {
-    ctx, span := o11y.StartSpan(ctx, "patient_history.record")
+    ctx, span := o11y.StartSpan(ctx, "patient_history.record", o11y.Attrs{
+        "patient_id":       interaction.PatientID,
+        "interaction_type": interaction.Type,
+        "provider_id":      interaction.ProviderID,
+    })
     defer span.End()
 
-    span.SetAttributes(
-        attribute.String("patient_id", interaction.PatientID),
-        attribute.String("interaction_type", interaction.Type),
-        attribute.String("provider_id", interaction.ProviderID),
-    )
-
-    err := t.RecordInteraction(ctx, interaction)
-    if err != nil {
+    if err := t.RecordInteraction(ctx, interaction); err != nil {
         span.RecordError(err)
+        span.SetStatus(o11y.StatusError, err.Error())
         return err
     }
 
+    span.SetStatus(o11y.StatusOK, "")
     return nil
 }
 ```
@@ -366,6 +346,6 @@ After implementing the patient history tracker, the provider achieved:
 
 ## Related Resources
 
-- [Memory Guide](/docs/guides/memory/) for persistent memory patterns
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for semantic search setup
-- [Security Guide](/docs/guides/security/) for HIPAA compliance and encryption
+- [Memory Guide](/docs/guides/capabilities/memory/memory-system/) for persistent memory patterns
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for semantic search setup
+- [Security Guide](/docs/guides/production/safety-and-guards/) for HIPAA compliance and encryption

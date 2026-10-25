@@ -30,13 +30,14 @@ import (
     "context"
     "fmt"
     "log"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -56,12 +57,14 @@ func main() {
     }
 
     fmt.Println("In-memory vector store initialized")
+
+    // Steps 2-4 continue inside main.
 }
 ```
 
 ## Step 2: Add Documents
 
-Create `schema.Document` objects with content and metadata, then add them to the store. Each document carries an embedding vector alongside its text content and metadata. The metadata fields (`source`, `topic`) enable filtering at query time, which narrows the search space before vector comparison and improves both relevance and performance.
+Create `schema.Document` objects with content and metadata, then add them to the store. `Add` takes the documents and their embedding vectors as two slices of the same length. The metadata fields (`source`, `topic`) enable filtering at query time, which narrows the search space before vector comparison and improves both relevance and performance.
 
 ```go
     // Define documents
@@ -83,20 +86,21 @@ Create `schema.Document` objects with content and metadata, then add them to the
         },
     }
 
-    // Embed and store documents
+    // Embed all documents in one batch call
+    texts := make([]string, len(docs))
     for i := range docs {
-        vec, err := embedder.EmbedQuery(ctx, docs[i].Content)
-        if err != nil {
-            log.Fatalf("embed doc %s: %v", docs[i].ID, err)
-        }
-        docs[i].Embedding = vec
+        texts[i] = docs[i].Content
+    }
+    vecs, err := embedder.Embed(ctx, texts)
+    if err != nil {
+        log.Fatalf("embed documents: %v", err)
     }
 
-    ids, err := store.AddDocuments(ctx, docs)
-    if err != nil {
+    // Add takes the documents and their vectors as parallel slices
+    if err := store.Add(ctx, docs, vecs); err != nil {
         log.Fatalf("add documents: %v", err)
     }
-    fmt.Printf("Indexed %d documents: %v\n", len(ids), ids)
+    fmt.Printf("Indexed %d documents\n", len(docs))
 ```
 
 ## Step 3: Similarity Search
@@ -105,12 +109,12 @@ Search for documents similar to a query. The store computes cosine similarity be
 
 ```go
     query := "marine mammals in cold waters"
-    queryVec, err := embedder.EmbedQuery(ctx, query)
+    queryVec, err := embedder.EmbedSingle(ctx, query)
     if err != nil {
         log.Fatalf("embed query: %v", err)
     }
 
-    results, err := store.SimilaritySearch(ctx, queryVec, 2)
+    results, err := store.Search(ctx, queryVec, 2)
     if err != nil {
         log.Fatalf("search: %v", err)
     }
@@ -127,11 +131,14 @@ Filter results by metadata before the vector comparison. Metadata filtering is a
 
 ```go
     // Search only within "programming" topic documents
-    results, err = store.SimilaritySearch(ctx, queryVec, 2,
+    results, err = store.Search(ctx, queryVec, 2,
         vectorstore.WithFilter(map[string]any{
             "topic": "programming",
         }),
     )
+    if err != nil {
+        log.Fatalf("filtered search: %v", err)
+    }
 ```
 
 ## When to Use In-memory vs. External Stores
@@ -152,13 +159,13 @@ Switching from in-memory to pgvector is a one-line change — replace the provid
 
 ```go
 // Development
-store, _ := vectorstore.New("inmemory", config.ProviderConfig{})
+store, err := vectorstore.New("inmemory", config.ProviderConfig{})
 
-// Production
-store, _ := vectorstore.New("pgvector", config.ProviderConfig{
+// Production (import _ ".../rag/vectorstore/providers/pgvector")
+store, err := vectorstore.New("pgvector", config.ProviderConfig{
+    BaseURL: os.Getenv("DATABASE_URL"), // postgres connection string
     Options: map[string]any{
-        "connection_string": os.Getenv("DATABASE_URL"),
-        "table_name":        "documents",
+        "table": "documents",
     },
 })
 ```

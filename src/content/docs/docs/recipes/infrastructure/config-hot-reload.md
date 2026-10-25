@@ -36,7 +36,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
+	"github.com/lookatitude/beluga-ai/v2/config"
 )
 
 // AppConfig is the application-specific configuration type.
@@ -213,4 +213,4 @@ type VersionedConfig[T any] struct {
 
 ## Related Recipes
 
-- **[Masking Secrets in Logs](./config-secret-masking)** — Log configuration values without leaking sensitive data
+- **[Masking Secrets in Logs](/docs/recipes/infrastructure/config-secret-masking/)** — Log configuration values without leaking sensitive data

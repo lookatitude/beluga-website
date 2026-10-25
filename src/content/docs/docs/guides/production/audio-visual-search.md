@@ -40,15 +40,14 @@ package main
 
 import (
     "context"
-    "encoding/base64"
     "fmt"
-    "io"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // ProductSearch handles multimodal product search
@@ -93,17 +92,17 @@ func (s *ProductSearch) SearchMultimodal(ctx context.Context, imageData []byte, 
 
     // Add image if provided
     if len(imageData) > 0 {
-        imageB64 := base64.StdEncoding.EncodeToString(imageData)
         parts = append(parts, schema.ImagePart{
-            URL: fmt.Sprintf("data:image/jpeg;base64,%s", imageB64),
+            Data:     imageData,
+            MimeType: "image/jpeg",
         })
     }
 
     // Add audio if provided (for voice description)
     if len(audioData) > 0 {
-        audioB64 := base64.StdEncoding.EncodeToString(audioData)
         parts = append(parts, schema.AudioPart{
-            URL: fmt.Sprintf("data:audio/mpeg;base64,%s", audioB64),
+            Data:   audioData,
+            Format: "mp3",
         })
     }
 
@@ -117,7 +116,7 @@ func (s *ProductSearch) SearchMultimodal(ctx context.Context, imageData []byte, 
         return nil, fmt.Errorf("multimodal generation failed: %w", err)
     }
 
-    description := resp.Parts[0].(schema.TextPart).Text
+    description := resp.Text()
 
     // Use description for similarity search
     return s.findSimilarProducts(ctx, description)
@@ -166,27 +165,31 @@ package main
 
 import (
     "context"
+    "fmt"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/whisper" // OpenAI Whisper API
 )
 
 // SearchByVoice searches using voice input
 func (s *ProductSearch) SearchByVoice(ctx context.Context, audioData []byte) ([]Product, error) {
     // Transcribe audio to text
-    sttModel, err := stt.New("openai", nil)
+    sttModel, err := stt.New("whisper", stt.Config{
+        Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
+    })
     if err != nil {
         return nil, err
     }
 
-    transcription, err := sttModel.Transcribe(ctx, audioData)
+    transcript, err := sttModel.Transcribe(ctx, audioData)
     if err != nil {
         return nil, fmt.Errorf("transcription failed: %w", err)
     }
 
     // Search using transcribed text
-    return s.SearchMultimodal(ctx, nil, nil, transcription.Text)
+    return s.SearchMultimodal(ctx, nil, nil, transcript)
 }
 ```
 
@@ -224,7 +227,10 @@ func (h *Handler) HandleImageSearch(w http.ResponseWriter, r *http.Request) {
     }
 
     // Return results
-    json.NewEncoder(w).Encode(products)
+    w.Header().Set("Content-Type", "application/json")
+    if err := json.NewEncoder(w).Encode(products); err != nil {
+        http.Error(w, "failed to encode results", http.StatusInternalServerError)
+    }
 }
 ```
 
@@ -244,8 +250,10 @@ func (c *EmbeddingCache) GetOrCompute(ctx context.Context, key string, computeFn
     cached, err := c.cache.Get(ctx, key).Result()
     if err == nil {
         var embedding []float64
-        json.Unmarshal([]byte(cached), &embedding)
-        return embedding, nil
+        if err := json.Unmarshal([]byte(cached), &embedding); err == nil {
+            return embedding, nil
+        }
+        // Corrupt cache entry: fall through and recompute.
     }
 
     // Compute and cache
@@ -254,8 +262,13 @@ func (c *EmbeddingCache) GetOrCompute(ctx context.Context, key string, computeFn
         return nil, err
     }
 
-    data, _ := json.Marshal(embedding)
-    c.cache.Set(ctx, key, data, 24*time.Hour)
+    data, err := json.Marshal(embedding)
+    if err != nil {
+        return nil, err
+    }
+    if err := c.cache.Set(ctx, key, data, 24*time.Hour).Err(); err != nil {
+        return nil, fmt.Errorf("cache embedding: %w", err)
+    }
 
     return embedding, nil
 }
@@ -295,17 +308,23 @@ func (s *ProductSearch) rankResults(products []Product, query string) []Product 
 
 ### Rate Limiting and Cost Control
 
-Limit expensive multimodal queries:
+Limit expensive multimodal queries. Create one `resilience.RateLimiter` and share it across requests (a limiter built per call never throttles anything):
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
+
+// Shared by every request: 10 queries per minute, at most 3 in flight.
+var searchLimiter = resilience.NewRateLimiter(resilience.ProviderLimits{
+    RPM:           10,
+    MaxConcurrent: 3,
+})
 
 func (s *ProductSearch) SearchWithRateLimit(ctx context.Context, imageData []byte, audioData []byte, textQuery string) ([]Product, error) {
-    limiter := resilience.NewRateLimiter(10, time.Minute)  // 10 queries/min
-
-    if err := limiter.Wait(ctx); err != nil {
-        return nil, fmt.Errorf("rate limit exceeded: %w", err)
+    // Allow blocks until a request slot is free or ctx is cancelled.
+    if err := searchLimiter.Allow(ctx); err != nil {
+        return nil, fmt.Errorf("rate limit: %w", err)
     }
+    defer searchLimiter.Release()
 
     return s.SearchMultimodal(ctx, imageData, audioData, textQuery)
 }
@@ -313,6 +332,6 @@ func (s *ProductSearch) SearchWithRateLimit(ctx context.Context, imageData []byt
 
 ## Related Resources
 
-- [Security Camera Analysis](/docs/guides/security-camera/) for video analysis patterns
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for semantic search setup
-- [LLM Integration Guide](/docs/guides/llm/) for multimodal model configuration
+- [Security Camera Analysis](/docs/guides/production/security-camera/) for video analysis patterns
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for semantic search setup
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for multimodal model configuration

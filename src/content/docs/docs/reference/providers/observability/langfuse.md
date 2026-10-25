@@ -15,7 +15,7 @@ Choose Langfuse when you want an open-source observability platform that can be 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/o11y/providers/langfuse
+go get github.com/lookatitude/beluga-ai/v2/o11y/providers/langfuse
 ```
 
 ## Configuration
@@ -45,8 +45,8 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/o11y"
-    "github.com/lookatitude/beluga-ai/o11y/providers/langfuse"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/langfuse"
 )
 
 func main() {
@@ -65,7 +65,7 @@ func main() {
         OutputTokens: 150,
         Duration:     1200 * time.Millisecond,
         Cost:         0.003,
-        Response:     "The capital of France is Paris.",
+        Response:     map[string]any{"role": "assistant", "content": "The capital of France is Paris."},
         Metadata: map[string]any{
             "user_id":    "user-123",
             "session_id": "sess-456",
@@ -95,9 +95,9 @@ Combine Langfuse with other observability providers:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "github.com/lookatitude/beluga-ai/o11y/providers/langfuse"
-    "github.com/lookatitude/beluga-ai/o11y/providers/phoenix"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/langfuse"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/phoenix"
 )
 
 lfExporter, err := langfuse.New(

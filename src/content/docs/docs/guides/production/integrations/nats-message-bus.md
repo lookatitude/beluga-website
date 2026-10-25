@@ -23,7 +23,7 @@ This integration uses the official NATS Go client to build a message bus that ag
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A running NATS server (local or remote)
 - Beluga AI framework installed
 
@@ -331,5 +331,5 @@ No subscribers are registered on the subject used with `Request`. Ensure the sub
 ## Related Resources
 
 - [Kubernetes Job Scheduler](/docs/guides/production/integrations/kubernetes-scheduler) -- Kubernetes workflow scheduling
-- [Infrastructure](/docs/guides/production/integrations/infrastructure) -- Infrastructure integration patterns
-- [Messaging Platforms](/docs/guides/production/integrations/messaging) -- Twilio, Slack, and custom messaging channels
+- [Infrastructure](/docs/guides/production/) -- Infrastructure integration patterns
+- [Messaging Platforms](/docs/guides/production/integrations/nats-message-bus/) -- Twilio, Slack, and custom messaging channels

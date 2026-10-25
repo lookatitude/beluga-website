@@ -64,13 +64,13 @@ Users install specific versions of Beluga AI using the standard Go module system
 
 ```bash
 # Install the latest release
-go get github.com/lookatitude/beluga-ai@latest
+go get github.com/lookatitude/beluga-ai/v2@latest
 
 # Install a specific version
-go get github.com/lookatitude/beluga-ai@v1.2.0
+go get github.com/lookatitude/beluga-ai/v2@v2.13.6
 
 # Update to the latest patch release
-go get -u github.com/lookatitude/beluga-ai
+go get -u github.com/lookatitude/beluga-ai/v2
 ```
 
 For major version 2 and above, the module path includes the major version suffix per Go module conventions:
@@ -89,12 +89,12 @@ Pre-release versions use standard SemVer suffixes to communicate stability expec
 | `-beta.N` | Beta | Feature-complete, API may have minor changes |
 | `-rc.N` | Release Candidate | Production-ready, final testing |
 
-**Examples:** `v1.0.0-alpha.1`, `v1.0.0-beta.3`, `v1.0.0-rc.1`
+**Examples:** `v2.14.0-alpha.1`, `v2.14.0-beta.3`, `v2.14.0-rc.1`
 
 Pre-releases are not installed by default with `@latest` — users must explicitly request them:
 
 ```bash
-go get github.com/lookatitude/beluga-ai@v1.0.0-rc.1
+go get github.com/lookatitude/beluga-ai/v2@v2.14.0-rc.1
 ```
 
 ## Who Can Release

@@ -64,8 +64,8 @@ On recovery, the worker replays the workflow from the start. For each already-co
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/workflow"
-    _ "github.com/lookatitude/beluga-ai/workflow/providers/temporal"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    _ "github.com/lookatitude/beluga-ai/v2/workflow/providers/temporal"
 )
 
 store, err := workflow.New("temporal", workflow.Config{

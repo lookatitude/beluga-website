@@ -32,10 +32,10 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.embeddings.batch")
@@ -155,11 +155,11 @@ func (be *BatchEmbedder) EmbedDocumentsBatch(ctx context.Context, documents []sc
     if len(errCh) > 0 {
         err := <-errCh
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, fmt.Errorf("batch embedding failed: %w", err)
     }
 
-    span.SetStatus(trace.StatusOK, "all batches embedded successfully")
+    span.SetStatus(codes.Ok, "all batches embedded successfully")
     return results, nil
 }
 
@@ -186,11 +186,11 @@ func (be *BatchEmbedder) embedBatch(ctx context.Context, texts []string) ([][]fl
     embeddings, err := be.embedder.Embed(ctx, texts)
     if err != nil {
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
 
-    span.SetStatus(trace.StatusOK, "batch embedded")
+    span.SetStatus(codes.Ok, "batch embedded")
     return embeddings, nil
 }
 
@@ -249,5 +249,5 @@ func (be *BatchEmbedder) embedBatchWithRetry(ctx context.Context, texts []string
 
 ## Related Recipes
 
-- [Metadata-Aware Clustering](/docs/recipes/metadata-clustering) -- Cluster embeddings with metadata constraints
-- [Advanced Metadata Filtering](/docs/recipes/meta-filtering) -- Filter vector store results with metadata
+- [Metadata-Aware Clustering](/docs/recipes/rag/metadata-clustering/) -- Cluster embeddings with metadata constraints
+- [Advanced Metadata Filtering](/docs/recipes/rag/meta-filtering/) -- Filter vector store results with metadata

@@ -135,8 +135,8 @@ Start with Supervisor or Handoff. Use Scatter-Gather only when the agents genuin
 
 ## Related
 
-- [Orchestration Patterns (DOC-07)](../../../../../../architecture/07-orchestration-patterns.md)
-- [Agent Anatomy (DOC-05)](../../../../../../architecture/05-agent-anatomy.md)
+- [Orchestration Patterns (DOC-07)](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/07-orchestration-patterns.md)
+- [Agent Anatomy (DOC-05)](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/05-agent-anatomy.md)
 - [Multi-Agent Team guide](../agents/)
 
 TODO: expand this guide with code examples for each pattern and the EventBus reference.

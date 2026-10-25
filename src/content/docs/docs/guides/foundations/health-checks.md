@@ -16,7 +16,7 @@ A health check system that monitors LLM provider availability, aggregates compon
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Understanding of Beluga AI's core architecture
 
 ## Step 1: Define Health Check Types
@@ -61,8 +61,8 @@ This health checker verifies LLM provider connectivity by sending a minimal requ
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type LLMHealthChecker struct {
@@ -201,5 +201,5 @@ func main() {
 
 ## Next Steps
 
-- [OpenTelemetry Tracing](/docs/guides/foundations/otel-tracing) — Debug issues found by health checks
-- [Prometheus and Grafana](/docs/guides/foundations/prometheus-grafana) — Metrics visualization
+- [OpenTelemetry Tracing](/docs/guides/production/otel-tracing/) — Debug issues found by health checks
+- [Prometheus and Grafana](/docs/guides/production/prometheus-grafana/) — Metrics visualization

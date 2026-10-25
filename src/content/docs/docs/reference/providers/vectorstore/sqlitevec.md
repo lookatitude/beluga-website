@@ -17,7 +17,7 @@ Choose SQLite-vec when you need an embedded vector store with no external server
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlitevec
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlitevec
 ```
 
 Build with CGO enabled:
@@ -35,10 +35,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlitevec"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlitevec"
 )
 
 func main() {
@@ -81,7 +81,7 @@ Use `EnsureTable` to create both the metadata table and the virtual vector table
 
 ```go
 import (
-    sqlitevecstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlitevec"
+    sqlitevecstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlitevec"
 )
 
 store, err := sqlitevecstore.NewFromConfig(config.ProviderConfig{
@@ -126,7 +126,7 @@ Provide a custom `*sql.DB` connection:
 import (
     "database/sql"
     _ "github.com/mattn/go-sqlite3"
-    sqlitevecstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlitevec"
+    sqlitevecstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlitevec"
 )
 
 db, err := sql.Open("sqlite3", "./my_vectors.db")

@@ -11,7 +11,7 @@ head:
 ## prompt
 
 ```go
-import "github.com/lookatitude/beluga-ai/prompt"
+import "github.com/lookatitude/beluga-ai/v2/prompt"
 ```
 
 Package prompt provides prompt template management and cache-optimized prompt
@@ -83,7 +83,7 @@ msgs := prompt.NewBuilder(
 ## file
 
 ```go
-import "github.com/lookatitude/beluga-ai/prompt/providers/file"
+import "github.com/lookatitude/beluga-ai/v2/prompt/providers/file"
 ```
 
 Package file provides a filesystem-based PromptManager that loads prompt

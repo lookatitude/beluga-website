@@ -16,13 +16,13 @@ Beluga AI provides a complete orchestration layer with three patterns at differe
 
 ## Solution Architecture
 
-Beluga AI's orchestration layer supports three patterns, each suited to different complexity levels: **sequential chains** for linear flows where each step feeds the next, **DAG-based graphs** for parallel execution with explicit dependency edges, and **Temporal workflows** for distributed, fault-tolerant execution that survives process restarts. The choice depends on requirements: chains for simplicity, graphs for throughput, Temporal for durability.
+Beluga AI's orchestration layer supports three patterns, each suited to different complexity levels: **chains** (`orchestration.Chain`) for linear flows where each step feeds the next, **parallel fan-out** (`orchestration.NewScatterGather`, plus `orchestration.Graph` for conditional routing between steps) for independent work that can run concurrently, and **Temporal workflows** for distributed, fault-tolerant execution that survives process restarts. The choice depends on requirements: chains for simplicity, fan-out for throughput, Temporal for durability.
 
 ```mermaid
 graph TB
     A[Client Request] --> B[Orchestration Layer]
     B --> C[Chain<br>Sequential]
-    B --> D[Graph<br>DAG]
+    B --> D[ScatterGather / Graph<br>Fan-out & routing]
     B --> E[Workflow<br>Temporal]
     C --> F[LLM Activities]
     D --> F
@@ -34,7 +34,9 @@ graph TB
 
 ## Chain Orchestration
 
-Chains execute steps sequentially, passing output from one step to the next. Use chains when the workflow is inherently linear — each step depends on the previous step's output and there's no opportunity for parallelism. Chains are the simplest orchestration pattern and the right default when you don't need parallel execution or complex dependency graphs.
+Chains execute steps sequentially, passing output from one step to the next. Use chains when the workflow is inherently linear — each step depends on the previous step's output and there's no opportunity for parallelism. Chains are the simplest orchestration pattern and the right default when you don't need parallel execution or conditional routing.
+
+Every step is a `core.Runnable` (`Invoke` + `Stream`), so agents, models wrapped as runnables, and other chains compose freely. Plain functions need a small adapter, shown here as `stepFunc`. Timeouts come from the context and retries from `resilience.Retry`.
 
 ```go
 package main
@@ -42,18 +44,38 @@ package main
 import (
     "context"
     "fmt"
+    "iter"
     "log"
+    "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/orchestration"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/orchestration"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
-func createOrderChain(ctx context.Context) (orchestration.Chain, error) {
+// stepFunc adapts a function to core.Runnable.
+type stepFunc func(ctx context.Context, input map[string]any) (map[string]any, error)
+
+func (f stepFunc) Invoke(ctx context.Context, input any, _ ...core.Option) (any, error) {
+    m, ok := input.(map[string]any)
+    if !ok {
+        return nil, fmt.Errorf("step: expected map[string]any, got %T", input)
+    }
+    return f(ctx, m)
+}
+
+func (f stepFunc) Stream(ctx context.Context, input any, opts ...core.Option) iter.Seq2[any, error] {
+    return func(yield func(any, error) bool) {
+        yield(f.Invoke(ctx, input, opts...))
+    }
+}
+
+func createOrderChain() (core.Runnable, error) {
     model, err := llm.New("openai", config.ProviderConfig{
         APIKey: os.Getenv("OPENAI_API_KEY"),
         Model:  "gpt-4o",
@@ -62,24 +84,20 @@ func createOrderChain(ctx context.Context) (orchestration.Chain, error) {
         return nil, fmt.Errorf("create model: %w", err)
     }
 
-    chain := orchestration.NewChain(
-        orchestration.WithTimeout(300 * time.Second),
-        orchestration.WithMaxRetries(3),
-    )
-
     // Step 1: Validate order
-    chain.AddStep("validate", func(ctx context.Context, input map[string]any) (map[string]any, error) {
-        orderID := input["order_id"].(string)
+    validate := stepFunc(func(ctx context.Context, input map[string]any) (map[string]any, error) {
+        orderID, _ := input["order_id"].(string)
         if orderID == "" {
             return nil, fmt.Errorf("invalid order ID")
         }
-        return map[string]any{"order_id": orderID, "valid": true}, nil
+        input["valid"] = true
+        return input, nil
     })
 
     // Step 2: LLM-based decision for special handling
-    chain.AddStep("decide", func(ctx context.Context, input map[string]any) (map[string]any, error) {
-        orderValue := input["order_value"].(float64)
-        customerTier := input["customer_tier"].(string)
+    decide := stepFunc(func(ctx context.Context, input map[string]any) (map[string]any, error) {
+        orderValue, _ := input["order_value"].(float64)
+        customerTier, _ := input["customer_tier"].(string)
 
         prompt := fmt.Sprintf("Order value: $%.2f, Customer tier: %s. Should this order receive expedited processing? Answer yes or no with brief reasoning.", orderValue, customerTier)
 
@@ -90,32 +108,38 @@ func createOrderChain(ctx context.Context) (orchestration.Chain, error) {
             return nil, fmt.Errorf("llm decision: %w", err)
         }
 
-        decision := resp.Text()
-        input["expedited"] = decision
+        input["expedited"] = resp.Text()
         return input, nil
     })
 
     // Step 3: Process payment
-    chain.AddStep("payment", func(ctx context.Context, input map[string]any) (map[string]any, error) {
-        orderID := input["order_id"].(string)
-        paymentID := processPayment(orderID)
+    payment := stepFunc(func(ctx context.Context, input map[string]any) (map[string]any, error) {
+        orderID, _ := input["order_id"].(string)
+        paymentID, err := processPayment(ctx, orderID)
+        if err != nil {
+            return nil, err
+        }
         input["payment_id"] = paymentID
         return input, nil
     })
 
-    return chain, nil
+    return orchestration.Chain(validate, decide, payment), nil
 }
 
 func runChain(ctx context.Context) error {
-    chain, err := createOrderChain(ctx)
+    chain, err := createOrderChain()
     if err != nil {
         return err
     }
 
-    result, err := chain.Execute(ctx, map[string]any{
-        "order_id":       "order-123",
-        "order_value":    250.00,
-        "customer_tier":  "gold",
+    // The whole chain gets a 5-minute budget.
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+    defer cancel()
+
+    result, err := chain.Invoke(ctx, map[string]any{
+        "order_id":      "order-123",
+        "order_value":   250.00,
+        "customer_tier": "gold",
     })
     if err != nil {
         return fmt.Errorf("chain execution: %w", err)
@@ -124,62 +148,76 @@ func runChain(ctx context.Context) error {
     log.Printf("Order processed: %v", result)
     return nil
 }
+
+// processPayment calls your payment service.
+func processPayment(ctx context.Context, orderID string) (string, error) {
+    return "pay-" + orderID, nil
+}
 ```
 
-## Graph Orchestration
+## Parallel Fan-out and Routing
 
-Graphs define DAG-based workflows with parallel execution and explicit dependencies. Use graphs when independent steps can run concurrently — for example, checking inventory and verifying credit can happen in parallel since neither depends on the other, but payment processing must wait for both to complete. The graph engine automatically schedules steps based on dependency edges, maximizing throughput without manual goroutine management.
+Use fan-out when independent steps can run concurrently — for example, checking inventory and verifying credit can happen in parallel since neither depends on the other, but payment processing must wait for both. `orchestration.NewScatterGather` runs its workers concurrently on the same input and hands all results to an aggregator; chaining it before the payment step expresses the dependency. (`core.Parallel` is the lower-level primitive that returns the raw `[]any`.)
+
+`orchestration.Graph` is a different tool: it walks nodes one at a time along edges, picking the next node by each edge's `Condition`. Use it for routing (for example, sending high-value orders through a manual-review node), not for parallelism.
 
 ```go
-func createOrderGraph(ctx context.Context) (orchestration.Graph, error) {
-    graph := orchestration.NewGraph(
-        orchestration.WithGraphName("order-processing"),
-        orchestration.WithMaxWorkers(5),
-        orchestration.WithParallelExecution(true),
-    )
+func createOrderFlow(checkInventory, checkCredit, processPayment, manualReview, fulfill core.Runnable) (core.Runnable, error) {
+    // Inventory and credit checks run concurrently.
+    checks := orchestration.NewScatterGather(
+        func(results []any) (any, error) {
+            // Merge the two result maps into one order state.
+            merged := map[string]any{}
+            for _, r := range results {
+                m, ok := r.(map[string]any)
+                if !ok {
+                    return nil, fmt.Errorf("unexpected check result %T", r)
+                }
+                for k, v := range m {
+                    merged[k] = v
+                }
+            }
+            return merged, nil
+        },
+        checkInventory, checkCredit,
+    ).WithTimeout(30 * time.Second)
 
-    // Define nodes
-    graph.AddNode("validate", &ValidateOrderNode{})
-    graph.AddNode("check_inventory", &CheckInventoryNode{})
-    graph.AddNode("check_credit", &CheckCreditNode{})
-    graph.AddNode("process_payment", &ProcessPaymentNode{})
-    graph.AddNode("fulfill", &FulfillOrderNode{})
-    graph.AddNode("notify", &NotifyCustomerNode{})
-
-    // Define dependencies
-    graph.AddEdge("validate", "check_inventory")
-    graph.AddEdge("validate", "check_credit")  // Runs in parallel with inventory check
-    graph.AddEdge("check_inventory", "process_payment")
-    graph.AddEdge("check_credit", "process_payment")
-    graph.AddEdge("process_payment", "fulfill")
-    graph.AddEdge("fulfill", "notify")
-
-    // Set entry and exit points
-    graph.SetEntryPoint([]string{"validate"})
-    graph.SetFinishPoint([]string{"notify"})
-
-    return graph, nil
-}
-
-// Example node implementation
-type CheckInventoryNode struct{}
-
-func (n *CheckInventoryNode) Execute(ctx context.Context, input map[string]any) (map[string]any, error) {
-    productID := input["product_id"].(string)
-    available := checkInventory(productID)
-
-    if !available {
-        return nil, fmt.Errorf("product %s out of stock", productID)
+    // Route high-value orders through manual review before fulfillment.
+    route := orchestration.NewGraph()
+    for name, r := range map[string]core.Runnable{
+        "payment": processPayment,
+        "review":  manualReview,
+        "fulfill": fulfill,
+    } {
+        if err := route.AddNode(name, r); err != nil {
+            return nil, err
+        }
+    }
+    isHighValue := func(v any) bool {
+        m, _ := v.(map[string]any)
+        value, _ := m["order_value"].(float64)
+        return value > 10_000
+    }
+    for _, e := range []orchestration.Edge{
+        {From: "payment", To: "review", Condition: isHighValue},
+        {From: "payment", To: "fulfill"},
+        {From: "review", To: "fulfill"},
+    } {
+        if err := route.AddEdge(e); err != nil {
+            return nil, err
+        }
+    }
+    if err := route.SetEntry("payment"); err != nil {
+        return nil, err
     }
 
-    input["inventory_checked"] = true
-    return input, nil
+    return orchestration.Chain(checks, route), nil
 }
 ```
 
 ## Temporal Workflow Integration
 
-Chains and graphs run in-process — if the process crashes, in-flight workflow state is lost. For workflows that must survive process restarts, deployments, and infrastructure failures, Temporal provides durable execution with automatic state persistence, replay-based recovery, and exactly-once activity execution. Beluga AI provides helpers for wrapping LLM calls as Temporal activities, so AI-powered decisions get the same durability guarantees as any other workflow step.
+Chains, fan-out, and graphs run in-process — if the process crashes, in-flight workflow state is lost. For workflows that must survive process restarts, deployments, and infrastructure failures, Temporal provides durable execution with automatic state persistence, replay-based recovery, and automatic activity retries. The example below uses the Temporal Go SDK directly and calls a Beluga model inside an activity, so AI-powered decisions get the same durability guarantees as any other workflow step. Alternatively, write the workflow against Beluga's `workflow` package and run it on Temporal through the `workflow/providers/temporal` executor.
 
 ```go
 package main
@@ -187,12 +225,14 @@ package main
 import (
     "context"
     "fmt"
+    "os"
+    "time"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/orchestration/workflow"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 
     "go.temporal.io/sdk/temporal"
     temporalWorkflow "go.temporal.io/sdk/workflow"
@@ -290,22 +330,18 @@ Instrument workflows with OpenTelemetry for distributed tracing:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 )
 
-func ExecuteWithTracing(ctx context.Context, chain orchestration.Chain, input map[string]any) (map[string]any, error) {
+func ExecuteWithTracing(ctx context.Context, chain core.Runnable, input map[string]any) (any, error) {
     tracer := otel.Tracer("workflow")
     ctx, span := tracer.Start(ctx, "workflow.execute")
     defer span.End()
 
-    span.SetAttributes(
-        attribute.String("workflow.type", "chain"),
-        attribute.Int("workflow.steps", chain.StepCount()),
-    )
+    span.SetAttributes(attribute.String("workflow.type", "chain"))
 
-    result, err := chain.Execute(ctx, input)
+    result, err := chain.Invoke(ctx, input)
     if err != nil {
         span.RecordError(err)
         return nil, err
@@ -321,7 +357,7 @@ func ExecuteWithTracing(ctx context.Context, chain orchestration.Chain, input ma
 Implement retries and circuit breakers for external service calls:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 func robustProcessPayment(ctx context.Context, orderID string) (string, error) {
     policy := resilience.RetryPolicy{
@@ -332,7 +368,7 @@ func robustProcessPayment(ctx context.Context, orderID string) (string, error) {
     }
 
     return resilience.Retry(ctx, policy, func(ctx context.Context) (string, error) {
-        return processPayment(orderID)
+        return processPayment(ctx, orderID)
     })
 }
 ```
@@ -342,10 +378,10 @@ func robustProcessPayment(ctx context.Context, orderID string) (string, error) {
 Use Beluga AI's state package for shared workflow state with Watch support:
 
 ```go
-import "github.com/lookatitude/beluga-ai/state"
+import "github.com/lookatitude/beluga-ai/v2/state/providers/inmemory"
 
 func workflowWithState(ctx context.Context) error {
-    store := state.NewInMemoryStore()
+    store := inmemory.New() // implements state.Store
 
     // Set initial state
     if err := store.Set(ctx, "workflow:status", "running"); err != nil {
@@ -355,7 +391,11 @@ func workflowWithState(ctx context.Context) error {
     // Watch for state changes
     changes := store.Watch(ctx, "workflow:status")
     go func() {
-        for change := range changes {
+        for change, err := range changes {
+            if err != nil {
+                log.Printf("watch error: %v", err)
+                return
+            }
             log.Printf("Workflow status changed to: %v", change.Value)
         }
     }()
@@ -373,10 +413,8 @@ orchestration:
   chain:
     timeout: 300s
     max_retries: 3
-  graph:
-    max_workers: 10
-    parallel_execution: true
-    timeout: 600s
+  fanout:
+    timeout: 30s
   workflow:
     temporal:
       address: "localhost:7233"
@@ -393,6 +431,6 @@ llm:
 
 ## Related Resources
 
-- [Orchestration Package Guide](/docs/guides/orchestration/) for orchestration patterns
-- [Agent Workflows](/docs/guides/agent-workflows/) for agent-based orchestration
-- [Temporal Integration](/docs/guides/production/integrations/) for distributed workflow setup
+- [Orchestration Package Guide](/docs/guides/production/orchestration/) for orchestration patterns
+- [Agent Workflows](/docs/guides/production/workflow-orchestration/) for agent-based orchestration
+- [Temporal Integration](/docs/guides/production/) for distributed workflow setup

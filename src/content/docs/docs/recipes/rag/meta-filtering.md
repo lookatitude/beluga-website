@@ -185,5 +185,5 @@ func (mfb *MetadataFilterBuilder) Validate() error {
 
 ## Related Recipes
 
-- **[Reindexing Status Tracking](./reindexing-tracking)** -- Track reindexing operations
-- **[Metadata-Aware Clustering](./metadata-clustering)** -- Cluster embeddings with metadata
+- **[Reindexing Status Tracking](/docs/recipes/rag/reindexing-tracking/)** -- Track reindexing operations
+- **[Metadata-Aware Clustering](/docs/recipes/rag/metadata-clustering/)** -- Cluster embeddings with metadata

@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm"
+import "github.com/lookatitude/beluga-ai/v2/llm"
 ```
 
 Package llm provides the LLM abstraction layer for the Beluga AI framework.
@@ -49,11 +49,11 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -177,19 +177,18 @@ hooks := llm.Hooks{
 - `WithHooks(hooks Hooks) Middleware` — invokes lifecycle callbacks around Generate and Stream.
 - `WithLogging(logger *slog.Logger) Middleware` — logs Generate and Stream calls.
 - `WithFallback(fallback ChatModel) Middleware` — falls back to an alternative model on retryable errors.
-- `WithProviderLimits(limits ProviderLimits) Middleware` — enforces RPM, TPM, and concurrency limits.
+- `WithProviderLimits(limits ProviderLimits) Middleware` — enforces RPM, TPM and concurrency limits. TPM usage is recorded from each response's `Usage.TotalTokens`; once the trailing-minute budget is spent, new requests are rejected with `core.ErrRateLimit` (after `CooldownOnRetry`, if set).
 
 Apply middleware with `ApplyMiddleware`. The first middleware in the list
 becomes the outermost wrapper and executes first:
 
 ```go
-package main
-
+package example
 import (
     "log/slog"
     "os"
 
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 func applyMiddleware(model llm.ChatModel, backup llm.ChatModel) llm.ChatModel {
@@ -226,14 +225,13 @@ type Hooks struct {
 suppress an error by returning nil. Example:
 
 ```go
-package main
-
+package example
 import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func loggingHooks() llm.Hooks {
@@ -263,9 +261,12 @@ import (
     "context"
     "fmt"
     "log"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type Sentiment struct {
@@ -283,7 +284,13 @@ func analyzeSentiment(ctx context.Context, model llm.ChatModel, text string) (Se
 
 func main() {
     ctx := context.Background()
-    // model := ... (create a ChatModel)
+    model, err := llm.New("openai", config.ProviderConfig{
+        Model:  "gpt-4o-mini",
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
     result, err := analyzeSentiment(ctx, model, "I love this product!")
     if err != nil {
         log.Fatal(err)
@@ -302,14 +309,12 @@ are built in: `"truncate"` (drops oldest non-system messages) and `"sliding"`
 (keeps the most recent messages that fit):
 
 ```go
-package main
-
+package example
 import (
     "context"
-    "log"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func fitMessages(ctx context.Context, msgs []schema.Message) ([]schema.Message, error) {
@@ -358,12 +363,10 @@ chosen by a pluggable `ModelSelector`. Built-in strategies:
 `FailoverRouter` retries across models on retryable errors:
 
 ```go
-package main
+package example
 
 import (
-    "log"
-
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 func makeRouter(modelA, modelB llm.ChatModel) llm.ChatModel {
@@ -384,12 +387,12 @@ falling back on retryable errors.
 
 ## Rate Limiting
 
-`WithProviderLimits` returns middleware that enforces per-provider limits:
+`WithProviderLimits` returns middleware that enforces per-provider request-rate, token-rate and concurrency limits:
 
 ```go
 type ProviderLimits struct {
     RPM             int           // requests per minute
-    TPM             int           // tokens per minute
+    TPM             int           // tokens per minute, from each response's Usage.TotalTokens
     MaxConcurrent   int           // max concurrent requests
     CooldownOnRetry time.Duration // wait before retry after hitting limit
 }

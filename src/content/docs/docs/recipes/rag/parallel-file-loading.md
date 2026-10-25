@@ -34,7 +34,7 @@ import (
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.documentloaders.parallel_walker")
@@ -278,5 +278,5 @@ type ProgressTracker struct {
 
 ## Related Recipes
 
-- [Corrupt Document Handling](/docs/recipes/corrupt-doc-handling) -- Handle errors gracefully during document loading
-- [Document Ingestion Recipes](/docs/recipes/document-ingestion) -- Additional document loading patterns
+- [Corrupt Document Handling](/docs/recipes/rag/corrupt-doc-handling/) -- Handle errors gracefully during document loading
+- [Document Ingestion Recipes](/docs/recipes/rag/document-ingestion/) -- Additional document loading patterns

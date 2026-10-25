@@ -1,6 +1,6 @@
 ---
 title: Google Vertex AI Multimodal
-description: "Integrate Vertex AI with Beluga AI for enterprise-grade Gemini multimodal processing across text, image, audio, and video in Go."
+description: "Call Gemini models on Vertex AI from Beluga AI through Vertex AI's OpenAI-compatible endpoint, with text and image inputs in Go."
 head:
   - tag: meta
     attrs:
@@ -14,43 +14,49 @@ Choose Vertex AI over the public Gemini API when you need data residency guarant
 
 ## Overview
 
-Vertex AI is Google Cloud's managed AI platform. When paired with Beluga AI's LLM package, it provides:
+Vertex AI is Google Cloud's managed AI platform. Beluga AI reaches Gemini models on Vertex AI as follows:
 
-- **Gemini model access** through the Vertex AI API (separate from the public Gemini API)
-- **Multi-modality** across text, image, audio, and video inputs
-- **Enterprise features** including VPC Service Controls, CMEK, and IAM-based access
-- **Regional deployment** for data residency and latency requirements
+- **Vertex AI**: through Vertex AI's OpenAI-compatible Chat Completions endpoint, using Beluga's `openai` provider with a custom `BaseURL` and a Google Cloud OAuth access token.
+- **Public Gemini API**: through Beluga's native `google` provider (`llm/providers/google`), which uses an API key.
+
+:::caution[Current limitations]
+- Beluga's `google` provider talks to the public **Gemini API** only (it always uses the Gemini API backend of the `genai` SDK). It has no Vertex AI mode, project ID, or location settings.
+- Both paths send **text and image** content parts. `schema.AudioPart` and `schema.VideoPart` are currently dropped by both providers, so audio and video inputs are not supported through Beluga today.
+:::
+
+What Vertex AI adds on top of the model itself:
+
+- **Enterprise controls** including VPC Service Controls, CMEK, audit logging, and IAM-based access
+- **Regional endpoints** for data residency and latency requirements
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Google Cloud project with the Vertex AI API enabled
-- Google Cloud credentials (service account or Application Default Credentials)
+- The `gcloud` CLI, with credentials that have the `roles/aiplatform.user` role
 - Beluga AI framework installed
 
 ## Installation
 
-Install the Google Cloud AI Platform client library:
+No extra Go dependencies are needed beyond the framework:
 
 ```bash
-go get cloud.google.com/go/aiplatform/apiv1
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
-Configure authentication using one of these methods:
+Vertex AI's OpenAI-compatible endpoint authenticates with an OAuth access token:
 
 ```bash
-# Option 1: Service account key file
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
-
-# Option 2: Application Default Credentials (recommended for development)
-gcloud auth application-default login
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+export GOOGLE_CLOUD_LOCATION="us-central1"
+export VERTEX_ACCESS_TOKEN="$(gcloud auth print-access-token)"
 ```
 
 ## Configuration
 
 ### Basic Setup
 
-Create a Vertex AI multimodal provider using the Google LLM provider with Vertex AI mode enabled:
+Create an `openai` provider pointed at your project's Vertex AI endpoint:
 
 ```go
 package main
@@ -61,107 +67,96 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/google"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
     ctx := context.Background()
 
-    // Create Vertex AI configuration
-    config := &google.Config{
-        ProjectID:  os.Getenv("GOOGLE_CLOUD_PROJECT"),
-        Location:   "us-central1",
-        Model:      "gemini-1.5-pro",
-        UseVertexAI: true,
-    }
+    project := os.Getenv("GOOGLE_CLOUD_PROJECT")
+    location := os.Getenv("GOOGLE_CLOUD_LOCATION")
 
-    provider, err := google.New(config)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("VERTEX_ACCESS_TOKEN"),
+        BaseURL: fmt.Sprintf(
+            "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/endpoints/openapi",
+            location, project, location,
+        ),
+        Model: "google/gemini-2.0-flash-001",
+    })
     if err != nil {
-        log.Fatalf("failed to create Vertex AI provider: %v", err)
+        log.Fatalf("failed to create Vertex AI model: %v", err)
     }
 
-    // Use provider for multimodal processing
-    _ = provider
-    fmt.Println("Vertex AI provider created successfully")
+    resp, err := model.Generate(ctx, []schema.Message{
+        schema.NewHumanMessage("Say hello from Vertex AI."),
+    })
+    if err != nil {
+        log.Fatalf("generation failed: %v", err)
+    }
+    fmt.Println(resp.Text())
 }
 ```
 
 Verify the setup:
 
 ```bash
-export GOOGLE_CLOUD_PROJECT="your-project-id"
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/credentials.json"
 go run main.go
 ```
 
 ### Configuration Reference
 
-| Option | Description | Default | Required |
-|--------|-------------|---------|----------|
-| `ProjectID` | Google Cloud project ID | - | Yes |
-| `Location` | GCP region for Vertex AI | `us-central1` | No |
-| `Model` | Gemini model name | `gemini-1.5-pro` | No |
-| `UseVertexAI` | Use Vertex AI API instead of Gemini API | `false` | No |
-| `APIKey` | API key (alternative to ADC) | - | No |
-| `Endpoint` | Custom Vertex AI endpoint | auto-detected | No |
+`config.ProviderConfig` fields used with the `openai` provider:
+
+| Field | Description | Required |
+|--------|-------------|----------|
+| `APIKey` | Google Cloud OAuth access token (sent as a Bearer token) | Yes |
+| `BaseURL` | `https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/endpoints/openapi` | Yes |
+| `Model` | Vertex AI model ID, prefixed with `google/` (e.g. `google/gemini-2.0-flash-001`) | Yes |
+| `Timeout` | Per-request timeout | No |
+
+To use the public Gemini API instead, use the native provider: `llm.New("google", config.ProviderConfig{APIKey: os.Getenv("GEMINI_API_KEY"), Model: "gemini-2.5-flash"})` with `_ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"`.
 
 ## Usage
 
-### Multi-Modality Support
+### Image Inputs
 
-Vertex AI with Gemini models supports multiple input modalities. Use Beluga AI's `schema` package to construct multimodal messages:
+Build multimodal messages with `schema.HumanMessage` and content parts. Inline image bytes are sent as a base64 data URI; a `URL` is passed through:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-// Text + Image
-msg := schema.UserMessage{
-    Content: []schema.ContentPart{
+// Text + inline image
+msg := &schema.HumanMessage{
+    Parts: []schema.ContentPart{
         schema.TextPart{Text: "Analyze this image"},
-        schema.ImagePart{Data: imageData, MIMEType: "image/png"},
+        schema.ImagePart{Data: imageData, MimeType: "image/png"},
     },
 }
 
-// Text + Audio
-msg = schema.UserMessage{
-    Content: []schema.ContentPart{
-        schema.TextPart{Text: "Transcribe this audio"},
-        schema.AudioPart{Data: audioData, MIMEType: "audio/wav"},
-    },
-}
-
-// Text + Video
-msg = schema.UserMessage{
-    Content: []schema.ContentPart{
-        schema.TextPart{Text: "Describe this video"},
-        schema.VideoPart{Data: videoData, MIMEType: "video/mp4"},
+// Text + image by URL
+msg = &schema.HumanMessage{
+    Parts: []schema.ContentPart{
+        schema.TextPart{Text: "What does this chart show?"},
+        schema.ImagePart{URL: "https://example.com/chart.png"},
     },
 }
 ```
 
 ### Enterprise Features
 
-Enable Vertex AI-specific enterprise features by setting the endpoint and project configuration:
-
-```go
-config := &google.Config{
-    ProjectID:   os.Getenv("GOOGLE_CLOUD_PROJECT"),
-    Location:    "us-central1",
-    Model:       "gemini-1.5-pro",
-    UseVertexAI: true,
-    Endpoint:    "us-central1-aiplatform.googleapis.com",
-}
-```
-
-This routes requests through the Vertex AI API, which supports VPC Service Controls, audit logging, and organization-level policies.
+Requests go to your project's regional Vertex AI endpoint, so VPC Service Controls, audit logging, and organization-level policies configured for Vertex AI in that project apply to them. Choose the region in `BaseURL` to match your data residency requirements.
 
 ## Advanced Topics
 
 ### OpenTelemetry Instrumentation
 
-Add tracing to Vertex AI calls using Beluga AI's observability package:
+Add tracing to Vertex AI calls:
 
 ```go
 package main
@@ -173,8 +168,10 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/google"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/trace"
@@ -184,39 +181,49 @@ func main() {
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
 
-    config := &google.Config{
-        ProjectID:   os.Getenv("GOOGLE_CLOUD_PROJECT"),
-        Location:    "us-central1",
-        Model:       "gemini-1.5-pro",
-        UseVertexAI: true,
+    project := os.Getenv("GOOGLE_CLOUD_PROJECT")
+    location := os.Getenv("GOOGLE_CLOUD_LOCATION")
+    cfg := config.ProviderConfig{
+        APIKey: os.Getenv("VERTEX_ACCESS_TOKEN"),
+        BaseURL: fmt.Sprintf(
+            "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/endpoints/openapi",
+            location, project, location,
+        ),
+        Model: "google/gemini-2.0-flash-001",
     }
 
     tracer := otel.Tracer("beluga.multimodal.vertex_ai")
     ctx, span := tracer.Start(ctx, "vertex_ai.process",
         trace.WithAttributes(
             attribute.String("gen_ai.system", "vertex_ai"),
-            attribute.String("gen_ai.request.model", config.Model),
-            attribute.String("gcp.project_id", config.ProjectID),
+            attribute.String("gen_ai.request.model", cfg.Model),
+            attribute.String("gcp.project_id", project),
         ),
     )
     defer span.End()
 
-    provider, err := google.New(config)
+    model, err := llm.New("openai", cfg)
     if err != nil {
         span.RecordError(err)
-        log.Fatalf("failed to create provider: %v", err)
+        log.Fatalf("failed to create model: %v", err)
+    }
+
+    image, err := os.ReadFile("image.png")
+    if err != nil {
+        span.RecordError(err)
+        log.Fatalf("failed to load image: %v", err)
     }
 
     messages := []schema.Message{
-        &schema.UserMessage{
-            Content: []schema.ContentPart{
+        &schema.HumanMessage{
+            Parts: []schema.ContentPart{
                 schema.TextPart{Text: "Describe this image in detail."},
-                schema.ImagePart{Data: loadImage("image.png"), MIMEType: "image/png"},
+                schema.ImagePart{Data: image, MimeType: "image/png"},
             },
         },
     }
 
-    response, err := provider.Generate(ctx, messages)
+    response, err := model.Generate(ctx, messages)
     if err != nil {
         span.RecordError(err)
         log.Fatalf("generation failed: %v", err)
@@ -227,15 +234,7 @@ func main() {
         attribute.Int("gen_ai.response.output_tokens", response.Usage.OutputTokens),
     )
 
-    fmt.Printf("Response: %s\n", response.Content)
-}
-
-func loadImage(path string) []byte {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        log.Fatalf("failed to load image: %v", err)
-    }
-    return data
+    fmt.Printf("Response: %s\n", response.Text())
 }
 ```
 
@@ -246,6 +245,7 @@ When deploying Vertex AI integrations to production:
 - **IAM roles**: Use dedicated service accounts with the `roles/aiplatform.user` role. Avoid using owner or editor roles.
 - **Regional deployment**: Choose a region that matches your data residency requirements and provides acceptable latency.
 - **Cost optimization**: Monitor usage through Cloud Billing. Use Gemini Flash models for latency-sensitive or cost-sensitive workloads.
+- **Token refresh**: OAuth access tokens expire (typically after one hour). Rebuild the model with a fresh token before expiry, or front Vertex AI with a gateway that handles Google auth.
 - **VPC Service Controls**: Configure a service perimeter around your Vertex AI resources to prevent data exfiltration.
 - **Error handling**: Handle quota errors (HTTP 429) with exponential backoff using Beluga AI's `resilience` package.
 
@@ -263,9 +263,9 @@ gcloud projects describe your-project-id
 gcloud services enable aiplatform.googleapis.com --project=your-project-id
 ```
 
-### "Authentication failed"
+### "Authentication failed" (HTTP 401)
 
-Credentials are missing or invalid.
+The access token is missing, invalid, or expired. Access tokens are short-lived; fetch a new one with `gcloud auth print-access-token`.
 
 ```bash
 # Check current credentials
@@ -278,5 +278,5 @@ gcloud auth application-default login
 ## Related Resources
 
 - [Pixtral (Mistral) Integration](/docs/guides/production/integrations/pixtral-mistral) -- Mistral AI vision-language integration
-- [LLM Providers](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
-- [Monitoring](/docs/guides/production/integrations/monitoring) -- Observability and tracing setup
+- [LLM Providers](/docs/reference/providers/llm/) -- All supported LLM providers
+- [Monitoring](/docs/guides/production/monitoring-dashboards/) -- Observability and tracing setup

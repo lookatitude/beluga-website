@@ -21,8 +21,8 @@ JSON Schema serves as the shared contract between both sides.
 
 ## Prerequisites
 
-- Go 1.23 or later
-- Beluga AI framework installed (`github.com/lookatitude/beluga-ai`)
+- Go 1.26 or later
+- Beluga AI framework installed (`github.com/lookatitude/beluga-ai/v2`)
 - Python 3.8+ with Pydantic (for the Python side)
 - Familiarity with JSON serialization in both languages
 
@@ -31,7 +31,7 @@ JSON Schema serves as the shared contract between both sides.
 Go side:
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 go get github.com/invopop/jsonschema
 ```
 
@@ -59,11 +59,9 @@ Create a Go struct that mirrors the Pydantic model and provides conversion to Be
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // MessageData is the Go representation of the shared message format.
@@ -148,7 +146,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // FromPydanticJSON deserializes Pydantic JSON into a Go bridge struct.
@@ -211,18 +209,14 @@ A full round-trip example demonstrating both directions.
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
-	ctx := context.Background()
-	_ = ctx // Available for instrumented operations
-
 	// Direction 1: Python (Pydantic) -> Go (Beluga AI)
 	pydanticJSON := []byte(`{
 		"role": "human",
@@ -270,7 +264,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -419,5 +413,5 @@ When `StrictMode` is enabled, unknown JSON fields cause unmarshaling to fail. Ei
 ## Related Resources
 
 - [JSON Schema Validation](/docs/guides/production/integrations/json-schema-validation/) -- Validate data structures with JSON Schema
-- [Schema Package](/docs/reference/api/schema/) -- Core message and document types
-- [A2A Protocol](/docs/guides/a2a/) -- Agent-to-agent communication across services
+- [Schema Package](/docs/reference/api/foundation/schema/) -- Core message and document types
+- [A2A Protocol](/docs/reference/api/protocol/protocol-a2a/) -- Agent-to-agent communication across services

@@ -25,7 +25,7 @@ Key capabilities:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Qdrant Cloud account ([cloud.qdrant.io](https://cloud.qdrant.io))
 - A Qdrant cluster with its URL and API key
@@ -35,7 +35,7 @@ Key capabilities:
 Install the Beluga AI module:
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ### Qdrant Cloud Setup
@@ -54,15 +54,14 @@ export OPENAI_API_KEY="your-openai-key"
 
 ## Configuration
 
-The Qdrant provider accepts the following options:
+The Qdrant provider can be built directly with `qdrant.New(baseURL, opts...)` or through the registry with `vectorstore.New("qdrant", config.ProviderConfig{...})`:
 
-| Option | Description | Default | Required |
-|--------|-------------|---------|----------|
-| `url` | Qdrant cluster URL | - | Yes |
-| `api_key` | Qdrant API key | - | Yes (for cloud) |
-| `collection_name` | Collection name | `default` | No |
-| `embedding_dim` | Embedding vector dimension | - | Yes |
-| `timeout` | Request timeout | `30s` | No |
+| Option (`qdrant.New`) | `ProviderConfig` field | Description | Default | Required |
+|--------|--------|-------------|---------|----------|
+| `baseURL` argument | `BaseURL` | Qdrant cluster URL | - | Yes |
+| `qdrant.WithAPIKey` | `APIKey` | Qdrant API key | - | Yes (for cloud) |
+| `qdrant.WithCollection` | `Options["collection"]` | Collection name | `documents` | No |
+| `qdrant.WithDimension` | `Options["dimension"]` (float64) | Vector dimension used by `EnsureCollection` | `1536` | No |
 
 ## Usage
 
@@ -79,42 +78,48 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/qdrant"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
     ctx := context.Background()
 
     // Create an OpenAI embedder
-    embedder, err := embedding.New("openai",
-        embedding.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-        embedding.WithModel("text-embedding-ada-002"),
-    )
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
     if err != nil {
         log.Fatalf("Failed to create embedder: %v", err)
     }
 
     // Create a Qdrant vector store
-    store, err := vectorstore.New("qdrant",
-        vectorstore.WithEmbedder(embedder),
-        vectorstore.WithOption("url", os.Getenv("QDRANT_URL")),
-        vectorstore.WithOption("api_key", os.Getenv("QDRANT_API_KEY")),
-        vectorstore.WithOption("collection_name", "my-documents"),
-        vectorstore.WithOption("embedding_dim", 1536),
+    store := qdrant.New(os.Getenv("QDRANT_URL"),
+        qdrant.WithAPIKey(os.Getenv("QDRANT_API_KEY")),
+        qdrant.WithCollection("my-documents"),
+        qdrant.WithDimension(1536),
     )
-    if err != nil {
-        log.Fatalf("Failed to create store: %v", err)
+
+    // Create the collection if it does not exist yet.
+    if err := store.EnsureCollection(ctx); err != nil {
+        log.Fatalf("Failed to ensure collection: %v", err)
     }
 
     // Embed and add documents
     docs := []schema.Document{
-        {PageContent: "Machine learning is a subset of AI.", Metadata: map[string]any{"topic": "ml"}},
-        {PageContent: "Go is a programming language.", Metadata: map[string]any{"topic": "programming"}},
+        {ID: "7f0c1d9e-1b2a-4c3d-8e4f-000000000001", Content: "Machine learning is a subset of AI.", Metadata: map[string]any{"topic": "ml"}},
+        {ID: "7f0c1d9e-1b2a-4c3d-8e4f-000000000002", Content: "Go is a programming language.", Metadata: map[string]any{"topic": "programming"}},
     }
 
-    embeddings, err := embedder.EmbedDocuments(ctx, docs)
+    texts := make([]string, len(docs))
+    for i, d := range docs {
+        texts[i] = d.Content
+    }
+    embeddings, err := embedder.Embed(ctx, texts)
     if err != nil {
         log.Fatalf("Failed to embed documents: %v", err)
     }
@@ -127,7 +132,7 @@ func main() {
     fmt.Printf("Added %d documents\n", len(docs))
 
     // Search by query
-    queryVec, err := embedder.EmbedQuery(ctx, "artificial intelligence")
+    queryVec, err := embedder.EmbedSingle(ctx, "artificial intelligence")
     if err != nil {
         log.Fatalf("Failed to embed query: %v", err)
     }
@@ -139,7 +144,7 @@ func main() {
 
     fmt.Printf("Found %d results\n", len(results))
     for i, result := range results {
-        fmt.Printf("  %d. %s\n", i+1, result.PageContent)
+        fmt.Printf("  %d. %s\n", i+1, result.Content)
     }
 }
 ```
@@ -159,7 +164,7 @@ if err != nil {
 
 ### Collection Management
 
-Collections are created automatically on first use. To create a collection explicitly with custom parameters, use the Qdrant Go client directly:
+The Beluga Qdrant store does not create collections implicitly: call `store.EnsureCollection(ctx)` (cosine distance, size from `qdrant.WithDimension`) before the first `Add`, as in the example above. Qdrant point IDs must be UUIDs or unsigned integers, so set `schema.Document.ID` accordingly. To create a collection with other parameters, use the Qdrant Go client directly:
 
 ```go
 import (
@@ -198,9 +203,11 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/qdrant"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/trace"
@@ -210,10 +217,10 @@ func main() {
     ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
     defer cancel()
 
-    embedder, err := embedding.New("openai",
-        embedding.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-        embedding.WithModel("text-embedding-ada-002"),
-    )
+    embedder, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-small",
+    })
     if err != nil {
         log.Fatalf("Failed to create embedder: %v", err)
     }
@@ -227,24 +234,28 @@ func main() {
     )
     defer span.End()
 
-    store, err := vectorstore.New("qdrant",
-        vectorstore.WithEmbedder(embedder),
-        vectorstore.WithOption("url", os.Getenv("QDRANT_URL")),
-        vectorstore.WithOption("api_key", os.Getenv("QDRANT_API_KEY")),
-        vectorstore.WithOption("collection_name", "my-documents"),
-        vectorstore.WithOption("embedding_dim", 1536),
+    store := qdrant.New(os.Getenv("QDRANT_URL"),
+        qdrant.WithAPIKey(os.Getenv("QDRANT_API_KEY")),
+        qdrant.WithCollection("my-documents"),
+        qdrant.WithDimension(1536),
     )
-    if err != nil {
+
+    // Create the collection if it does not exist yet.
+    if err := store.EnsureCollection(ctx); err != nil {
         span.RecordError(err)
-        log.Fatalf("Failed to create store: %v", err)
+        log.Fatalf("Failed to ensure collection: %v", err)
     }
 
     docs := []schema.Document{
-        {PageContent: "Machine learning enables computers to learn.", Metadata: map[string]any{"topic": "ml", "source": "doc1"}},
-        {PageContent: "Go is statically typed and compiled.", Metadata: map[string]any{"topic": "programming", "source": "doc2"}},
+        {ID: "7f0c1d9e-1b2a-4c3d-8e4f-000000000003", Content: "Machine learning enables computers to learn.", Metadata: map[string]any{"topic": "ml", "source": "doc1"}},
+        {ID: "7f0c1d9e-1b2a-4c3d-8e4f-000000000004", Content: "Go is statically typed and compiled.", Metadata: map[string]any{"topic": "programming", "source": "doc2"}},
     }
 
-    embeddings, err := embedder.EmbedDocuments(ctx, docs)
+    texts := make([]string, len(docs))
+    for i, d := range docs {
+        texts[i] = d.Content
+    }
+    embeddings, err := embedder.Embed(ctx, texts)
     if err != nil {
         span.RecordError(err)
         log.Fatalf("Failed to embed documents: %v", err)
@@ -267,7 +278,7 @@ When using Qdrant Cloud in production:
 
 - **Cluster sizing**: Select a cluster size appropriate for your document volume and query throughput. Monitor resource utilization in the Qdrant Cloud dashboard.
 - **HNSW tuning**: Configure HNSW index parameters (`m`, `ef_construct`) for your accuracy/performance tradeoff. Higher values improve recall at the cost of memory and indexing speed.
-- **Timeouts**: Set appropriate client timeouts for your network latency. The default 30-second timeout may need adjustment for large batch operations.
+- **Timeouts**: The store uses `http.DefaultClient`, which has no timeout. Pass a client with a timeout via `qdrant.WithHTTPClient(&http.Client{Timeout: 30 * time.Second})`, and bound each call with a context deadline.
 - **Retry logic**: Use Beluga's `resilience` package for automatic retry with backoff on transient failures.
 - **Monitoring**: Combine Qdrant Cloud metrics with OpenTelemetry traces for end-to-end observability.
 
@@ -287,10 +298,10 @@ The API key is invalid or missing. Confirm that `QDRANT_API_KEY` matches the key
 
 ### Collection Not Found
 
-Collections are created automatically on first add operation. If you need to create a collection with specific parameters before adding documents, use the Qdrant Go client as shown in the [Collection Management](#collection-management) section.
+Collections are not created automatically. Call `store.EnsureCollection(ctx)` before the first add, or create the collection with the Qdrant Go client as shown in the [Collection Management](#collection-management) section.
 
 ## Related Resources
 
-- [Vector Stores Overview](/docs/guides/production/integrations/vector-stores) -- All supported vector store providers
+- [Vector Stores Overview](/docs/reference/providers/vectorstore/) -- All supported vector store providers
 - [Pinecone Serverless Integration](/docs/guides/production/integrations/pinecone-serverless) -- Serverless vector storage
-- [RAG Tutorial](/docs/guides/rag-pipeline) -- Build end-to-end RAG applications
+- [RAG Tutorial](/docs/guides/capabilities/rag/rag-pipeline/) -- Build end-to-end RAG applications

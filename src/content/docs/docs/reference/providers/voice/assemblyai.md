@@ -8,14 +8,14 @@ head:
       content: "AssemblyAI, speech-to-text, STT, transcription, speaker diarization, real-time, Go, Beluga AI"
 ---
 
-AssemblyAI provides speech-to-text transcription with both asynchronous batch processing and real-time WebSocket streaming. The Beluga AI provider uses AssemblyAI's upload-and-poll workflow for batch transcription and the real-time WebSocket API for streaming, delivering word-level timing, speaker labels, and automatic punctuation.
+AssemblyAI provides speech-to-text transcription with both asynchronous batch processing and real-time WebSocket streaming. The Beluga AI provider uses AssemblyAI's upload-and-poll workflow for batch transcription and the Universal-Streaming (v3) WebSocket API for streaming, delivering word-level timing, speaker labels, and automatic punctuation.
 
 Choose AssemblyAI when you need both real-time streaming and high-quality async batch transcription from a single provider. Its upload-and-poll batch workflow is well-suited for pre-recorded audio processing, while WebSocket streaming handles live audio. For the lowest streaming latency, also evaluate [Deepgram](/docs/reference/providers/voice/deepgram).
 
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 ```
 
 The blank import registers the `"assemblyai"` provider with the STT registry.
@@ -25,6 +25,7 @@ The blank import registers the `"assemblyai"` provider with the STT registry.
 | Field        | Type     | Default  | Description                                 |
 |--------------|----------|----------|---------------------------------------------|
 | `Language`   | `string` | —        | BCP-47 language code (e.g., `"en"`)         |
+| `Model`      | `string` | language-dependent | Streaming `speech_model`; defaults to `universal-streaming-english` for empty/English languages and `universal-streaming-multilingual` otherwise |
 | `Punctuation`| `bool`   | `false`  | Enable automatic punctuation                |
 | `Diarization`| `bool`   | `false`  | Enable speaker labels                       |
 | `SampleRate` | `int`    | `16000`  | Audio sample rate in Hz (for streaming)     |
@@ -36,7 +37,7 @@ The blank import registers the `"assemblyai"` provider with the STT registry.
 |------------|----------|----------|--------------------------------------|
 | `api_key`  | `string` | Yes      | AssemblyAI API key                   |
 | `base_url` | `string` | No       | Override REST base URL               |
-| `ws_url`   | `string` | No       | Override WebSocket URL               |
+| `ws_url`   | `string` | No       | Override WebSocket URL (default `wss://streaming.assemblyai.com/v3/ws`) |
 
 ## Basic Usage
 
@@ -49,8 +50,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 )
 
 func main() {
@@ -81,7 +82,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/assemblyai"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 
 engine, err := assemblyai.New(stt.Config{
     Language:    "en",
@@ -103,7 +104,7 @@ This makes batch transcription best suited for pre-recorded audio rather than re
 
 ## Streaming
 
-AssemblyAI supports native real-time streaming via WebSocket. The provider emits both partial (`PartialTranscript`) and final (`FinalTranscript`) events:
+AssemblyAI supports native real-time streaming through its Universal-Streaming (v3) WebSocket API (the v2 real-time endpoint is retired). The API key goes in the `Authorization` header, never in the URL. The provider emits partial events from in-progress `Turn` messages and a final event once a turn has ended and its formatted transcript has arrived:
 
 ```go
 func transcribeStream(ctx context.Context, engine stt.STT, audioStream iter.Seq2[[]byte, error]) {
@@ -160,7 +161,7 @@ engine, err := stt.New("assemblyai", stt.Config{
     Extra: map[string]any{
         "api_key":  os.Getenv("ASSEMBLYAI_API_KEY"),
         "base_url": "https://assemblyai.internal.corp/v2",
-        "ws_url":   "wss://assemblyai.internal.corp/v2/realtime/ws",
+        "ws_url":   "wss://assemblyai.internal.corp/v3/ws",
     },
 })
 ```

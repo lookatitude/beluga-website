@@ -31,7 +31,7 @@ An instrumented application with OpenTelemetry tracing, including custom spans, 
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Docker (for running Jaeger)
 
 ## Step 1: Install Dependencies
@@ -193,5 +193,5 @@ Access the Jaeger UI at `http://localhost:16686`. Select the `beluga-agent` serv
 
 ## Next Steps
 
-- [Prometheus and Grafana](/docs/guides/foundations/prometheus-grafana) — Metrics visualization
+- [Prometheus and Grafana](/docs/guides/production/prometheus-grafana/) — Metrics visualization
 - [Health Checks](/docs/guides/foundations/health-checks) — Component health monitoring

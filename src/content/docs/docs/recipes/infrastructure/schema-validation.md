@@ -35,9 +35,9 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.schema.validation")
@@ -74,12 +74,12 @@ func (v *CustomValidator) ValidateMessage(ctx context.Context, msg schema.Messag
 	for name, rule := range v.rules {
 		if err := rule(ctx, msg); err != nil {
 			span.RecordError(err)
-			span.SetStatus(trace.StatusError, fmt.Sprintf("rule %s failed", name))
+			span.SetStatus(codes.Error, fmt.Sprintf("rule %s failed", name))
 			return fmt.Errorf("validation rule %q failed: %w", name, err)
 		}
 	}
 
-	span.SetStatus(trace.StatusOK, "validation passed")
+	span.SetStatus(codes.Ok, "validation passed")
 	return nil
 }
 
@@ -175,7 +175,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func TestCustomValidator_PassesValidMessage(t *testing.T) {
@@ -233,5 +233,5 @@ func (v *CustomValidator) ValidateMessageParallel(ctx context.Context, msg schem
 
 ## Related Recipes
 
-- **[Recursive Schema Handling](./recursive-schemas)** — Handle nested/recursive schema structures
+- **[Recursive Schema Handling](/docs/recipes/infrastructure/recursive-schemas/)** — Handle nested/recursive schema structures
 - **[LLM Error Handling](/docs/recipes/llm/llm-error-handling)** — Error handling patterns that complement validation

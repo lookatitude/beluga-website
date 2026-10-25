@@ -192,9 +192,11 @@ package main
 
 import (
     "context"
+    "iter"
+    "log"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // CostTrackingMiddleware wraps an LLM to track costs
@@ -234,7 +236,7 @@ func (m *costTrackingModel) Generate(ctx context.Context, msgs []schema.Message,
         resp.Usage.OutputTokens,
     ); err != nil {
         // Log error but don't fail the request
-        logger.Error("failed to track cost", "error", err)
+        log.Printf("failed to track cost: %v", err)
     }
 
     return resp, nil
@@ -244,7 +246,7 @@ func (m *costTrackingModel) Stream(ctx context.Context, msgs []schema.Message, o
     return m.inner.Stream(ctx, msgs, opts...)
 }
 
-func (m *costTrackingModel) BindTools(tools []tool.Tool) llm.ChatModel {
+func (m *costTrackingModel) BindTools(tools []schema.ToolDefinition) llm.ChatModel {
     return &costTrackingModel{
         inner:   m.inner.BindTools(tools),
         tracker: m.tracker,
@@ -347,6 +349,6 @@ func (e *CostExporter) ExportDailyCosts(ctx context.Context, date time.Time) err
 
 ## Related Resources
 
-- [Monitoring Dashboards](/docs/guides/monitoring-dashboards/) for cost visualization
-- [PII Leakage Detection](/docs/guides/pii-leakage-detection/) for privacy monitoring
-- [Observability Guide](/docs/guides/observability/) for OpenTelemetry setup
+- [Monitoring Dashboards](/docs/guides/production/monitoring-dashboards/) for cost visualization
+- [PII Leakage Detection](/docs/guides/production/pii-leakage-detection/) for privacy monitoring
+- [Observability Guide](/docs/guides/production/observability/) for OpenTelemetry setup

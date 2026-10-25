@@ -15,7 +15,7 @@ Choose the In-Memory state store for development, testing, and single-process ag
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/state/providers/inmemory
+go get github.com/lookatitude/beluga-ai/v2/state/providers/inmemory
 ```
 
 ## Quick Start
@@ -28,8 +28,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/state"
-    _ "github.com/lookatitude/beluga-ai/state/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/state"
+    _ "github.com/lookatitude/beluga-ai/v2/state/providers/inmemory"
 )
 
 func main() {
@@ -67,7 +67,7 @@ store, err := state.New("inmemory", state.Config{})
 ### Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/state/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/state/providers/inmemory"
 
 store := inmemory.New()
 defer store.Close()
@@ -180,7 +180,7 @@ The store is safe for concurrent use from multiple goroutines.
 ## With Hooks and Middleware
 
 ```go
-import "github.com/lookatitude/beluga-ai/state"
+import "github.com/lookatitude/beluga-ai/v2/state"
 
 store := inmemory.New()
 

@@ -31,7 +31,6 @@ import (
 	"log"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var tracer = otel.Tracer("beluga.voice.s2s.latency")
@@ -182,6 +181,6 @@ Adjust buffer size based on network conditions. Increase buffers when latency is
 
 ## Related Recipes
 
-- **[Handling Speech Interruption](./speech-interruption)** -- Handle user interruptions during AI speech
-- **[Jitter Buffer Management](./jitter-buffer)** -- Smooth network delivery irregularities
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
+- **[Handling Speech Interruption](/docs/recipes/voice/speech-interruption/)** -- Handle user interruptions during AI speech
+- **[Jitter Buffer Management](/docs/recipes/voice/jitter-buffer/)** -- Smooth network delivery irregularities
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup

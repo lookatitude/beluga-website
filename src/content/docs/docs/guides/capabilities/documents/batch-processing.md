@@ -69,6 +69,7 @@ package main
 import (
     "context"
     "fmt"
+    "strings"
     "sync"
     "sync/atomic"
     "time"
@@ -77,8 +78,8 @@ import (
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/metric"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 type BatchConfig struct {
@@ -116,7 +117,7 @@ type WorkResult struct {
 
 type BatchProcessor struct {
     config  BatchConfig
-    llm     llms.LLM
+    model   llm.ChatModel
     limiter *rate.Limiter
 
     // Metrics
@@ -129,7 +130,7 @@ type BatchProcessor struct {
     durationHist     metric.Float64Histogram
 }
 
-func NewBatchProcessor(llm llms.LLM, config BatchConfig) (*BatchProcessor, error) {
+func NewBatchProcessor(model llm.ChatModel, config BatchConfig) (*BatchProcessor, error) {
     meter := otel.Meter("beluga.batch")
 
     processedCounter, err := meter.Int64Counter("batch.items.processed")
@@ -144,7 +145,7 @@ func NewBatchProcessor(llm llms.LLM, config BatchConfig) (*BatchProcessor, error
 
     return &BatchProcessor{
         config:           config,
-        llm:              llm,
+        model:            model,
         limiter:          rate.NewLimiter(rate.Limit(config.RateLimit), 1),
         processedCounter: processedCounter,
         durationHist:     durationHist,
@@ -288,12 +289,12 @@ func (bp *BatchProcessor) callLLM(ctx context.Context, item WorkItem) (string, e
         schema.NewHumanMessage(item.Input),
     }
 
-    response, err := bp.llm.Generate(ctx, messages)
+    response, err := bp.model.Generate(ctx, messages)
     if err != nil {
         return "", err
     }
 
-    return response.Content, nil
+    return response.Text(), nil
 }
 
 func isRetryable(err error) bool {
@@ -378,14 +379,10 @@ func main() {
     ctx := context.Background()
 
     // Setup LLM
-    config := llms.NewConfig(
-        llms.WithProvider("openai"),
-        llms.WithModelName("gpt-3.5-turbo"),
-        llms.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
-    )
-
-    factory := llms.NewFactory()
-    llm, err := factory.CreateLLM("openai", config)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o-mini",
+    })
     if err != nil {
         log.Fatal(err)
     }
@@ -395,7 +392,7 @@ func main() {
     batchConfig.WorkerCount = 20
     batchConfig.RateLimit = 150.0 // 9000 RPM
 
-    processor, err := NewBatchProcessor(llm, batchConfig)
+    processor, err := NewBatchProcessor(model, batchConfig)
     if err != nil {
         log.Fatal(err)
     }
@@ -503,7 +500,7 @@ func NewDeadLetterQueue(filename string) (*DeadLetterQueue, error) {
     }, nil
 }
 
-func (dlq *DeadLetterQueue) Add(item WorkItem, err error) {
+func (dlq *DeadLetterQueue) Add(item WorkItem, err error) error {
     dlq.mu.Lock()
     defer dlq.mu.Unlock()
 
@@ -516,8 +513,14 @@ func (dlq *DeadLetterQueue) Add(item WorkItem, err error) {
         "time":  time.Now().Format(time.RFC3339),
     }
 
-    data, _ := json.Marshal(entry)
-    dlq.file.Write(append(data, '\n'))
+    data, mErr := json.Marshal(entry)
+    if mErr != nil {
+        return fmt.Errorf("marshal DLQ entry: %w", mErr)
+    }
+    if _, wErr := dlq.file.Write(append(data, '\n')); wErr != nil {
+        return fmt.Errorf("write DLQ entry: %w", wErr)
+    }
+    return nil
 }
 
 func (dlq *DeadLetterQueue) Close() error {
@@ -540,6 +543,6 @@ func (dlq *DeadLetterQueue) Close() error {
 
 ## Next Steps
 
-- Learn about [Workflow Orchestration](/docs/guides/workflow-orchestration) for complex multi-step processing
-- Explore [Production Agent Platform](/docs/guides/production-platform) for deployment patterns
-- Read [Infrastructure Recipes](/docs/recipes/infrastructure-recipes) for resilience patterns
+- Learn about [Workflow Orchestration](/docs/guides/production/workflow-orchestration/) for complex multi-step processing
+- Explore [Production Agent Platform](/docs/guides/production/production-platform/) for deployment patterns
+- Read [Infrastructure Recipes](/docs/recipes/infrastructure/) for resilience patterns

@@ -46,9 +46,9 @@ import (
     "strings"
     "time"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // ErrorRecoveryService wraps LLM operations with error recovery.
@@ -401,6 +401,6 @@ Choose fallback providers with different failure modes. If the primary provider 
 
 ## Related Resources
 
-- [LLM Package Guide](/docs/guides/llm/) for model integration patterns
-- [Streaming Proxy](/docs/guides/streaming-proxy/) for high-availability streaming
-- [Observability Guide](/docs/guides/observability/) for monitoring error recovery
+- [LLM Package Guide](/docs/guides/foundations/working-with-llms/) for model integration patterns
+- [Streaming Proxy](/docs/guides/production/streaming-proxy/) for high-availability streaming
+- [Observability Guide](/docs/guides/production/observability/) for monitoring error recovery

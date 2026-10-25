@@ -47,12 +47,12 @@ import (
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 type ABTestExperiment struct {
@@ -159,7 +159,7 @@ func (f *ABTestingFramework) RunExperiment(ctx context.Context, experimentID str
         Duration: duration,
     }
 
-    if err == nil && resp.Usage != nil {
+    if err == nil {
         metrics.TokensUsed = resp.Usage.TotalTokens
         metrics.Cost = calculateCost(experiment, variant, resp.Usage.TotalTokens)
         metrics.Quality = assessQuality(resp)
@@ -527,6 +527,6 @@ Organizations using A/B testing with Beluga AI achieve:
 
 ## Related Resources
 
-- [Cost-Optimized Router](/docs/guides/cost-optimized-router/) for production routing strategies
-- [LLM Gateway](/docs/guides/llm-gateway/) for multi-provider management
-- [Observability Guide](/docs/guides/observability/) for metrics and tracing
+- [Cost-Optimized Router](/docs/guides/production/cost-optimized-router/) for production routing strategies
+- [LLM Gateway](/docs/guides/production/llm-gateway/) for multi-provider management
+- [Observability Guide](/docs/guides/production/observability/) for metrics and tracing

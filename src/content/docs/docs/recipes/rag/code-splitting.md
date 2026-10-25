@@ -30,7 +30,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.textsplitters.code_splitting")
@@ -83,7 +83,7 @@ func (cs *CodeSplitter) SplitCode(ctx context.Context, code string) ([]string, e
 	chunks := cs.mergeBlocks(ctx, blocks)
 
 	span.SetAttributes(attribute.Int("chunk_count", len(chunks)))
-	span.SetStatus(trace.StatusOK, "code split")
+	span.SetStatus(codes.Ok, "code split")
 	return chunks, nil
 }
 
@@ -187,5 +187,5 @@ func detectLanguage(filename string) string {
 
 ## Related Recipes
 
-- **[Sentence-Boundary Splitting](./sentence-splitting)** -- Preserve sentence boundaries in prose text
-- **[Document Ingestion](./document-ingestion)** -- Document loading patterns
+- **[Sentence-Boundary Splitting](/docs/recipes/rag/sentence-splitting/)** -- Preserve sentence boundaries in prose text
+- **[Document Ingestion](/docs/recipes/rag/document-ingestion/)** -- Document loading patterns

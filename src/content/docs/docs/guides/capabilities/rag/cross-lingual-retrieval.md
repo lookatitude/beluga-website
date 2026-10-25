@@ -36,16 +36,20 @@ Beluga AI's RAG embedding package supports multilingual embedding models that ma
 The system uses multilingual embeddings for language-agnostic search.
 
 ```go
-package main
-
 import (
     "context"
     "fmt"
+    "os"
+    "sort"
 
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 // CrossLingualRetrievalSystem implements cross-lingual document retrieval.
@@ -58,15 +62,17 @@ type CrossLingualRetrievalSystem struct {
 // NewCrossLingualRetrievalSystem creates a new cross-lingual retrieval system.
 func NewCrossLingualRetrievalSystem(ctx context.Context) (*CrossLingualRetrievalSystem, error) {
     // Use multilingual embedding model
-    emb, err := embedding.New("openai", map[string]any{
-        "model": "text-embedding-3-large",
+    emb, err := embedding.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "text-embedding-3-large",
     })
     if err != nil {
         return nil, fmt.Errorf("create embedder: %w", err)
     }
 
-    store, err := vectorstore.New("pgvector", map[string]any{
-        "connection_string": "postgresql://localhost/vectordb",
+    store, err := vectorstore.New("pgvector", config.ProviderConfig{
+        BaseURL: "postgresql://localhost/vectordb",
+        Options: map[string]any{"dimension": float64(3072)},
     })
     if err != nil {
         return nil, fmt.Errorf("create vector store: %w", err)
@@ -101,6 +107,7 @@ func (s *CrossLingualRetrievalSystem) IndexDocument(
 
     // Create document with language metadata
     doc := schema.Document{
+        ID:      docID,
         Content: content,
         Metadata: map[string]any{
             "doc_id":   docID,
@@ -129,6 +136,7 @@ func (s *CrossLingualRetrievalSystem) IndexBatch(ctx context.Context, documents 
     for i, doc := range documents {
         texts[i] = doc.Content
         docs[i] = schema.Document{
+            ID:      doc.ID,
             Content: doc.Content,
             Metadata: map[string]any{
                 "doc_id":   doc.ID,
@@ -178,23 +186,12 @@ func (s *CrossLingualRetrievalSystem) Search(ctx context.Context, query string, 
         queryLang = "unknown"
     }
 
-    // Generate query embedding (same space as documents)
-    embeddings, err := s.embedder.Embed(ctx, []string{query})
-    if err != nil {
-        return nil, fmt.Errorf("generate query embedding: %w", err)
-    }
+    // The retriever embeds the query with the same multilingual model
+    // as the documents, so the search is language-agnostic.
+    ret := retriever.NewVectorStoreRetriever(s.vectorStore, s.embedder)
 
-    // Create retriever
-    ret, err := retriever.New("basic", map[string]any{
-        "vectorstore": s.vectorStore,
-        "k":           limit * 2, // Get more for ranking
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
-
-    // Search vector store (language-agnostic)
-    docs, err := ret.Retrieve(ctx, query)
+    // Get more results than needed for re-ranking
+    docs, err := ret.Retrieve(ctx, query, retriever.WithTopK(limit*2))
     if err != nil {
         return nil, fmt.Errorf("similarity search: %w", err)
     }
@@ -202,11 +199,12 @@ func (s *CrossLingualRetrievalSystem) Search(ctx context.Context, query string, 
     // Convert to search results
     results := make([]SearchResult, 0, len(docs))
     for _, doc := range docs {
+        lang, _ := doc.Metadata["language"].(string)
         results = append(results, SearchResult{
-            DocID:    doc.Metadata["doc_id"].(string),
+            DocID:    doc.ID,
             Content:  doc.Content,
-            Language: doc.Metadata["language"].(string),
-            Score:    doc.Metadata["score"].(float64),
+            Language: lang,
+            Score:    doc.Score, // similarity set by the vector store
         })
     }
 
@@ -341,7 +339,11 @@ import (
 func (s *CrossLingualRetrievalSystem) recordMetrics(ctx context.Context, queryLang string, resultLanguages []string) {
     meter := otel.Meter("cross-lingual-retrieval")
 
-    counter, _ := meter.Int64Counter("cross_lingual_searches_total")
+    counter, err := meter.Int64Counter("cross_lingual_searches_total")
+    if err != nil {
+        otel.Handle(err)
+        return
+    }
     counter.Add(ctx, 1,
         metric.WithAttributes(
             attribute.String("query_language", queryLang),
@@ -354,7 +356,11 @@ func (s *CrossLingualRetrievalSystem) recordMetrics(ctx context.Context, queryLa
         uniqueLangs[lang] = true
     }
 
-    histogram, _ := meter.Int64Histogram("result_language_diversity")
+    histogram, err := meter.Int64Histogram("result_language_diversity")
+    if err != nil {
+        otel.Handle(err)
+        return
+    }
     histogram.Record(ctx, int64(len(uniqueLangs)),
         metric.WithAttributes(
             attribute.String("query_language", queryLang),
@@ -379,6 +385,6 @@ For large multilingual document collections, consider language-specific sharding
 
 ## Related Resources
 
-- [RAG Pipeline Guide](/docs/guides/rag-pipeline/) for retrieval patterns
-- [Embedding Package Guide](/docs/guides/embeddings/) for embedding strategies
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for complete RAG system setup
+- [RAG Pipeline Guide](/docs/guides/capabilities/rag/rag-pipeline/) for retrieval patterns
+- [Embedding Package Guide](/docs/reference/providers/embedding/) for embedding strategies
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for complete RAG system setup

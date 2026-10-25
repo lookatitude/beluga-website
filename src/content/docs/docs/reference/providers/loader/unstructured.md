@@ -15,7 +15,7 @@ Choose Unstructured when you need to process a wide variety of document formats 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/loader/providers/unstructured
+go get github.com/lookatitude/beluga-ai/v2/rag/loader/providers/unstructured
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/unstructured"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/unstructured"
 )
 
 func main() {

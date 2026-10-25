@@ -21,17 +21,21 @@ Pixtral provides vision-language capabilities through the Mistral AI API. When i
 - **Scene analysis** -- detailed analysis of complex visual scenes
 - **Document understanding** -- extract information from documents and screenshots
 
-Pixtral uses the same Mistral API as other Mistral models, with multimodal input support through content parts.
+Pixtral uses the same Mistral API as other Mistral models, with multimodal input supplied as content parts.
+
+:::caution[Use the OpenAI-compatible provider for images]
+Beluga's native `mistral` provider (`llm/providers/mistral`) is text-only today: it sends only the text of each message and drops `schema.ImagePart` values. To send images to Pixtral, use the `openai` provider pointed at Mistral's OpenAI-compatible chat completions endpoint (`https://api.mistral.ai/v1`), which converts `schema.ImagePart` into `image_url` content (inline bytes are sent as a base64 data URI). The examples below do this.
+:::
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Mistral AI API key (obtain from [mistral.ai](https://mistral.ai))
 - Beluga AI framework installed
 
 ## Installation
 
-The Mistral provider is included in Beluga AI. No additional dependencies are required beyond the framework itself.
+The `openai` provider used below is included in Beluga AI. No additional dependencies are required beyond the framework itself.
 
 Set your API key:
 
@@ -43,7 +47,7 @@ export MISTRAL_API_KEY="your-api-key"
 
 ### Basic Setup
 
-Create a Mistral provider configured for the Pixtral model:
+Create an `openai` provider that targets Mistral's endpoint and the Pixtral model:
 
 ```go
 package main
@@ -54,38 +58,44 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/mistral"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
     ctx := context.Background()
 
-    config := &mistral.Config{
-        APIKey: os.Getenv("MISTRAL_API_KEY"),
-        Model:  "pixtral-12b",
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey:  os.Getenv("MISTRAL_API_KEY"),
+        BaseURL: "https://api.mistral.ai/v1",
+        Model:   "pixtral-12b-2409",
+    })
+    if err != nil {
+        log.Fatalf("failed to create Pixtral model: %v", err)
     }
 
-    provider, err := mistral.New(config)
+    imageData, err := os.ReadFile("image.png")
     if err != nil {
-        log.Fatalf("failed to create Pixtral provider: %v", err)
+        log.Fatalf("failed to read image: %v", err)
     }
 
     messages := []schema.Message{
-        &schema.UserMessage{
-            Content: []schema.ContentPart{
+        &schema.HumanMessage{
+            Parts: []schema.ContentPart{
                 schema.TextPart{Text: "What is in this image?"},
-                schema.ImagePart{Data: []byte{/* image data */}, MIMEType: "image/png"},
+                schema.ImagePart{Data: imageData, MimeType: "image/png"},
             },
         },
     }
 
-    response, err := provider.Generate(ctx, messages)
+    response, err := model.Generate(ctx, messages)
     if err != nil {
         log.Fatalf("generation failed: %v", err)
     }
 
-    fmt.Printf("Response: %s\n", response.Content)
+    fmt.Printf("Response: %s\n", response.Text())
 }
 ```
 
@@ -98,12 +108,14 @@ go run main.go
 
 ### Configuration Reference
 
-| Option | Description | Default | Required |
+`config.ProviderConfig` fields used with the `openai` provider:
+
+| Field | Description | Default | Required |
 |--------|-------------|---------|----------|
 | `APIKey` | Mistral AI API key | - | Yes |
-| `Model` | Pixtral model name | `pixtral-12b` | No |
-| `Timeout` | Request timeout | `30s` | No |
-| `MaxImageSize` | Maximum image size in bytes | `20MB` | No |
+| `BaseURL` | Mistral's OpenAI-compatible endpoint, `https://api.mistral.ai/v1` | OpenAI's endpoint | Yes (for Mistral) |
+| `Model` | Pixtral model name (e.g. `pixtral-12b-2409`, `pixtral-large-latest`) | - | Yes |
+| `Timeout` | Per-request timeout | none (use a context deadline) | No |
 
 ## Usage
 
@@ -112,33 +124,33 @@ go run main.go
 Pixtral supports several vision-language task patterns:
 
 ```go
-import "github.com/lookatitude/beluga-ai/schema"
+import "github.com/lookatitude/beluga-ai/v2/schema"
 
 // Image captioning (image only, no text prompt)
 messages := []schema.Message{
-    &schema.UserMessage{
-        Content: []schema.ContentPart{
-            schema.ImagePart{Data: imageData, MIMEType: "image/png"},
+    &schema.HumanMessage{
+        Parts: []schema.ContentPart{
+            schema.ImagePart{Data: imageData, MimeType: "image/png"},
         },
     },
 }
 
 // Visual question answering
 messages = []schema.Message{
-    &schema.UserMessage{
-        Content: []schema.ContentPart{
+    &schema.HumanMessage{
+        Parts: []schema.ContentPart{
             schema.TextPart{Text: "What color is the car in this image?"},
-            schema.ImagePart{Data: imageData, MIMEType: "image/jpeg"},
+            schema.ImagePart{Data: imageData, MimeType: "image/jpeg"},
         },
     },
 }
 
 // Detailed scene analysis
 messages = []schema.Message{
-    &schema.UserMessage{
-        Content: []schema.ContentPart{
+    &schema.HumanMessage{
+        Parts: []schema.ContentPart{
             schema.TextPart{Text: "Analyze this image and describe the scene in detail."},
-            schema.ImagePart{Data: imageData, MIMEType: "image/png"},
+            schema.ImagePart{Data: imageData, MimeType: "image/png"},
         },
     },
 }
@@ -146,45 +158,50 @@ messages = []schema.Message{
 
 ### Using Pixtral with Agents
 
-Integrate Pixtral as the backing model for a Beluga AI agent that can process images:
+Use Pixtral as the backing model for a Beluga AI agent. Note that `agent.BaseAgent.Invoke` takes a text input; image inputs go through `model.Generate` directly:
 
 ```go
 package main
 
 import (
     "context"
+    "fmt"
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm/providers/mistral"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
     ctx := context.Background()
 
-    config := &mistral.Config{
-        APIKey: os.Getenv("MISTRAL_API_KEY"),
-        Model:  "pixtral-12b",
-    }
-
-    model, err := mistral.New(config)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey:  os.Getenv("MISTRAL_API_KEY"),
+        BaseURL: "https://api.mistral.ai/v1",
+        Model:   "pixtral-12b-2409",
+    })
     if err != nil {
         log.Fatalf("failed to create model: %v", err)
     }
 
-    a, err := agent.New(
-        agent.WithName("vision-agent"),
-        agent.WithModel(model),
-        agent.WithInstructions("You are an image analysis assistant."),
+    a := agent.New("vision-agent",
+        agent.WithLLM(model),
+        agent.WithPersona(agent.Persona{
+            Role: "image analysis assistant",
+            Goal: "describe and answer questions about images accurately",
+        }),
     )
-    if err != nil {
-        log.Fatalf("failed to create agent: %v", err)
-    }
 
-    // Agent can now process multimodal inputs
-    _ = a
-    _ = ctx
+    // Agent.Invoke takes a text input. To send images, call model.Generate
+    // with schema.ImagePart content parts as shown above.
+    answer, err := a.Invoke(ctx, "Which image formats can you analyze?")
+    if err != nil {
+        log.Fatalf("agent failed: %v", err)
+    }
+    fmt.Println(answer)
 }
 ```
 
@@ -204,8 +221,10 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/llm/providers/mistral"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/trace"
@@ -215,31 +234,32 @@ func main() {
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
 
-    config := &mistral.Config{
-        APIKey: os.Getenv("MISTRAL_API_KEY"),
-        Model:  "pixtral-12b",
+    cfg := config.ProviderConfig{
+        APIKey:  os.Getenv("MISTRAL_API_KEY"),
+        BaseURL: "https://api.mistral.ai/v1",
+        Model:   "pixtral-12b-2409",
     }
 
     tracer := otel.Tracer("beluga.llm.pixtral")
     ctx, span := tracer.Start(ctx, "pixtral.generate",
         trace.WithAttributes(
             attribute.String("gen_ai.system", "mistral"),
-            attribute.String("gen_ai.request.model", config.Model),
+            attribute.String("gen_ai.request.model", cfg.Model),
         ),
     )
     defer span.End()
 
-    provider, err := mistral.New(config)
+    provider, err := llm.New("openai", cfg)
     if err != nil {
         span.RecordError(err)
         log.Fatalf("failed to create provider: %v", err)
     }
 
     messages := []schema.Message{
-        &schema.UserMessage{
-            Content: []schema.ContentPart{
+        &schema.HumanMessage{
+            Parts: []schema.ContentPart{
                 schema.TextPart{Text: "Describe this image in detail."},
-                schema.ImagePart{Data: loadImage("image.png"), MIMEType: "image/png"},
+                schema.ImagePart{Data: loadImage("image.png"), MimeType: "image/png"},
             },
         },
     }
@@ -255,7 +275,7 @@ func main() {
         attribute.Int("gen_ai.response.output_tokens", response.Usage.OutputTokens),
     )
 
-    fmt.Printf("Response: %s\n", response.Content)
+    fmt.Printf("Response: %s\n", response.Text())
 }
 
 func loadImage(path string) []byte {
@@ -273,7 +293,7 @@ When deploying Pixtral integrations to production:
 
 - **Image optimization**: Resize and compress images before sending to reduce latency and cost. Pixtral supports PNG, JPEG, and WebP formats.
 - **Cost management**: Monitor API usage through the Mistral AI dashboard. Image inputs consume more tokens than text.
-- **Size limits**: Respect the maximum image size (20MB default). Implement client-side validation before sending requests.
+- **Size limits**: Check Mistral's current per-image size limit and validate image size client-side before sending requests; Beluga does not enforce one.
 - **Format validation**: Verify image format compatibility before sending. Unsupported formats return errors.
 - **Error handling**: Use Beluga AI's `resilience` package for automatic retry on transient API failures.
 
@@ -303,5 +323,5 @@ The provided image format is not recognized by Pixtral. Supported formats are PN
 ## Related Resources
 
 - [Google Vertex AI Vision](/docs/guides/production/integrations/vertex-ai-vision) -- Google Vertex AI multimodal integration
-- [LLM Providers](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
-- [Monitoring](/docs/guides/production/integrations/monitoring) -- Observability and tracing setup
+- [LLM Providers](/docs/reference/providers/llm/) -- All supported LLM providers
+- [Monitoring](/docs/guides/production/monitoring-dashboards/) -- Observability and tracing setup

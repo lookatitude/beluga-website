@@ -27,7 +27,7 @@ graph TB
     end
 
     subgraph AudioPipeline["Audio Pipeline"]
-        VAD[VAD] --> TD[Turn Detection] --> PROC[STT/S2S/TTS<br>Processing]
+        VAD[VAD] --> PROC[STT/S2S/TTS<br>Processing]
     end
 
     subgraph AgentLayer["Agent Processing"]
@@ -45,7 +45,7 @@ graph TB
 
 1. **Client connects** via WebSocket or WebRTC with a session token
 2. **Session Manager** creates or resumes a session, allocating resources
-3. **Audio Pipeline** processes incoming audio through frame processors (VAD, turn detection)
+3. **Audio Pipeline** runs incoming audio through VAD, which marks speech start and end of utterance
 4. **Voice Provider** transcribes audio (STT) or processes end-to-end (S2S)
 5. **Agent** processes the transcript and generates a response
 6. **Response** is converted to audio (TTS) and streamed back to client
@@ -64,13 +64,6 @@ import (
     "fmt"
     "sync"
     "time"
-
-    "github.com/lookatitude/beluga-ai/voice"
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    "github.com/lookatitude/beluga-ai/voice/tts"
-
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/openai"
 )
 
 // SessionManager manages all active voice sessions.
@@ -132,7 +125,7 @@ func (m *SessionManager) CleanupIdle(ctx context.Context, idleTimeout time.Durat
 
 ### Voice Session Processing
 
-Each voice session tracks its state (connected, processing, listening, responding, disconnected) and conversation history. State transitions are explicit — the session moves through well-defined states that determine how audio is routed. This state machine approach ensures that the system never tries to play TTS output while simultaneously processing STT input, which would cause echo and confusion.
+Each voice session tracks its state (connected, processing, listening, responding, disconnected) and conversation history. This application-level session wraps connection concerns; inside a pipeline, Beluga's own `voice.VoiceSession` (created with `voice.NewSession(id)` and passed with `voice.WithSession`) tracks the idle, listening, and speaking states and the `voice.Turn` history. State transitions are explicit — the session moves through well-defined states that determine how audio is routed. This state machine approach ensures that the system never tries to play TTS output while simultaneously processing STT input, which would cause echo and confusion.
 
 ```go
 // VoiceSession represents an active voice conversation.
@@ -171,9 +164,7 @@ func (s *VoiceSession) ProcessAudio(ctx context.Context, sttEngine stt.STT, audi
 func (s *VoiceSession) GenerateResponse(ctx context.Context, ttsEngine tts.TTS, text string) ([]byte, error) {
     s.State = "responding"
 
-    audio, err := ttsEngine.Synthesize(ctx, text,
-        tts.WithVoice("nova"),
-    )
+    audio, err := ttsEngine.Synthesize(ctx, text)
     if err != nil {
         return nil, fmt.Errorf("tts failed: %w", err)
     }
@@ -189,37 +180,68 @@ func (s *VoiceSession) Close() {
 
 ### Building a Full Pipeline
 
-```go
-func buildVoicePipeline(ctx context.Context) (voice.FrameProcessor, error) {
-    vad := voice.NewSileroVAD(voice.VADConfig{
-        Threshold:         0.5,
-        MinSpeechDuration: 250 * time.Millisecond,
-    })
+Inside each session, a cascading `voice.VoicePipeline` connects the transport, VAD, STT, your agent stage, and TTS. The VAD is an `ActivityDetector`, not a frame processor, so it is passed with `voice.WithVAD` rather than chained. `agentStage` is your LLM or agent wrapped as a `voice.FrameProcessor`, for example a `voice.FrameLoop` that calls `model.Generate` on each text frame.
 
-    sttEngine, err := stt.New("deepgram", nil)
+```go
+import (
+    "context"
+    "fmt"
+    "os"
+
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
+)
+
+func buildVoicePipeline(ctx context.Context, conn voice.Transport, agentStage voice.FrameProcessor, sess *voice.VoiceSession) (*voice.VoicePipeline, error) {
+    vad, err := voice.NewVAD("silero", map[string]any{"threshold": 0.5, "sample_rate": 16000})
+    if err != nil {
+        return nil, fmt.Errorf("create vad: %w", err)
+    }
+
+    sttEngine, err := stt.New("deepgram", stt.Config{
+        SampleRate: 16000,
+        Encoding:   "linear16",
+        Extra:      map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
+    })
     if err != nil {
         return nil, fmt.Errorf("create stt: %w", err)
     }
 
-    ttsEngine, err := tts.New("openai", nil)
+    ttsEngine, err := tts.New("cartesia", tts.Config{
+        Voice:      os.Getenv("CARTESIA_VOICE_ID"),
+        SampleRate: 16000,
+        Extra:      map[string]any{"api_key": os.Getenv("CARTESIA_API_KEY")},
+    })
     if err != nil {
         return nil, fmt.Errorf("create tts: %w", err)
     }
 
-    sttProc := stt.AsFrameProcessor(sttEngine, stt.WithLanguage("en"))
-    ttsProc := tts.AsFrameProcessor(ttsEngine, 16000, tts.WithVoice("nova"))
-
-    pipeline := voice.Chain(vad, sttProc, agentProcessor, ttsProc)
-    return pipeline, nil
+    return voice.NewPipeline(
+        voice.WithTransport(conn),
+        voice.WithVAD(vad),
+        voice.WithSTT(stt.AsFrameProcessor(sttEngine, stt.WithLanguage("en"))),
+        voice.WithLLM(agentStage),
+        voice.WithTTS(tts.AsFrameProcessor(ttsEngine, 16000)),
+        voice.WithSession(sess),
+    ), nil
 }
 ```
 
+Call `Run(ctx)` on the result; it blocks until the context is cancelled or the transport fails.
+
 ## Reconnection Handling
 
-Voice sessions must survive network interruptions, especially on mobile networks where brief disconnections are common. The reconnection strategy uses exponential backoff with a 10-second cap to balance responsiveness (first retry is fast) with server protection (subsequent retries do not overwhelm the server during outages). State is preserved across reconnection attempts so the conversation resumes from where it left off.
+Voice sessions must survive network interruptions, especially on mobile networks where brief disconnections are common. The reconnection strategy uses exponential backoff with a 10-second cap to balance responsiveness (first retry is fast) with server protection (subsequent retries do not overwhelm the server during outages). State is preserved across reconnection attempts so the conversation resumes from where it left off. Beluga's WebSocket transport has no reconnect method; a closed transport stays closed. Reconnecting means dialing a new transport and running a new pipeline over it with the same session state.
 
 ```go
-func (s *VoiceSession) HandleReconnect(ctx context.Context, maxAttempts int, baseDelay time.Duration) error {
+// HandleReconnect redials until it succeeds and returns the new transport.
+// dial is typically a closure around transport.NewWebSocketTransport.
+func (s *VoiceSession) HandleReconnect(ctx context.Context, dial func(context.Context) (voice.Transport, error), maxAttempts int, baseDelay time.Duration) (voice.Transport, error) {
     s.State = "reconnecting"
 
     var lastErr error
@@ -231,22 +253,23 @@ func (s *VoiceSession) HandleReconnect(ctx context.Context, maxAttempts int, bas
 
         select {
         case <-ctx.Done():
-            return ctx.Err()
+            return nil, ctx.Err()
         case <-time.After(delay):
         }
 
-        if err := s.transport.Reconnect(ctx); err != nil {
+        conn, err := dial(ctx)
+        if err != nil {
             lastErr = err
             continue
         }
 
         s.State = "connected"
         s.LastActive = time.Now()
-        return nil
+        return conn, nil
     }
 
     s.State = "error"
-    return fmt.Errorf("reconnection failed after %d attempts: %w", maxAttempts, lastErr)
+    return nil, fmt.Errorf("reconnection failed after %d attempts: %w", maxAttempts, lastErr)
 }
 ```
 
@@ -274,20 +297,22 @@ func recordTurnMetrics(ctx context.Context, sttLatency, agentLatency, ttsLatency
 }
 ```
 
-## Expected Performance
+## Performance Targets
 
-| Metric | Target | Typical Result |
-|--------|--------|----------------|
-| End-to-end turn latency | < 2s | 1.2-1.8s |
-| STT latency | < 500ms | 200-400ms |
-| Agent latency | < 1s | 300-800ms |
-| TTS latency | < 500ms | 150-300ms |
-| Reconnection success rate | > 95% | 97-99% |
-| Memory per session | < 50MB | 20-35MB |
+Set targets per stage and measure against them with the metrics above. These are reasonable starting points; actual numbers depend on your providers, regions, and network.
+
+| Metric | Target |
+|--------|--------|
+| End-to-end turn latency | < 2s |
+| STT latency | < 500ms |
+| Agent latency | < 1s |
+| TTS latency | < 500ms |
+| Reconnection success rate | > 95% |
+| Memory per session | < 50MB |
 
 ## Deployment Considerations
 
-- **Transport choice**: Use WebSocket for broad compatibility; WebRTC for lowest latency
+- **Transport choice**: Beluga's WebSocket transport is the working option today. The LiveKit, Daily, and Pipecat providers are placeholders that do not connect yet, so WebRTC needs a gateway that bridges to WebSocket
 - **Session affinity**: Voice sessions are stateful; use sticky sessions at the load balancer
 - **Resource limits**: Set hard limits on audio buffers and max session duration
 - **S2S mode**: If your use case allows, S2S is simpler and lower latency than STT+TTS
@@ -296,6 +321,6 @@ func recordTurnMetrics(ctx context.Context, sttLatency, agentLatency, ttsLatency
 
 ## Related Resources
 
-- [Voice AI Applications](/docs/guides/voice-applications/) for complete voice pipeline patterns
-- [Voice Forms](/docs/guides/voice-forms/) for multi-turn voice form collection
-- [Production Agent Platform](/docs/guides/production-platform/) for deployment patterns
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for complete voice pipeline patterns
+- [Voice Forms](/docs/guides/capabilities/voice/voice-forms/) for multi-turn voice form collection
+- [Production Agent Platform](/docs/guides/production/production-platform/) for deployment patterns

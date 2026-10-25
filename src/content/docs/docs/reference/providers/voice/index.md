@@ -48,8 +48,8 @@ Instantiate via the registry or direct construction:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 engine, err := stt.New("deepgram", stt.Config{
@@ -74,8 +74,8 @@ Instantiate via the registry or direct construction:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 engine, err := tts.New("elevenlabs", tts.Config{
@@ -107,13 +107,13 @@ Instantiate via the registry:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/s2s"
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
 engine, err := s2s.New("openai_realtime", s2s.Config{
     Voice: "alloy",
-    Model: "gpt-4o-realtime-preview",
+    Model: "gpt-realtime-2.1",
     Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
 })
 session, err := engine.Start(ctx)
@@ -192,7 +192,7 @@ pipeline := voice.Chain(sttProcessor, llmProcessor, ttsProcessor)
 |----------|---------------|-------------|
 | [ElevenLabs](/docs/reference/providers/voice/elevenlabs) | `elevenlabs` | Premium voice cloning and synthesis |
 | [Cartesia](/docs/reference/providers/voice/cartesia) | `cartesia` | Low-latency Sonic voice engine |
-| [PlayHT](/docs/reference/providers/voice/playht) | `playht` | AI voice generation platform |
+| [PlayHT](/docs/reference/providers/voice/playht) | `playht` | Deprecated: PlayHT discontinued its service in 2025 |
 | [LMNT](/docs/reference/providers/voice/lmnt) | `lmnt` | Ultra-low-latency voice synthesis |
 | [Fish Audio](/docs/reference/providers/voice/fish) | `fish` | Open-source voice synthesis |
 | [Smallest AI](/docs/reference/providers/voice/smallest) | `smallest` | Lightning-fast TTS engine |

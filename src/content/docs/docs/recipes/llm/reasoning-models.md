@@ -33,11 +33,11 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -168,7 +168,7 @@ The same API works with Anthropic's Claude models that support extended
 thinking:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 
 model, err := llm.New("anthropic", config.ProviderConfig{
     APIKey: "sk-ant-...",

@@ -11,7 +11,7 @@ head:
 ## a2a
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/a2a"
+import "github.com/lookatitude/beluga-ai/v2/protocol/a2a"
 ```
 
 Package a2a implements the Agent-to-Agent (A2A) protocol for multi-agent
@@ -81,7 +81,7 @@ result, err := remote.Invoke(ctx, "Hello")
 ## sdk
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/a2a/sdk"
+import "github.com/lookatitude/beluga-ai/v2/protocol/a2a/sdk"
 ```
 
 Package sdk provides integration between the official A2A Go SDK

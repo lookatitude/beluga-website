@@ -94,8 +94,8 @@ Start with ReAct. Upgrade only when you have a measurable quality gap and a budg
 
 ## Related
 
-- [Reasoning Strategies (DOC-06)](../../../../../../architecture/06-reasoning-strategies.md)
-- [Agent Anatomy (DOC-05)](../../../../../../architecture/05-agent-anatomy.md)
+- [Reasoning Strategies (DOC-06)](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/06-reasoning-strategies.md)
+- [Agent Anatomy (DOC-05)](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/05-agent-anatomy.md)
 - [Orchestration](../orchestration/)
 - [Memory System](../memory/memory-system)
 

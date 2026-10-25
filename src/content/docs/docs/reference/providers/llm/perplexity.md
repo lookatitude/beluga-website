@@ -15,7 +15,7 @@ Choose Perplexity when your application needs answers grounded in current web da
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/perplexity
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/perplexity
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/perplexity"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/perplexity"
 )
 
 func main() {
@@ -111,7 +111,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/perplexity"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/perplexity"
 
 model, err := perplexity.New(config.ProviderConfig{
     Model:  "sonar-pro",

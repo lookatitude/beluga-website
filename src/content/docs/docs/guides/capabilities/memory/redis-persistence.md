@@ -33,7 +33,7 @@ import (
     "time"
 
     "github.com/redis/go-redis/v9"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // RedisHistory stores conversation messages in a Redis list.

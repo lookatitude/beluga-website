@@ -33,8 +33,9 @@ import (
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
 
-    "github.com/lookatitude/beluga-ai/memory"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/memory"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.memory.window_recovery")
@@ -106,12 +107,13 @@ func (wcr *WindowContextRecovery) RecoverContext(ctx context.Context, sessionID 
 
     // Try to recover from persistent memory first
     if wcr.memory != nil {
-        vars, err := wcr.memory.LoadMemoryVariables(ctx, map[string]any{"session_id": sessionID})
-        if err == nil && vars != nil {
-            if messages, ok := vars["messages"].([]schema.Message); ok && len(messages) > 0 {
-                span.SetAttributes(attribute.Bool("recovered_from_memory", true))
-                return messages, nil
-            }
+        // An empty query returns the full stored history for this session's memory.
+        messages, err := wcr.memory.Load(ctx, "")
+        if err != nil {
+            span.RecordError(err) // fall through to window recovery
+        } else if len(messages) > 0 {
+            span.SetAttributes(attribute.Bool("recovered_from_memory", true))
+            return messages, nil
         }
     }
 
@@ -219,11 +221,21 @@ func (wcr *WindowContextRecovery) GetRecentWindow(ctx context.Context, n int) []
 func main() {
     ctx := context.Background()
 
-    // mem := your memory.Memory instance (or nil for window-only recovery)
+    // Persistent memory for this session (pass nil for window-only recovery).
+    mem, err := memory.New("recall", config.ProviderConfig{Provider: "recall"})
+    if err != nil {
+        log.Fatalf("Failed to create memory: %v", err)
+    }
     recovery := NewWindowContextRecovery(10, mem)
 
-    recovery.AddMessage(ctx, schema.NewHumanMessage("Hello"))
-    recovery.AddMessage(ctx, schema.NewAIMessage("Hi there!"))
+    for _, msg := range []schema.Message{
+        schema.NewHumanMessage("Hello"),
+        schema.NewAIMessage("Hi there!"),
+    } {
+        if err := recovery.AddMessage(ctx, msg); err != nil {
+            log.Fatalf("Failed to add message: %v", err)
+        }
+    }
 
     messages, err := recovery.RecoverContext(ctx, "session-123")
     if err != nil {
@@ -267,5 +279,5 @@ func (wcr *WindowContextRecovery) CompressOldWindows(ctx context.Context) error 
 
 ## Related Recipes
 
-- [Memory TTL and Cleanup](/docs/recipes/memory-ttl-cleanup) -- Implement memory expiration
-- [History Trimming](/docs/recipes/history-trimming) -- Trim conversation history intelligently
+- [Memory TTL and Cleanup](/docs/recipes/memory/memory-ttl-cleanup/) -- Implement memory expiration
+- [History Trimming](/docs/recipes/llm/history-trimming/) -- Trim conversation history intelligently

@@ -1,4 +1,5 @@
-import { PAGE_TITLE_ID } from "node_modules/@astrojs/starlight/constants";
+// Starlight anchors the page title with this id (constants.ts, not a public export).
+const PAGE_TITLE_ID = "_top";
 
 
 

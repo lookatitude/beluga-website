@@ -18,7 +18,7 @@ The Google Drive loader uses the Drive API to list and download files from a spe
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Google Cloud project with the Drive API enabled
 - OAuth 2.0 credentials or a service account key
@@ -51,7 +51,7 @@ export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 The loader satisfies the `DocumentLoader` interface:
 
 ```go
-// From github.com/lookatitude/beluga-ai/rag/loader
+// From github.com/lookatitude/beluga-ai/v2/rag/loader
 type DocumentLoader interface {
     Load(ctx context.Context, source string) ([]schema.Document, error)
 }
@@ -78,7 +78,7 @@ import (
 
     "google.golang.org/api/drive/v3"
     "google.golang.org/api/option"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // DriveLoader loads documents from a Google Drive folder.
@@ -353,4 +353,4 @@ func (l *DriveLoader) LoadAll(ctx context.Context, folderID string) ([]schema.Do
 
 - [Document Loaders](/docs/guides/production/integrations/document-loaders) -- All document loader integrations
 - [S3 Event-Driven Loader](/docs/guides/production/integrations/s3-event-loader) -- AWS S3 document loading
-- [Embedding Providers](/docs/guides/production/integrations/embedding-providers) -- Generating embeddings for loaded documents
+- [Embedding Providers](/docs/reference/providers/embedding/) -- Generating embeddings for loaded documents

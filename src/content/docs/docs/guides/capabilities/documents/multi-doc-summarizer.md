@@ -16,7 +16,7 @@ RAG-based multi-document summarization retrieves relevant documents using semant
 
 ## Solution Architecture
 
-Beluga AI's retriever package with hybrid search (vector + BM25 + RRF fusion) finds the most relevant documents for a given query. The summarizer then applies a three-stage process: extraction, synthesis, and generation. Each stage uses a separate LLM call with a focused prompt, which produces better results than trying to do everything in a single prompt with a massive context window.
+Beluga AI's retriever package with hybrid search (`retriever.NewHybridRetriever`: vector + BM25 + RRF fusion) finds the most relevant documents for a given query. The summarizer then applies a three-stage process: extraction, synthesis, and generation. Each stage uses a separate LLM call with a focused prompt, which produces better results than trying to do everything in a single prompt with a massive context window.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -46,14 +46,15 @@ package main
 import (
     "context"
     "fmt"
+    "os"
     "sort"
 
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/retriever/providers/hybrid"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // MultiDocumentSummarizer summarizes multiple documents with context synthesis.
@@ -62,13 +63,14 @@ type MultiDocumentSummarizer struct {
     model     llm.ChatModel
 }
 
-func NewMultiDocumentSummarizer(ctx context.Context) (*MultiDocumentSummarizer, error) {
-    ret, err := retriever.New("hybrid", nil)
-    if err != nil {
-        return nil, fmt.Errorf("create retriever: %w", err)
-    }
-
-    model, err := llm.New("openai", nil)
+// NewMultiDocumentSummarizer takes any retriever, for example a
+// retriever.NewHybridRetriever(store, embedder, bm25) that fuses vector and
+// BM25 results with RRF.
+func NewMultiDocumentSummarizer(ret retriever.Retriever) (*MultiDocumentSummarizer, error) {
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -149,7 +151,7 @@ Return as structured JSON.`, doc.Content)
     }
 
     return KeyInformation{
-        Content: resp.Parts[0].(schema.TextPart).Text,
+        Content: resp.Text(),
         Source:  doc.Metadata["source"].(string),
         DocID:   doc.Metadata["id"].(string),
     }, nil
@@ -189,7 +191,7 @@ Provide a coherent synthesis that:
         return "", fmt.Errorf("synthesize information: %w", err)
     }
 
-    return resp.Parts[0].(schema.TextPart).Text, nil
+    return resp.Text(), nil
 }
 
 func (m *MultiDocumentSummarizer) generateSummary(
@@ -230,10 +232,10 @@ Format the summary with clear sections.`, synthesized)
     }
 
     return &Summary{
-        Content:     resp.Parts[0].(schema.TextPart).Text,
+        Content:     resp.Text(),
         Sources:     sources,
         DocumentIDs: extractDocIDs(docs),
-        Quality:     m.assessQuality(ctx, resp.Parts[0].(schema.TextPart).Text),
+        Quality:     m.assessQuality(ctx, resp.Text()),
     }, nil
 }
 
@@ -324,8 +326,8 @@ Create a cohesive summary that captures all important information.`, combinedTex
     }
 
     return &Summary{
-        Content: resp.Parts[0].(schema.TextPart).Text,
-        Quality: m.assessQuality(ctx, resp.Parts[0].(schema.TextPart).Text),
+        Content: resp.Text(),
+        Quality: m.assessQuality(ctx, resp.Text()),
     }, nil
 }
 
@@ -425,6 +427,6 @@ Multi-document summarization delivered significant improvements:
 
 ## Related Resources
 
-- [Enterprise RAG](/docs/guides/enterprise-rag/) for RAG pipeline patterns
-- [Regulatory Search](/docs/guides/regulatory-search/) for retrieval patterns
-- [RAG Configuration](/docs/guides/rag-pipeline/) for retriever setup
+- [Enterprise RAG](/docs/guides/capabilities/rag/enterprise-rag/) for RAG pipeline patterns
+- [Regulatory Search](/docs/guides/capabilities/rag/regulatory-search/) for retrieval patterns
+- [RAG Configuration](/docs/guides/capabilities/rag/rag-pipeline/) for retriever setup

@@ -36,9 +36,9 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
-	"github.com/lookatitude/beluga-ai/core"
+	"github.com/lookatitude/beluga-ai/v2/core"
 )
 
 var tracer = otel.Tracer("beluga.orchestration.parallel")
@@ -127,12 +127,12 @@ func (pge *ParallelGraphExecutor) Execute(ctx context.Context) (map[string]any, 
 
 		if err := <-errCh; err != nil {
 			span.RecordError(err)
-			span.SetStatus(trace.StatusError, err.Error())
+			span.SetStatus(codes.Error, err.Error())
 			return nil, err
 		}
 	}
 
-	span.SetStatus(trace.StatusOK, "all nodes executed")
+	span.SetStatus(codes.Ok, "all nodes executed")
 	return results, nil
 }
 
@@ -252,4 +252,4 @@ type WeightedNode struct {
 ## Related Recipes
 
 - **[Agents Parallel Step Execution](/docs/recipes/agents/agents-parallel-execution)** — Parallel agent steps using `core.Parallel`
-- **[Workflow Checkpointing](./workflow-checkpoints)** — Save and resume workflows
+- **[Workflow Checkpointing](/docs/recipes/infrastructure/workflow-checkpoints/)** — Save and resume workflows

@@ -11,7 +11,7 @@ head:
 ## anthropic
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 ```
 
 Package anthropic provides the Anthropic (Claude) LLM provider for the
@@ -27,7 +27,7 @@ The provider registers itself as "anthropic" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 ```
 
 ## Usage
@@ -72,7 +72,7 @@ content block format. The default max tokens is 4096 when not specified.
 ## azure
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/azure"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/azure"
 ```
 
 Package azure provides the Azure OpenAI LLM provider for the Beluga AI
@@ -90,7 +90,7 @@ The provider registers itself as "azure" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/azure"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/azure"
 ```
 
 ## Usage
@@ -129,7 +129,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## bedrock
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
 ```
 
 Package bedrock provides the AWS Bedrock LLM provider for the Beluga AI
@@ -145,7 +145,7 @@ The provider registers itself as "bedrock" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
 ```
 
 ## Usage
@@ -193,7 +193,7 @@ system content blocks. Tool use follows the Bedrock tool specification format.
 ## bifrost
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/bifrost"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/bifrost"
 ```
 
 Package bifrost provides a ChatModel backed by a Bifrost gateway for the
@@ -209,7 +209,7 @@ The provider registers itself as "bifrost" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/bifrost"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/bifrost"
 ```
 
 ## Usage
@@ -246,7 +246,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## cerebras
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/cerebras"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/cerebras"
 ```
 
 Package cerebras provides the Cerebras LLM provider for the Beluga AI
@@ -262,7 +262,7 @@ The provider registers itself as "cerebras" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/cerebras"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/cerebras"
 ```
 
 ## Usage
@@ -298,7 +298,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## cohere
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/cohere"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/cohere"
 ```
 
 Package cohere provides the Cohere LLM provider for the Beluga AI framework.
@@ -318,7 +318,7 @@ The provider registers itself as "cohere" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/cohere"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/cohere"
 ```
 
 ## Usage
@@ -362,7 +362,7 @@ stream with TextGeneration, ToolCallsGeneration, and StreamEnd events.
 ## deepseek
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/deepseek"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/deepseek"
 ```
 
 Package deepseek provides the DeepSeek LLM provider for the Beluga AI
@@ -378,7 +378,7 @@ The provider registers itself as "deepseek" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/deepseek"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/deepseek"
 ```
 
 ## Usage
@@ -414,7 +414,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## fireworks
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/fireworks"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/fireworks"
 ```
 
 Package fireworks provides the Fireworks AI LLM provider for the Beluga AI
@@ -430,7 +430,7 @@ The provider registers itself as "fireworks" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/fireworks"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/fireworks"
 ```
 
 ## Usage
@@ -466,7 +466,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## google
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/google"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 ```
 
 Package google provides the Google Gemini LLM provider for the Beluga AI
@@ -482,7 +482,7 @@ The provider registers itself as "google" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 ```
 
 ## Usage
@@ -528,7 +528,7 @@ both inline data (base64) and file URIs.
 ## groq
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/groq"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/groq"
 ```
 
 Package groq provides the Groq LLM provider for the Beluga AI framework.
@@ -543,7 +543,7 @@ The provider registers itself as "groq" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/groq"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/groq"
 ```
 
 ## Usage
@@ -579,7 +579,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## huggingface
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/huggingface"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/huggingface"
 ```
 
 Package huggingface provides the HuggingFace Inference API LLM provider for
@@ -596,7 +596,7 @@ The provider registers itself as "huggingface" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/huggingface"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/huggingface"
 ```
 
 ## Usage
@@ -632,7 +632,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## litellm
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/litellm"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/litellm"
 ```
 
 Package litellm provides a ChatModel backed by a LiteLLM gateway for the
@@ -648,7 +648,7 @@ The provider registers itself as "litellm" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/litellm"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/litellm"
 ```
 
 ## Usage
@@ -685,7 +685,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## llama
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/llama"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/llama"
 ```
 
 Package llama provides a Meta Llama model provider for the Beluga AI
@@ -702,7 +702,7 @@ The provider registers itself as "llama" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/llama"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/llama"
 ```
 
 ## Usage
@@ -741,7 +741,7 @@ The appropriate backend provider must be imported for delegation to work.
 ## mistral
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/mistral"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/mistral"
 ```
 
 Package mistral provides the Mistral AI LLM provider for the Beluga AI
@@ -757,7 +757,7 @@ The provider registers itself as "mistral" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/mistral"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/mistral"
 ```
 
 ## Usage
@@ -802,7 +802,7 @@ the Mistral function calling format.
 ## ollama
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/ollama"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/ollama"
 ```
 
 Package ollama provides the Ollama LLM provider for the Beluga AI framework.
@@ -818,7 +818,7 @@ The provider registers itself as "ollama" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/ollama"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/ollama"
 ```
 
 ## Usage
@@ -853,7 +853,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## openai
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/openai"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 ```
 
 Package openai provides the OpenAI LLM provider for the Beluga AI framework.
@@ -869,7 +869,7 @@ The provider registers itself as "openai" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 ```
 
 ## Usage
@@ -905,7 +905,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## openrouter
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/openrouter"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/openrouter"
 ```
 
 Package openrouter provides the OpenRouter LLM provider for the Beluga AI
@@ -922,7 +922,7 @@ The provider registers itself as "openrouter" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/openrouter"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openrouter"
 ```
 
 ## Usage
@@ -958,7 +958,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## perplexity
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/perplexity"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/perplexity"
 ```
 
 Package perplexity provides the Perplexity LLM provider for the Beluga AI
@@ -974,7 +974,7 @@ The provider registers itself as "perplexity" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/perplexity"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/perplexity"
 ```
 
 ## Usage
@@ -1010,7 +1010,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## qwen
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/qwen"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/qwen"
 ```
 
 Package qwen provides the Alibaba Qwen LLM provider for the Beluga AI
@@ -1026,7 +1026,7 @@ The provider registers itself as "qwen" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/qwen"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/qwen"
 ```
 
 ## Usage
@@ -1062,7 +1062,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## sambanova
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/sambanova"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/sambanova"
 ```
 
 Package sambanova provides the SambaNova LLM provider for the Beluga AI
@@ -1078,7 +1078,7 @@ The provider registers itself as "sambanova" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/sambanova"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/sambanova"
 ```
 
 ## Usage
@@ -1114,7 +1114,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## together
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/together"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/together"
 ```
 
 Package together provides the Together AI LLM provider for the Beluga AI
@@ -1130,7 +1130,7 @@ The provider registers itself as "together" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/together"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/together"
 ```
 
 ## Usage
@@ -1166,7 +1166,7 @@ Use `New` to create a ChatModel directly without going through the registry.
 ## xai
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/xai"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/xai"
 ```
 
 Package xai provides the xAI Grok LLM provider for the Beluga AI framework.
@@ -1180,7 +1180,7 @@ The provider registers itself as "xai" via init(). Import the package
 for side effects to make it available through the llm registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/xai"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/xai"
 ```
 
 ## Usage

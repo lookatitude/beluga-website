@@ -50,24 +50,24 @@ import (
     "database/sql"
     "encoding/json"
     "fmt"
-    "math"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // SQLQueryInput defines the input schema for the SQL tool.
 type SQLQueryInput struct {
-    Query string `json:"query" jsonschema:"description=Read-only SQL query to execute"`
+    Query string `json:"query" description:"Read-only SQL query to execute" required:"true"`
 }
 
 // StatsInput defines the input schema for the statistics tool.
 type StatsInput struct {
-    Values []float64 `json:"values" jsonschema:"description=Numeric values to analyze"`
+    Values []float64 `json:"values" description:"Numeric values to analyze" required:"true"`
 }
 
 // StatsOutput holds computed statistics.
@@ -81,7 +81,10 @@ type StatsOutput struct {
 }
 
 func createAnalysisAgent(ctx context.Context, db *sql.DB) (agent.Agent, error) {
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return nil, fmt.Errorf("create model: %w", err)
     }
@@ -124,8 +127,7 @@ func createAnalysisAgent(ctx context.Context, db *sql.DB) (agent.Agent, error) {
         },
     )
 
-    analysisAgent, err := agent.New(
-        agent.WithID("data-analyst"),
+    analysisAgent := agent.New("data-analyst",
         agent.WithPersona(agent.Persona{
             Role: "Senior Data Analyst",
             Goal: "Provide accurate, data-driven insights from available sources",
@@ -133,12 +135,9 @@ func createAnalysisAgent(ctx context.Context, db *sql.DB) (agent.Agent, error) {
                 "and synthesizing findings into clear, actionable reports. " +
                 "Always show your methodology and cite the data behind conclusions.",
         }),
-        agent.WithModel(model),
-        agent.WithTools(sqlTool, statsTool),
+        agent.WithLLM(model),
+        agent.WithTools([]tool.Tool{sqlTool, statsTool}),
     )
-    if err != nil {
-        return nil, fmt.Errorf("create agent: %w", err)
-    }
 
     return analysisAgent, nil
 }
@@ -260,14 +259,17 @@ apiTool := tool.NewFuncTool[APIQueryInput](
 
 ### Safety Guards
 
-An agent with SQL access could potentially execute destructive queries (DROP TABLE, DELETE). Beluga AI's guard pipeline applies a tool guard that validates SQL input before execution, blocking write operations at the framework level rather than relying on database permissions alone. This defense-in-depth approach catches prompt injection attempts that try to trick the agent into running unauthorized queries:
+An agent with SQL access could potentially execute destructive queries (DROP TABLE, DELETE). A tool guard in Beluga AI's guard pipeline can validate the SQL before it runs, blocking write operations in the application rather than relying on database permissions alone. This defense-in-depth approach catches prompt injection attempts that try to trick the agent into running unauthorized queries. The pipeline is not wired into the agent automatically: call `ValidateTool` inside the tool function before executing the query.
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 
-// Guard that blocks write operations in SQL
-sqlGuard := guard.GuardFunc("sql-read-only", func(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
-    // Check for write keywords
+// sqlReadOnlyGuard implements guard.Guard and blocks SQL write operations.
+type sqlReadOnlyGuard struct{}
+
+func (sqlReadOnlyGuard) Name() string { return "sql-read-only" }
+
+func (sqlReadOnlyGuard) Validate(ctx context.Context, input guard.GuardInput) (guard.GuardResult, error) {
     upper := strings.ToUpper(input.Content)
     for _, keyword := range []string{"INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE"} {
         if strings.Contains(upper, keyword) {
@@ -278,7 +280,19 @@ sqlGuard := guard.GuardFunc("sql-read-only", func(ctx context.Context, input gua
         }
     }
     return guard.GuardResult{Allowed: true}, nil
-})
+}
+
+var toolGuards = guard.NewPipeline(guard.Tool(sqlReadOnlyGuard{}))
+
+// Inside the query_database tool function, before db.QueryContext:
+//
+//     res, err := toolGuards.ValidateTool(ctx, "query_database", input.Query)
+//     if err != nil {
+//         return tool.ErrorResult(err), nil
+//     }
+//     if !res.Allowed {
+//         return tool.ErrorResult(fmt.Errorf("blocked by %s: %s", res.GuardName, res.Reason)), nil
+//     }
 ```
 
 ### Resilience
@@ -286,7 +300,7 @@ sqlGuard := guard.GuardFunc("sql-read-only", func(ctx context.Context, input gua
 Wrap database and API calls with retry logic for transient failures:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 policy := resilience.RetryPolicy{
     MaxAttempts:    3,
@@ -333,6 +347,6 @@ span.SetAttributes(
 
 ## Related Resources
 
-- [Building Your First Agent](/docs/guides/first-agent/) for planner strategy selection
-- [Tools & MCP](/docs/guides/tools-and-mcp/) for building custom tools
-- [LLM Recipes](/docs/recipes/llm-recipes/) for typed responses
+- [Building Your First Agent](/docs/guides/foundations/first-agent/) for planner strategy selection
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) for building custom tools
+- [LLM Recipes](/docs/recipes/llm/) for typed responses

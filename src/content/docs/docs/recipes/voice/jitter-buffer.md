@@ -36,7 +36,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.voice.stt.jitter_buffer")
@@ -84,7 +84,7 @@ func (jb *JitterBuffer) AddPacket(ctx context.Context, packet *AudioPacket) erro
 	jb.packets[packet.SequenceNumber] = packet
 	jb.deliverOrdered(ctx)
 
-	span.SetStatus(trace.StatusOK, "packet added")
+	span.SetStatus(codes.Ok, "packet added")
 	return nil
 }
 
@@ -201,6 +201,6 @@ Use packet timestamps instead of sequence numbers when sequence information is u
 
 ## Related Recipes
 
-- **[Background Noise Reduction](./background-noise)** -- Improve STT quality with preprocessing
-- **[Glass-to-Glass Latency](./glass-to-glass-latency)** -- End-to-end latency optimization
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
+- **[Background Noise Reduction](/docs/recipes/voice/background-noise/)** -- Improve STT quality with preprocessing
+- **[Glass-to-Glass Latency](/docs/recipes/voice/glass-to-glass-latency/)** -- End-to-end latency optimization
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup

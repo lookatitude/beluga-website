@@ -14,7 +14,7 @@ Beluga AI provides a frame-based voice pipeline that composes STT (speech-to-tex
 
 ## Voice Pipeline Architecture
 
-Beluga AI's voice system is built around the `FrameProcessor` interface. Each component (STT, TTS, VAD, turn detector) is a frame processor that reads frames from an input channel and writes processed frames to an output channel. Frame processors compose into pipelines using `voice.Chain()`.
+Beluga AI's voice system is built around the `FrameProcessor` interface. STT, TTS, and your agent logic are frame processors that take an input frame stream and return an output frame stream. Frame processors compose into pipelines using `voice.Chain()`, and `voice.NewPipeline` adds the transport and VAD (an `ActivityDetector`) around them.
 
 This composable design follows the Unix pipe philosophy: each processor does one thing well, and complex behavior emerges from composition rather than configuration. You can insert a noise filter before VAD, add logging between stages, or swap a Deepgram STT for Whisper without touching any other component in the chain.
 
@@ -22,7 +22,7 @@ This composable design follows the Unix pipe philosophy: each processor does one
 ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
 │  Audio   │───▶│   VAD   │───▶│   STT   │───▶│  Agent  │───▶│   TTS   │
 │  Input   │    │ (Silero)│    │(Deepgram│    │ (LLM +  │    │(ElevenL │
-│ (WebSocket)│  │         │    │ Whisper)│    │  Tools) │    │  OpenAI)│
+│ (WebSocket)│  │         │    │ Whisper)│    │  Tools) │    │Cartesia)│
 └─────────┘    └─────────┘    └─────────┘    └─────────┘    └─────────┘
      Frames ──────▶ Frames ──────▶ Frames ──────▶ Frames ──────▶ Frames
 ```
@@ -32,16 +32,13 @@ This composable design follows the Unix pipe philosophy: each processor does one
 All voice components implement the `FrameProcessor` interface:
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice"
-
-// FrameProcessor processes a stream of frames
+// FrameProcessor (in package voice) processes a stream of frames
 type FrameProcessor interface {
-    Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error
+    Process(ctx context.Context, in iter.Seq2[Frame, error]) iter.Seq2[Frame, error]
 }
 
-// Compose processors into a pipeline
-pipeline := voice.Chain(
-    vadProcessor,
+// Compose processors into a single processor
+chain := voice.Chain(
     sttProcessor,
     agentProcessor,
     ttsProcessor,
@@ -58,7 +55,7 @@ audioFrame := voice.NewAudioFrame(pcmData, 16000)
 textFrame := voice.NewTextFrame("Hello, how can I help?")
 
 // Control frame for signaling
-endOfTurn := voice.NewControlFrame("end_of_turn")
+endOfTurn := voice.NewControlFrame(voice.SignalEndOfUtterance)
 ```
 
 ## Use Case 1: Real-Time AI Concierge
@@ -70,23 +67,35 @@ package main
 
 import (
     "context"
+    "encoding/json"
     "fmt"
+    "io"
+    "log"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
-    "github.com/lookatitude/beluga-ai/voice"
-    "github.com/lookatitude/beluga-ai/voice/s2s"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/tool"
+    "github.com/lookatitude/beluga-ai/v2/voice/s2s"
 
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
-func createConcierge(ctx context.Context) error {
+// Hotel systems the tools call into; implement these for your property.
+type BookingSystem interface {
+    Reserve(ctx context.Context, in BookingInput) (string, error)
+}
+
+type HotelDB interface {
+    Lookup(ctx context.Context, topic string) (string, error)
+}
+
+func createConcierge(ctx context.Context, bookings BookingSystem, hotelDB HotelDB, guestAudio <-chan []byte, speaker io.Writer) error {
     // Define concierge tools
-    bookingTool := tool.NewFuncTool[BookingInput](
+    bookingTool := tool.NewFuncTool(
         "make_reservation",
         "Make a restaurant, spa, or activity reservation for the guest",
         func(ctx context.Context, input BookingInput) (*tool.Result, error) {
-            confirmation, err := bookingSystem.Reserve(ctx, input)
+            confirmation, err := bookings.Reserve(ctx, input)
             if err != nil {
                 return tool.ErrorResult(err), nil
             }
@@ -94,7 +103,7 @@ func createConcierge(ctx context.Context) error {
         },
     )
 
-    infoTool := tool.NewFuncTool[InfoInput](
+    infoTool := tool.NewFuncTool(
         "hotel_info",
         "Look up hotel information (hours, amenities, directions)",
         func(ctx context.Context, input InfoInput) (*tool.Result, error) {
@@ -106,15 +115,24 @@ func createConcierge(ctx context.Context) error {
         },
     )
 
-    // Create S2S engine with tools
-    engine, err := s2s.New("openai", nil)
+    tools := tool.NewRegistry()
+    for _, t := range []tool.Tool{bookingTool, infoTool} {
+        if err := tools.Add(t); err != nil {
+            return fmt.Errorf("register tool: %w", err)
+        }
+    }
+
+    // Create the S2S engine
+    engine, err := s2s.New("openai", s2s.Config{
+        Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
+    })
     if err != nil {
         return fmt.Errorf("create s2s engine: %w", err)
     }
 
-    // Start a streaming session
+    // Start a streaming session with the tools declared
     session, err := engine.Start(ctx,
-        s2s.WithVoice("nova"),
+        s2s.WithVoice("alloy"),
         s2s.WithInstructions("You are a luxury hotel concierge. Be warm, professional, "+
             "and helpful. Use the guest's name when known."),
         s2s.WithTools([]schema.ToolDefinition{
@@ -127,16 +145,33 @@ func createConcierge(ctx context.Context) error {
     }
     defer session.Close()
 
+    // Forward the guest's microphone audio to the session
+    go func() {
+        for chunk := range guestAudio {
+            if err := session.SendAudio(ctx, chunk); err != nil {
+                log.Printf("send audio: %v", err)
+                return
+            }
+        }
+    }()
+
     // Process events from the session
-    for event := range session.Recv() {
+    for event, err := range session.Recv(ctx) {
+        if err != nil {
+            return fmt.Errorf("session: %w", err)
+        }
         switch event.Type {
         case s2s.EventAudioOutput:
-            // Send audio to guest's device
-            transport.SendAudio(event.Audio)
+            // Send audio to the guest's device
+            if _, err := speaker.Write(event.Audio); err != nil {
+                return fmt.Errorf("write audio: %w", err)
+            }
         case s2s.EventToolCall:
-            // Execute tool and return result
-            result := executeTool(ctx, event.ToolCall, bookingTool, infoTool)
-            session.SendToolResult(ctx, result)
+            // Execute the tool and return the result to the model
+            result := executeTool(ctx, tools, *event.ToolCall)
+            if err := session.SendToolResult(ctx, result); err != nil {
+                return fmt.Errorf("send tool result: %w", err)
+            }
         case s2s.EventTranscript:
             // Log transcript for quality assurance
             log.Printf("Guest: %s", event.Text)
@@ -146,17 +181,40 @@ func createConcierge(ctx context.Context) error {
     return nil
 }
 
+// executeTool runs a tool call from the model and converts the outcome to a ToolResult.
+func executeTool(ctx context.Context, tools *tool.Registry, call schema.ToolCall) schema.ToolResult {
+    fail := func(err error) schema.ToolResult {
+        return schema.ToolResult{CallID: call.ID, IsError: true,
+            Content: []schema.ContentPart{schema.TextPart{Text: err.Error()}}}
+    }
+    t, err := tools.Get(call.Name)
+    if err != nil {
+        return fail(err)
+    }
+    var args map[string]any
+    if err := json.Unmarshal([]byte(call.Arguments), &args); err != nil {
+        return fail(fmt.Errorf("invalid arguments: %w", err))
+    }
+    res, err := t.Execute(ctx, args)
+    if err != nil {
+        return fail(err)
+    }
+    return schema.ToolResult{CallID: call.ID, Content: res.Content, IsError: res.IsError}
+}
+
 type BookingInput struct {
-    Type     string `json:"type" jsonschema:"enum=restaurant,spa,activity"`
-    Date     string `json:"date" jsonschema:"description=Reservation date (YYYY-MM-DD)"`
-    Time     string `json:"time" jsonschema:"description=Reservation time (HH:MM)"`
-    Guests   int    `json:"guests"`
-    Name     string `json:"name" jsonschema:"description=Guest name"`
+    Type   string `json:"type" enum:"restaurant,spa,activity"`
+    Date   string `json:"date" description:"Reservation date (YYYY-MM-DD)"`
+    Time   string `json:"time" description:"Reservation time (HH:MM)"`
+    Guests int    `json:"guests"`
+    Name   string `json:"name" description:"Guest name"`
 }
 
 type InfoInput struct {
-    Topic string `json:"topic" jsonschema:"description=Topic to look up (pool hours, restaurant menu, etc.)"`
+    Topic string `json:"topic" description:"Topic to look up (pool hours, restaurant menu, etc.)"`
 }
+
+func main() {}
 ```
 
 ## Use Case 2: Meeting Transcription
@@ -165,13 +223,27 @@ A live meeting minutes generator that transcribes audio in real time, identifies
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/stt"
+    "context"
+    "fmt"
+    "iter"
+    "os"
+    "strings"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
 )
 
 func transcribeMeeting(ctx context.Context, audioStream iter.Seq2[[]byte, error]) error {
-    engine, err := stt.New("deepgram", nil)
+    engine, err := stt.New("deepgram", stt.Config{
+        SampleRate: 16000,
+        Encoding:   "linear16",
+        Extra:      map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
+    })
     if err != nil {
         return fmt.Errorf("create stt engine: %w", err)
     }
@@ -207,19 +279,18 @@ func transcribeMeeting(ctx context.Context, audioStream iter.Seq2[[]byte, error]
 }
 
 func generateMinutes(ctx context.Context, transcript string) (string, error) {
-    model, err := llm.New("openai", nil)
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
         return "", err
     }
 
     msgs := []schema.Message{
-        &schema.SystemMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: "Generate structured meeting minutes from this transcript. " +
-                "Include: attendees, key discussion points, decisions made, and action items."},
-        }},
-        &schema.HumanMessage{Parts: []schema.ContentPart{
-            schema.TextPart{Text: transcript},
-        }},
+        schema.NewSystemMessage("Generate structured meeting minutes from this transcript. " +
+            "Include: attendees, key discussion points, decisions made, and action items."),
+        schema.NewHumanMessage(transcript),
     }
 
     resp, err := model.Generate(ctx, msgs)
@@ -227,7 +298,7 @@ func generateMinutes(ctx context.Context, transcript string) (string, error) {
         return "", err
     }
 
-    return resp.Parts[0].(schema.TextPart).Text, nil
+    return resp.Text(), nil
 }
 ```
 
@@ -237,11 +308,11 @@ Collect structured data through natural voice conversations. The form orchestrat
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    "github.com/lookatitude/beluga-ai/voice/tts"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
 
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 type FormField struct {
@@ -291,7 +362,10 @@ func (f *VoiceForm) Run(ctx context.Context, audioIn iter.Seq2[[]byte, error]) (
         // Validate the answer
         if err := field.Validate(event.Text); err != nil {
             reprompt := fmt.Sprintf("I didn't quite get that. %s", field.Prompt)
-            audio, _ := f.tts.Synthesize(ctx, reprompt, tts.WithVoice("aria"))
+            audio, err := f.tts.Synthesize(ctx, reprompt, tts.WithVoice("aria"))
+            if err != nil {
+                return nil, fmt.Errorf("synthesize reprompt: %w", err)
+            }
             sendAudio(audio)
             continue
         }
@@ -303,14 +377,20 @@ func (f *VoiceForm) Run(ctx context.Context, audioIn iter.Seq2[[]byte, error]) (
         if f.current >= len(f.fields) {
             // Form complete
             confirm := "Thank you. I have all the information I need."
-            audio, _ := f.tts.Synthesize(ctx, confirm, tts.WithVoice("aria"))
+            audio, err := f.tts.Synthesize(ctx, confirm, tts.WithVoice("aria"))
+            if err != nil {
+                return nil, fmt.Errorf("synthesize confirm: %w", err)
+            }
             sendAudio(audio)
             return f.answers, nil
         }
 
         // Ask next question
         next := f.fields[f.current].Prompt
-        audio, _ := f.tts.Synthesize(ctx, next, tts.WithVoice("aria"))
+        audio, err := f.tts.Synthesize(ctx, next, tts.WithVoice("aria"))
+        if err != nil {
+            return nil, fmt.Errorf("synthesize next: %w", err)
+        }
         sendAudio(audio)
     }
 
@@ -324,8 +404,8 @@ Dynamic narration with character voices and branching storylines. This is a TTS-
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/elevenlabs"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/elevenlabs"
 )
 
 type Character struct {
@@ -355,33 +435,39 @@ func narrateScene(ctx context.Context, engine tts.TTS, scene Scene) error {
 
 ## Building a Full Voice Pipeline
 
-Compose multiple frame processors into a complete voice pipeline. The `voice.Chain()` function connects processors in sequence — each processor's output channel becomes the next processor's input channel. This chain-of-responsibility pattern means adding or removing stages is a one-line change.
+Compose the stages into a complete cascading pipeline. `voice.NewPipeline` reads audio from the transport, runs VAD (passed with `voice.WithVAD`, because it is an `ActivityDetector` rather than a frame processor), then STT, your agent stage, and TTS, and writes the result back to the transport. Adding or removing a stage is a one-line change.
 
 ```go
-func buildVoicePipeline(ctx context.Context) (voice.FrameProcessor, error) {
+import (
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
+)
+
+// agentStage is your LLM or agent as a voice.FrameProcessor, e.g. a
+// voice.FrameLoop that calls model.Generate on each text frame.
+func buildVoicePipeline(conn voice.Transport, sttEngine stt.STT, ttsEngine tts.TTS, agentStage voice.FrameProcessor) (*voice.VoicePipeline, error) {
     // VAD detects speech vs silence
-    vad := voice.NewSileroVAD(voice.VADConfig{
-        Threshold: 0.5,
-        MinSpeechDuration: 250 * time.Millisecond,
-    })
+    vad, err := voice.NewVAD("silero", map[string]any{"threshold": 0.5, "sample_rate": 16000})
+    if err != nil {
+        return nil, err
+    }
 
-    // STT converts speech to text
-    sttProc := stt.AsFrameProcessor(sttEngine,
-        stt.WithLanguage("en"),
-        stt.WithPunctuation(true),
-    )
-
-    // TTS converts text to speech
-    ttsProc := tts.AsFrameProcessor(ttsEngine, 16000,
-        tts.WithVoice("nova"),
-    )
-
-    // Compose into pipeline
-    pipeline := voice.Chain(vad, sttProc, agentProcessor, ttsProc)
-
-    return pipeline, nil
+    return voice.NewPipeline(
+        voice.WithTransport(conn),
+        voice.WithVAD(vad),
+        voice.WithSTT(stt.AsFrameProcessor(sttEngine,
+            stt.WithLanguage("en"),
+            stt.WithPunctuation(true),
+        )),
+        voice.WithLLM(agentStage),
+        voice.WithTTS(tts.AsFrameProcessor(ttsEngine, 16000)),
+    ), nil
 }
 ```
+
+Run it with `pipe.Run(ctx)`, which blocks until the context is cancelled or the transport fails.
 
 ## Production Considerations
 
@@ -392,7 +478,7 @@ Voice applications are latency-sensitive. Target end-to-end latency under 500ms 
 - Use S2S providers (OpenAI Realtime) for the lowest latency
 - Pre-buffer audio frames to reduce jitter
 - Deploy close to your users (edge compute or regional deployment)
-- Use WebSocket transport for persistent, low-overhead connections
+- Use the WebSocket transport (`transport.NewWebSocketTransport`) for persistent, low-overhead connections. The LiveKit, Daily, and Pipecat transports are placeholders that do not connect yet
 
 ### Observability
 
@@ -410,7 +496,7 @@ span.SetAttributes(
 
 ### Resilience
 
-- Use Beluga AI's circuit breaker for STT/TTS provider failover
+- Use Beluga AI's `resilience` package (retries, circuit breakers) around STT/TTS calls for provider failover
 - Buffer audio during brief network interruptions
 - Implement graceful degradation: fall back to text-only mode if voice fails
 - Monitor provider health and switch providers dynamically
@@ -424,6 +510,6 @@ span.SetAttributes(
 
 ## Related Resources
 
-- [Voice AI Pipeline](/docs/guides/voice-ai/) for detailed voice configuration
-- [Conversational AI Assistant](/docs/guides/conversational-ai/) for adding memory to voice agents
-- [Production Agent Platform](/docs/guides/production-platform/) for deployment patterns
+- [Voice AI Pipeline](/docs/guides/capabilities/voice/voice-ai/) for detailed voice configuration
+- [Conversational AI Assistant](/docs/guides/capabilities/agents/conversational-ai/) for adding memory to voice agents
+- [Production Agent Platform](/docs/guides/production/production-platform/) for deployment patterns

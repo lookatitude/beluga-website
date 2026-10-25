@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/agent"
+import "github.com/lookatitude/beluga-ai/v2/agent"
 ```
 
 Package agent provides the agent runtime for the Beluga AI framework.
@@ -47,9 +47,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 func main() {
@@ -204,10 +204,9 @@ Custom planners register via `RegisterPlanner` and are created via `NewPlanner`.
 Use `ListPlanners` for discovery:
 
 ```go
-package main
-
+package example
 import (
-    "github.com/lookatitude/beluga-ai/agent"
+    "github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func init() {
@@ -231,11 +230,10 @@ Handoffs enable agent-to-agent transfers. They are automatically converted
 to tools named `transfer_to_{id}` that appear in the LLM's tool list:
 
 ```go
-package main
-
+package example
 import (
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/llm"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/llm"
 )
 
 func buildTeam(model llm.ChatModel) agent.Agent {
@@ -312,7 +310,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/agent"
+    "github.com/lookatitude/beluga-ai/v2/agent"
 )
 
 func main() {

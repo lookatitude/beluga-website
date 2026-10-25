@@ -15,7 +15,7 @@ Choose Smallest AI when you want a lightweight TTS option with fast synthesis sp
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/tts/providers/smallest"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/smallest"
 ```
 
 The blank import registers the `"smallest"` provider with the TTS registry.
@@ -46,8 +46,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/tts"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/smallest"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/smallest"
 )
 
 func main() {
@@ -75,7 +75,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/tts/providers/smallest"
+import "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/smallest"
 
 engine, err := smallest.New(tts.Config{
     Voice: "emily",
@@ -94,7 +94,9 @@ for chunk, err := range engine.SynthesizeStream(ctx, textStream) {
         log.Printf("error: %v", err)
         break
     }
-    transport.Send(chunk)
+    if _, err := audioOut.Write(chunk); err != nil { // e.g. an AudioTransport's AudioOut()
+        break
+    }
 }
 ```
 

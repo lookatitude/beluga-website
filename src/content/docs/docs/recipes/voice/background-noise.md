@@ -29,7 +29,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.voice.stt.noise_reduction")
@@ -77,7 +77,7 @@ func (ap *AudioPreprocessor) Preprocess(ctx context.Context, audioData []byte, s
 	}
 
 	span.SetAttributes(attribute.Int("output_size", len(processed)))
-	span.SetStatus(trace.StatusOK, "audio preprocessed")
+	span.SetStatus(codes.Ok, "audio preprocessed")
 
 	return processed, nil
 }
@@ -142,13 +142,13 @@ func (nsw *NoisySTTWrapper) Transcribe(ctx context.Context, audioData []byte, sa
 	processed, err := nsw.preprocessor.Preprocess(ctx, audioData, sampleRate)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(trace.StatusError, err.Error())
+		span.SetStatus(codes.Error, err.Error())
 		return "", err
 	}
 
 	// In production: result, err := nsw.sttProvider.Transcribe(ctx, processed, sampleRate)
 	_ = processed
-	span.SetStatus(trace.StatusOK, "transcription completed")
+	span.SetStatus(codes.Ok, "transcription completed")
 	return "", nil
 }
 
@@ -190,6 +190,6 @@ Use spectral subtraction to remove noise in the frequency domain for more sophis
 
 ## Related Recipes
 
-- **[Jitter Buffer Management](./jitter-buffer)** -- Handle network jitter in audio streams
-- **[Voice Backends Configuration](./voice-backends)** -- Backend provider setup
-- **[VAD Sensitivity Profiles](./vad-sensitivity)** -- Tune voice activity detection for noisy environments
+- **[Jitter Buffer Management](/docs/recipes/voice/jitter-buffer/)** -- Handle network jitter in audio streams
+- **[Voice Backends Configuration](/docs/recipes/voice/voice-backends/)** -- Backend provider setup
+- **[VAD Sensitivity Profiles](/docs/guides/capabilities/voice/sensitivity-tuning/)** -- Tune voice activity detection for noisy environments

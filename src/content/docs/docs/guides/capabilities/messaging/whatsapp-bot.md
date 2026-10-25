@@ -35,22 +35,22 @@ User (WhatsApp) --> Twilio --> Webhook Handler --> Agent --> LLM
 The `BotServer` struct holds the LLM model (created via the registry pattern), Twilio credentials, and per-user conversation state. The `sessions` map stores message history keyed by the sender's WhatsApp address, enabling multi-turn conversations. The `sync.RWMutex` protects concurrent access to the sessions map because Go's `net/http` server handles requests in parallel goroutines, and multiple users may be sending messages simultaneously.
 
 ```go
-package main
-
+// main.go: Steps 1-5 together form one file.
 import (
     "context"
-    "encoding/json"
     "fmt"
     "log/slog"
     "net/http"
+    "net/url"
     "os"
+    "strings"
     "sync"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // BotServer handles WhatsApp webhook requests.
@@ -145,7 +145,9 @@ func (s *BotServer) processMessage(ctx context.Context, msg IncomingMessage) {
     aiMsg, err := s.model.Generate(ctx, msgs)
     if err != nil {
         slog.Error("generation failed", "error", err, "from", msg.From)
-        s.sendReply(ctx, msg.From, "Sorry, I'm having trouble right now. Please try again later.")
+        if err := s.sendReply(ctx, msg.From, "Sorry, I'm having trouble right now. Please try again later."); err != nil {
+            slog.Error("send fallback reply failed", "error", err, "to", msg.From)
+        }
         return
     }
 
@@ -169,21 +171,30 @@ Send the response back through the Twilio WhatsApp API. The Twilio Messages API 
 
 ```go
 func (s *BotServer) sendReply(ctx context.Context, to, body string) error {
-    data := fmt.Sprintf("To=%s&From=%s&Body=%s", to, s.twilioFrom, body)
+    form := url.Values{}
+    form.Set("To", to)
+    form.Set("From", s.twilioFrom)
+    form.Set("Body", body)
 
-    url := fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", s.twilioSID)
+    endpoint := fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", s.twilioSID)
 
-    req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+    req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
     if err != nil {
         return fmt.Errorf("create request: %w", err)
     }
 
     req.SetBasicAuth(s.twilioSID, s.twilioToken)
     req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-    req.Body = http.NoBody // Replace with actual body encoding.
 
-    // In production, properly URL-encode the body parameter.
-    _ = data
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return fmt.Errorf("send message: %w", err)
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode >= 300 {
+        return fmt.Errorf("twilio returned %s", resp.Status)
+    }
 
     slog.Info("reply sent", "to", to, "length", len(body))
     return nil
@@ -209,8 +220,10 @@ func main() {
 
     http.HandleFunc("/whatsapp", bot.HandleWebhook)
     http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-        w.WriteHeader(http.StatusOK)
-        fmt.Fprintln(w, `{"status":"ok"}`)
+        w.Header().Set("Content-Type", "application/json")
+        if _, err := fmt.Fprintln(w, `{"status":"ok"}`); err != nil {
+            slog.Error("health write failed", "error", err)
+        }
     })
 
     addr := ":8080"

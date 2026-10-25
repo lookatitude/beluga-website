@@ -10,7 +10,7 @@ this work that way?" questions down to near zero.
 
 The five pages in this section cover the concepts that underpin every package.
 They are reference-level explanations, not tutorials. If you want to build
-something first, start with [Build Your First Agent](/docs/guides/capabilities/agents/first-agent)
+something first, start with [Build Your First Agent](/docs/guides/foundations/first-agent/)
 and come back here when you hit a concept that needs grounding.
 
 ## In this section

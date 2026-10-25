@@ -13,7 +13,7 @@ Beluga AI v2 is organized into layered packages with strict dependency rules. Th
 ## Module
 
 ```
-Module:  github.com/lookatitude/beluga-ai
+Module:  github.com/lookatitude/beluga-ai/v2
 Go:      1.23+ (uses iter.Seq2 for streaming)
 ```
 
@@ -614,11 +614,11 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/audit"
-    "github.com/lookatitude/beluga-ai/cost"
-    "github.com/lookatitude/beluga-ai/runtime"
-    "github.com/lookatitude/beluga-ai/runtime/plugins"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/audit"
+    "github.com/lookatitude/beluga-ai/v2/cost"
+    "github.com/lookatitude/beluga-ai/v2/runtime"
+    "github.com/lookatitude/beluga-ai/v2/runtime/plugins"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 auditStore, err := audit.New("inmemory", audit.Config{})
@@ -658,7 +658,7 @@ for evt, err := range runner.Run(ctx, "session-1", schema.NewHumanMessage("hello
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/runtime"
+    "github.com/lookatitude/beluga-ai/v2/runtime"
 )
 
 // Pipeline: drafter → editor → reviewer
@@ -715,7 +715,7 @@ type OrchestrationPattern interface {
 **Chain example** — compose any `core.Runnable` steps:
 
 ```go
-import "github.com/lookatitude/beluga-ai/orchestration"
+import "github.com/lookatitude/beluga-ai/v2/orchestration"
 
 chain := orchestration.Chain(retriever, reranker, responder)
 result, err := chain.Invoke(ctx, query)
@@ -727,7 +727,7 @@ if err != nil {
 **HandoffOrchestrator** — agent-to-agent transfers:
 
 ```go
-import "github.com/lookatitude/beluga-ai/orchestration"
+import "github.com/lookatitude/beluga-ai/v2/orchestration"
 
 h := orchestration.NewHandoffOrchestrator(triageAgent, billingAgent, techAgent).
     WithMaxHops(5).
@@ -755,7 +755,7 @@ func (h *HandoffOrchestrator) Stream(ctx context.Context, input any, opts ...cor
 **Pipeline** — sequential agent pipeline with streaming final stage:
 
 ```go
-import "github.com/lookatitude/beluga-ai/orchestration"
+import "github.com/lookatitude/beluga-ai/v2/orchestration"
 
 p := orchestration.NewPipeline(classifierAgent, extractorAgent, formatterAgent)
 result, err := p.Invoke(ctx, rawDocument)
@@ -767,7 +767,7 @@ if err != nil {
 **Graph** — conditional directed graph:
 
 ```go
-import "github.com/lookatitude/beluga-ai/orchestration"
+import "github.com/lookatitude/beluga-ai/v2/orchestration"
 
 g := orchestration.NewGraph()
 if err := g.AddNode("extract", extractor); err != nil {
@@ -797,7 +797,7 @@ if err != nil {
 **Router** — classifier-based dispatch:
 
 ```go
-import "github.com/lookatitude/beluga-ai/orchestration"
+import "github.com/lookatitude/beluga-ai/v2/orchestration"
 
 r := orchestration.NewRouter(func(ctx context.Context, input any) (string, error) {
     if strings.Contains(fmt.Sprint(input), "code") {
@@ -1015,7 +1015,7 @@ Generates deployment artifacts and exposes health endpoints. No dependencies on 
 All input is validated before rendering. Dockerfile generation rejects path traversal in `AgentConfig`. Compose generation rejects unresolvable `DependsOn` references. Health check error details are suppressed in HTTP responses to prevent information disclosure.
 
 ```go
-import "github.com/lookatitude/beluga-ai/deploy"
+import "github.com/lookatitude/beluga-ai/v2/deploy"
 
 h := deploy.NewHealthEndpoint()
 h.AddCheck("database", func(ctx context.Context) error {
@@ -1045,7 +1045,7 @@ Kubernetes operator types and reconciliation logic for Beluga Agent and Team CRD
 The package is intentionally decoupled from any Kubernetes client library. `ReconcileResult` values contain plain Go structs that callers translate to `client-go` or controller-runtime types, which keeps the operator package free of heavyweight dependencies.
 
 ```go
-import "github.com/lookatitude/beluga-ai/k8s/operator"
+import "github.com/lookatitude/beluga-ai/v2/k8s/operator"
 
 r := operator.NewDefaultReconciler()
 result, err := r.ReconcileAgent(ctx, agentResource)
@@ -1159,7 +1159,7 @@ graph TD
 - `tool/` → `agent/`: tools are invoked by agents, not the reverse.
 - Cross-capability imports in Layer 3: `llm/`, `memory/`, `voice/` do not import each other.
 
-Run `/arch-validate all` to detect violations. See [DOC-18](../../../../architecture/18-package-dependency-map.md) for the full enforcement guide.
+Run `/arch-validate all` to detect violations. See [DOC-18](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/18-package-dependency-map.md) for the full enforcement guide.
 
 ## Statistics
 

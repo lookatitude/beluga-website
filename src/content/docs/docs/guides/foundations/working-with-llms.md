@@ -40,9 +40,9 @@ Providers register themselves via `init()` — import the provider package with 
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 model, err := llm.New("openai", config.ProviderConfig{
@@ -54,7 +54,7 @@ model, err := llm.New("openai", config.ProviderConfig{
 ### Anthropic
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 
 model, err := llm.New("anthropic", config.ProviderConfig{
 	APIKey: os.Getenv("ANTHROPIC_API_KEY"),
@@ -65,7 +65,7 @@ model, err := llm.New("anthropic", config.ProviderConfig{
 ### Google (Gemini)
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/google"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/google"
 
 model, err := llm.New("google", config.ProviderConfig{
 	APIKey: os.Getenv("GOOGLE_API_KEY"),
@@ -76,7 +76,7 @@ model, err := llm.New("google", config.ProviderConfig{
 ### Ollama (Local)
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/llm/providers/ollama"
+import _ "github.com/lookatitude/beluga-ai/v2/llm/providers/ollama"
 
 model, err := llm.New("ollama", config.ProviderConfig{
 	BaseURL: "http://localhost:11434",
@@ -349,11 +349,17 @@ openai, err := llm.New("openai", config.ProviderConfig{
 	APIKey: os.Getenv("OPENAI_API_KEY"),
 	Model:  "gpt-4o",
 })
+if err != nil {
+	return err
+}
 
 anthropic, err := llm.New("anthropic", config.ProviderConfig{
 	APIKey: os.Getenv("ANTHROPIC_API_KEY"),
 	Model:  "claude-sonnet-4-5-20250929",
 })
+if err != nil {
+	return err
+}
 
 router := llm.NewRouter(
 	llm.WithModels(openai, anthropic),
@@ -369,8 +375,14 @@ resp, err := router.Generate(ctx, msgs)
 Failover automatically switches to a backup provider when the primary returns a retryable error (network timeout, rate limit, server error). This provides high availability without requiring your application code to handle provider-specific failure modes.
 
 ```go
-primary, _ := llm.New("openai", config.ProviderConfig{Model: "gpt-4o"})
-backup, _ := llm.New("anthropic", config.ProviderConfig{Model: "claude-sonnet-4-5-20250929"})
+primary, err := llm.New("openai", config.ProviderConfig{Model: "gpt-4o"})
+if err != nil {
+	return err
+}
+backup, err := llm.New("anthropic", config.ProviderConfig{Model: "claude-sonnet-4-5-20250929"})
+if err != nil {
+	return err
+}
 
 failover := llm.NewFailoverRouter(primary, backup)
 
@@ -389,7 +401,11 @@ func (s *CostAwareStrategy) Select(ctx context.Context, models []llm.ChatModel, 
 	// Route short messages to the cheaper model
 	totalLen := 0
 	for _, msg := range msgs {
-		totalLen += len(msg.(*schema.HumanMessage).Text())
+		for _, part := range msg.GetContent() {
+			if tp, ok := part.(schema.TextPart); ok {
+				totalLen += len(tp.Text)
+			}
+		}
 	}
 	if totalLen < 500 {
 		return models[0], nil // Cheaper model
@@ -405,22 +421,28 @@ router := llm.NewRouter(
 
 ## Context Manager
 
-Long conversations can exceed a model's context window. The `ContextManager` wraps a `ChatModel` and automatically manages conversation history to stay within a token budget. When the conversation exceeds the limit, the configured strategy determines what to remove — truncation drops the oldest messages, while summarization condenses earlier messages into a summary. Because `ContextManager` implements `ChatModel`, it is transparent to the rest of your application.
+Long conversations can exceed a model's context window. A `ContextManager` trims a message slice to fit a token budget before you send it to the model. The strategy determines what to remove: `"truncate"` (the default) drops the oldest non-system messages, while `"sliding"` keeps a window of the most recent messages. System messages are kept unless you pass `llm.WithKeepSystemMessages(false)`.
 
 ```go
-contextMgr := llm.NewContextManager(model,
-	llm.WithContextMaxTokens(8000),
-	llm.WithContextStrategy(llm.StrategyTruncate),
+contextMgr := llm.NewContextManager(
+	llm.WithContextStrategy("truncate"),
 )
 
-// Automatically truncates older messages to fit within the token budget
-resp, err := contextMgr.Generate(ctx, longConversation)
+// Trim older messages so the conversation fits in 8000 tokens
+fitted, err := contextMgr.Fit(ctx, longConversation, 8000)
+if err != nil {
+	return err
+}
+
+resp, err := model.Generate(ctx, fitted)
 ```
+
+Token counts come from `llm.SimpleTokenizer` unless you supply your own `llm.Tokenizer` with `llm.WithTokenizer`.
 
 ## Next Steps
 
 - [Building Your First Agent](/docs/guides/foundations/first-agent/) — Use ChatModel inside an agent
 - [Structured Output](/docs/guides/foundations/structured-output/) — Deep dive into typed LLM responses
-- [Tools & MCP](/docs/guides/tools-and-mcp/) — Tool binding and MCP integration
-- [RAG Pipeline](/docs/guides/rag-pipeline/) — Retrieval-augmented generation
-- [Monitoring & Observability](/docs/guides/observability/) — Track LLM usage and performance
+- [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) — Tool binding and MCP integration
+- [RAG Pipeline](/docs/guides/capabilities/rag/rag-pipeline/) — Retrieval-augmented generation
+- [Monitoring & Observability](/docs/guides/production/observability/) — Track LLM usage and performance

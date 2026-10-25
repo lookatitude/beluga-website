@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/hitl"
+import "github.com/lookatitude/beluga-ai/v2/hitl"
 ```
 
 Package hitl provides human-in-the-loop interaction management for the

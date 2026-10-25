@@ -12,7 +12,7 @@ Go's standard `slog` package covers basic logging needs, but production AI appli
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - One of: Zap or Logrus
 
@@ -285,4 +285,4 @@ logger, err := NewZapLogger(zapcore.DebugLevel)
 ## Related Resources
 
 - [Context Deep Dive](/docs/guides/production/integrations/context-deep-dive) -- Advanced context patterns for cancellation and timeouts
-- [Infrastructure Integrations](/docs/guides/production/integrations/infrastructure) -- Deployment and infrastructure overview
+- [Infrastructure Integrations](/docs/guides/production/) -- Deployment and infrastructure overview

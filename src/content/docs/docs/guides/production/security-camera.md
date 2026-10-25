@@ -41,15 +41,14 @@ package main
 
 import (
     "context"
-    "encoding/base64"
     "fmt"
-    "time"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // SecurityAnalyzer analyzes security camera feeds
@@ -72,9 +71,6 @@ func NewSecurityAnalyzer(ctx context.Context) (*SecurityAnalyzer, error) {
 
 // AnalyzeFrame analyzes a single frame for security events
 func (a *SecurityAnalyzer) AnalyzeFrame(ctx context.Context, frameData []byte, cameraID string) (*SecurityEvent, error) {
-    // Encode frame as base64
-    imageB64 := base64.StdEncoding.EncodeToString(frameData)
-
     // Build multimodal message
     msgs := []schema.Message{
         &schema.SystemMessage{Parts: []schema.ContentPart{
@@ -94,7 +90,7 @@ Respond with:
         }},
         &schema.HumanMessage{Parts: []schema.ContentPart{
             schema.TextPart{Text: fmt.Sprintf("Analyze this frame from camera %s:", cameraID)},
-            schema.ImagePart{URL: fmt.Sprintf("data:image/jpeg;base64,%s", imageB64)},
+            schema.ImagePart{Data: frameData, MimeType: "image/jpeg"},
         }},
     }
 
@@ -104,7 +100,7 @@ Respond with:
     }
 
     // Parse LLM response into SecurityEvent
-    return parseSecurityEvent(resp.Parts[0].(schema.TextPart).Text, cameraID), nil
+    return parseSecurityEvent(resp.Text(), cameraID), nil
 }
 ```
 
@@ -384,6 +380,6 @@ func (a *SecurityAnalyzer) AnalyzeFrameWithMetrics(ctx context.Context, frameDat
 
 ## Related Resources
 
-- [Audio-Visual Search](/docs/guides/audio-visual-search/) for multimodal query patterns
-- [Monitoring Dashboards](/docs/guides/monitoring-dashboards/) for observability setup
-- [LLM Integration Guide](/docs/guides/llm/) for vision model configuration
+- [Audio-Visual Search](/docs/guides/production/audio-visual-search/) for multimodal query patterns
+- [Monitoring Dashboards](/docs/guides/production/monitoring-dashboards/) for observability setup
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for vision model configuration

@@ -55,10 +55,10 @@ import (
     "os"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 func main() {
@@ -140,7 +140,7 @@ func cosineSimilarity(a, b []float32) float64 {
 
 ## Step 4: Build the Semantic Splitter
 
-Combine embedding and similarity to detect topic boundaries. The splitter embeds all sentences in a single batch call (`EmbedStrings`) rather than one at a time, which is more efficient because embedding APIs support batch input and amortize the network round-trip cost. The loop compares each consecutive pair of sentence embeddings, and when similarity drops below the threshold, a new chunk begins. This linear scan is O(n) in the number of sentences, making it efficient even for long documents.
+Combine embedding and similarity to detect topic boundaries. The splitter embeds all sentences in a single batch call (`Embed`) rather than one at a time, which is more efficient because embedding APIs support batch input and amortize the network round-trip cost. The loop compares each consecutive pair of sentence embeddings, and when similarity drops below the threshold, a new chunk begins. This linear scan is O(n) in the number of sentences, making it efficient even for long documents.
 
 ```go
 // SemanticSplitter splits text based on embedding similarity between sentences.
@@ -163,7 +163,7 @@ func (s *SemanticSplitter) Split(ctx context.Context, text string) ([]string, er
     }
 
     // Embed all sentences.
-    embeddings, err := s.embedder.EmbedStrings(ctx, sentences)
+    embeddings, err := s.embedder.Embed(ctx, sentences)
     if err != nil {
         return nil, fmt.Errorf("embed sentences: %w", err)
     }
@@ -227,7 +227,7 @@ func demonstrateSemanticSplit(ctx context.Context, embedder embedding.Embedder) 
 For best results, apply Markdown splitting first (for structure), then semantic splitting for any oversized sections. This two-pass approach uses each method's strengths: structural splitting respects document organization (headings, sections), while semantic splitting handles cases where a single section covers multiple topics. The generous initial chunk size (3000 characters) ensures the Markdown splitter preserves large sections intact, leaving the semantic splitter to subdivide only where topic changes are detected.
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/splitter"
+import "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 
 func hybridSplit(ctx context.Context, text string, embedder embedding.Embedder) ([]string, error) {
     // First pass: structural splitting by Markdown headings.

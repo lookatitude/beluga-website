@@ -8,6 +8,10 @@ head:
       content: "Pipecat, audio transport, voice pipeline, frame-based, pipeline integration, protocol bridge, Go, Beluga AI"
 ---
 
+:::caution[Not yet functional]
+The `pipecat` provider is registered but not implemented: it never dials Pipecat. `transport.New("pipecat", ...)` and `pipecat.New` always return an error wrapping `transport.ErrNotImplemented` (which also wraps `errors.ErrUnsupported`), and every method on a `pipecat.Transport` value returns the same error instead of silently discarding audio. The configuration and examples below describe the planned integration. Use `transport.NewWebSocketTransport` for a working transport today. Track progress in the [framework repository](https://github.com/lookatitude/beluga-ai).
+:::
+
 The Pipecat provider implements bidirectional audio transport through a Pipecat server over WebSocket. It enables Beluga's voice pipeline to interoperate with Pipecat-based audio processing systems.
 
 Choose Pipecat when you need to bridge Beluga's voice pipeline with an existing Pipecat-based processing system over WebSocket. This is useful for hybrid architectures where some audio processing happens in a Pipecat server while Beluga handles the agent logic. For WebRTC-based transport, consider [LiveKit](/docs/reference/providers/transport/livekit) or [Daily](/docs/reference/providers/transport/daily).
@@ -15,7 +19,7 @@ Choose Pipecat when you need to bridge Beluga's voice pipeline with an existing 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat
+go get github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat
 ```
 
 ## Configuration
@@ -35,8 +39,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/voice/transport"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat"
+    "github.com/lookatitude/beluga-ai/v2/voice/transport"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat"
 )
 
 func main() {
@@ -49,12 +53,10 @@ func main() {
     defer t.Close()
 
     // Receive incoming audio frames
-    frames, err := t.Recv(context.Background())
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    for frame := range frames {
+    for frame, err := range t.Recv(context.Background()) {
+        if err != nil {
+            log.Fatal(err)
+        }
         fmt.Printf("Received %d bytes of audio\n", len(frame.Data))
     }
 }
@@ -89,7 +91,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/transport/providers/pipecat"
+import "github.com/lookatitude/beluga-ai/v2/voice/transport/providers/pipecat"
 
 t, err := pipecat.New(transport.Config{
     URL:        "ws://localhost:8765",
@@ -99,20 +101,18 @@ t, err := pipecat.New(transport.Config{
 
 ## Error Handling
 
+`transport.New("pipecat", ...)` currently always fails with an error wrapping `transport.ErrNotImplemented`, so check for it and fall back to a working transport:
+
 ```go
-t, err := transport.New("pipecat", transport.Config{})
+t, err := transport.New("pipecat", cfg)
+if errors.Is(err, transport.ErrNotImplemented) {
+    // pipecat is not implemented yet; use the built-in WebSocket transport
+    t, err = transport.NewWebSocketTransport(ctx, wsURL)
+}
 if err != nil {
-    // "pipecat: URL is required"
     log.Fatal(err)
 }
-
-frames, err := t.Recv(ctx)
-if err != nil {
-    // Transport may be closed
-    log.Fatal(err)
-}
+defer t.Close()
 ```
-
-The transport returns errors from `Recv` and `Send` if `Close` has already been called.
 
 Refer to the [Pipecat documentation](https://docs.pipecat.ai/) for server setup and configuration.

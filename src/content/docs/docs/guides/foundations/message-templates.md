@@ -61,7 +61,7 @@ func main() {
 Build structured multi-role conversations from templates. The `ChatTemplate` struct separates the system prompt (which defines the agent's behavior) from the user prompt (which carries the query). This mirrors the message role structure that LLMs expect, where the system message sets constraints and the human message provides the task.
 
 ```go
-import "github.com/lookatitude/beluga-ai/schema"
+import "github.com/lookatitude/beluga-ai/v2/schema"
 
 type ChatTemplate struct {
     SystemTemplate string

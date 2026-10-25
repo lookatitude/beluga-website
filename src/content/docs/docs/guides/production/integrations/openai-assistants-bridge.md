@@ -22,15 +22,15 @@ The bridge wraps the OpenAI Assistants API (threads, runs, messages) behind a `C
 
 ## Prerequisites
 
-- Go 1.23 or later
-- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai`)
+- Go 1.26 or later
+- Beluga AI framework installed (`go get github.com/lookatitude/beluga-ai/v2`)
 - OpenAI API key with Assistants API access
 - Familiarity with OpenAI's Assistants API concepts (threads, runs, messages)
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 go get github.com/openai/openai-go
 ```
 
@@ -57,7 +57,7 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
     "github.com/openai/openai-go"
     "github.com/openai/openai-go/option"
 )
@@ -73,7 +73,7 @@ type AssistantsBridge struct {
 func NewAssistantsBridge(apiKey, assistantID string) *AssistantsBridge {
     client := openai.NewClient(option.WithAPIKey(apiKey))
     return &AssistantsBridge{
-        client:      client,
+        client:      &client,
         assistantID: assistantID,
         model:       "gpt-4o",
     }
@@ -95,7 +95,7 @@ func (b *AssistantsBridge) Generate(
     threadMessages := make([]openai.ThreadMessageParam, 0, len(msgs))
     for _, msg := range msgs {
         role := "user"
-        if msg.Role() == schema.RoleAI {
+        if msg.GetRole() == schema.RoleAI {
             role = "assistant"
         }
         threadMessages = append(threadMessages, openai.ThreadMessageParam{
@@ -148,15 +148,13 @@ func (b *AssistantsBridge) Generate(
         if msg.Role == "assistant" {
             for _, content := range msg.Content {
                 if text, ok := content.AsText(); ok {
-                    return schema.NewAIMessage(
-                        schema.WithText(text.Text.Value),
-                    ), nil
+                    return schema.NewAIMessage(text.Text.Value), nil
                 }
             }
         }
     }
 
-    return schema.NewAIMessage(schema.WithText("")), nil
+    return schema.NewAIMessage(""), nil
 }
 ```
 
@@ -184,8 +182,8 @@ Implement the full `llm.ChatModel` interface so the bridge can be used anywhere 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // AssistantsChatModel adapts AssistantsBridge to the ChatModel interface.
@@ -309,15 +307,24 @@ assistant, err := client.Assistants.New(ctx, openai.AssistantCreateParams{
 
 ### Combining with Beluga Middleware
 
-Because the bridge implements `ChatModel`, apply Beluga's LLM middleware for observability, caching, or fallback.
+Because the bridge implements `ChatModel`, apply Beluga's LLM middleware (`llm.WithLogging`, `llm.WithTracing`, `llm.WithFallback`, `llm.WithHooks`) for observability or fallback. For retries, wrap calls with `resilience.Retry`.
 
 ```go
 var model llm.ChatModel = NewAssistantsChatModel(apiKey, assistantID)
 
 model = llm.ApplyMiddleware(model,
     llm.WithLogging(logger),
-    llm.WithRetry(3),
+    llm.WithTracing(),
 )
+
+resp, err := resilience.Retry(ctx, resilience.DefaultRetryPolicy(),
+    func(ctx context.Context) (*schema.AIMessage, error) {
+        return model.Generate(ctx, msgs)
+    },
+)
+if err != nil {
+    return err
+}
 ```
 
 ## Configuration Reference
@@ -356,6 +363,6 @@ defer cancel()
 
 ## Related Resources
 
-- [LLM Providers](/docs/guides/production/integrations/llm-providers) — Built-in provider options including OpenAI
+- [LLM Providers](/docs/reference/providers/llm/) — Built-in provider options including OpenAI
 - [Mock ChatModel for Testing](/docs/guides/production/integrations/mock-ui-testing) — Test without real API calls
-- [Agent System](/docs/guides/agents) — Using ChatModel providers in agents
+- [Agent System](/docs/guides/capabilities/agents/) — Using ChatModel providers in agents

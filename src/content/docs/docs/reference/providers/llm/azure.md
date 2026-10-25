@@ -15,7 +15,7 @@ Choose Azure OpenAI when your organization requires enterprise compliance contro
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/azure
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/azure
 ```
 
 ## Configuration
@@ -56,10 +56,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/azure"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/azure"
 )
 
 func main() {
@@ -170,7 +170,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/azure"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/azure"
 
 model, err := azure.New(config.ProviderConfig{
     Model:   "gpt-4o",

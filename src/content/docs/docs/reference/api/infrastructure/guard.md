@@ -11,7 +11,7 @@ head:
 ## guard
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard"
+import "github.com/lookatitude/beluga-ai/v2/guard"
 ```
 
 Package guard provides a three-stage safety pipeline for the Beluga AI
@@ -89,7 +89,7 @@ result, err := g.Validate(ctx, guard.GuardInput{Content: text, Role: "input"})
 ## azuresafety
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard/providers/azuresafety"
+import "github.com/lookatitude/beluga-ai/v2/guard/providers/azuresafety"
 ```
 
 Package azuresafety provides an Azure Content Safety guard implementation for
@@ -128,7 +128,7 @@ result, err := g.Validate(ctx, guard.GuardInput{Content: text, Role: "input"})
 ## guardrailsai
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard/providers/guardrailsai"
+import "github.com/lookatitude/beluga-ai/v2/guard/providers/guardrailsai"
 ```
 
 Package guardrailsai provides a Guardrails AI guard implementation for the
@@ -167,7 +167,7 @@ result, err := g.Validate(ctx, guard.GuardInput{Content: text, Role: "output"})
 ## lakera
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard/providers/lakera"
+import "github.com/lookatitude/beluga-ai/v2/guard/providers/lakera"
 ```
 
 Package lakera provides a Lakera Guard API guard implementation for the
@@ -201,7 +201,7 @@ result, err := g.Validate(ctx, guard.GuardInput{Content: text, Role: "input"})
 ## llmguard
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard/providers/llmguard"
+import "github.com/lookatitude/beluga-ai/v2/guard/providers/llmguard"
 ```
 
 Package llmguard provides an LLM Guard API guard implementation for the
@@ -238,7 +238,7 @@ result, err := g.Validate(ctx, guard.GuardInput{Content: text, Role: "input"})
 ## nemo
 
 ```go
-import "github.com/lookatitude/beluga-ai/guard/providers/nemo"
+import "github.com/lookatitude/beluga-ai/v2/guard/providers/nemo"
 ```
 
 Package nemo provides an NVIDIA NeMo Guardrails guard implementation for the

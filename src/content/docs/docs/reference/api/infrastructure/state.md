@@ -11,7 +11,7 @@ head:
 ## state
 
 ```go
-import "github.com/lookatitude/beluga-ai/state"
+import "github.com/lookatitude/beluga-ai/v2/state"
 ```
 
 Package state provides shared agent state with key-value storage,
@@ -110,7 +110,7 @@ Store backends are in sub-packages under state/providers/:
 ## inmemory
 
 ```go
-import "github.com/lookatitude/beluga-ai/state/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/state/providers/inmemory"
 ```
 
 Package inmemory provides an in-memory implementation of the [state.Store]
@@ -121,7 +121,7 @@ The store registers itself under the name "inmemory" via init(), so it can
 be created through the state registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/state/providers/inmemory"
+import _ "github.com/lookatitude/beluga-ai/v2/state/providers/inmemory"
 
 store, err := state.New("inmemory", state.Config{})
 ```

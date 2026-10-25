@@ -11,7 +11,7 @@ head:
 ## server
 
 ```go
-import "github.com/lookatitude/beluga-ai/server"
+import "github.com/lookatitude/beluga-ai/v2/server"
 ```
 
 Package server provides HTTP framework adapters for serving Beluga AI agents.
@@ -36,7 +36,7 @@ pattern. Import the adapter package to register it, then create instances
 via server.New:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/gin"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/gin"
 
 adapter, err := server.New("gin", server.Config{
     ReadTimeout:  10 * time.Second,
@@ -84,7 +84,7 @@ ComposeHooks.
 ## chi
 
 ```go
-import "github.com/lookatitude/beluga-ai/server/adapters/chi"
+import "github.com/lookatitude/beluga-ai/v2/server/adapters/chi"
 ```
 
 Package chi provides a Chi-based ServerAdapter for the Beluga AI server
@@ -95,7 +95,7 @@ The adapter registers itself as "chi" in the server registry via init().
 Import this package to make the adapter available:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/chi"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/chi"
 
 adapter, err := server.New("chi", server.Config{})
 if err != nil {
@@ -118,7 +118,7 @@ configuration such as adding Chi middleware or custom routes.
 ## connect
 
 ```go
-import "github.com/lookatitude/beluga-ai/server/adapters/connect"
+import "github.com/lookatitude/beluga-ai/v2/server/adapters/connect"
 ```
 
 Package connect provides a Connect-Go based ServerAdapter for the Beluga AI
@@ -129,7 +129,7 @@ The adapter registers itself as "connect" in the server registry via init().
 Import this package to make the adapter available:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/connect"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/connect"
 
 adapter, err := server.New("connect", server.Config{})
 if err != nil {
@@ -156,7 +156,7 @@ configuration such as registering Connect-Go service handlers directly.
 ## echo
 
 ```go
-import "github.com/lookatitude/beluga-ai/server/adapters/echo"
+import "github.com/lookatitude/beluga-ai/v2/server/adapters/echo"
 ```
 
 Package echo provides an Echo-based ServerAdapter for the Beluga AI server
@@ -167,7 +167,7 @@ The adapter registers itself as "echo" in the server registry via init().
 Import this package to make the adapter available:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/echo"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/echo"
 
 adapter, err := server.New("echo", server.Config{})
 if err != nil {
@@ -191,7 +191,7 @@ routes.
 ## fiber
 
 ```go
-import "github.com/lookatitude/beluga-ai/server/adapters/fiber"
+import "github.com/lookatitude/beluga-ai/v2/server/adapters/fiber"
 ```
 
 Package fiber provides a Fiber v3-based ServerAdapter for the Beluga AI
@@ -202,7 +202,7 @@ The adapter registers itself as "fiber" in the server registry via init().
 Import this package to make the adapter available:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/fiber"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/fiber"
 
 adapter, err := server.New("fiber", server.Config{})
 if err != nil {
@@ -225,7 +225,7 @@ configuration such as adding Fiber-specific middleware or custom routes.
 ## gin
 
 ```go
-import "github.com/lookatitude/beluga-ai/server/adapters/gin"
+import "github.com/lookatitude/beluga-ai/v2/server/adapters/gin"
 ```
 
 Package gin provides a Gin-based ServerAdapter for the Beluga AI server
@@ -236,7 +236,7 @@ The adapter registers itself as "gin" in the server registry via init().
 Import this package to make the adapter available:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/gin"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/gin"
 
 adapter, err := server.New("gin", server.Config{})
 if err != nil {
@@ -259,7 +259,7 @@ configuration such as adding Gin-specific middleware or custom routes.
 ## grpc
 
 ```go
-import "github.com/lookatitude/beluga-ai/server/adapters/grpc"
+import "github.com/lookatitude/beluga-ai/v2/server/adapters/grpc"
 ```
 
 Package grpc provides a gRPC-based ServerAdapter for the Beluga AI server
@@ -271,7 +271,7 @@ The adapter registers itself as "grpc" in the server registry via init().
 Import this package to make the adapter available:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/grpc"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/grpc"
 
 adapter, err := server.New("grpc", server.Config{})
 if err != nil {
@@ -308,7 +308,7 @@ advanced configuration such as adding interceptors.
 ## huma
 
 ```go
-import "github.com/lookatitude/beluga-ai/server/adapters/huma"
+import "github.com/lookatitude/beluga-ai/v2/server/adapters/huma"
 ```
 
 Package huma provides a Huma-based ServerAdapter for the Beluga AI server
@@ -319,7 +319,7 @@ The adapter registers itself as "huma" in the server registry via init().
 Import this package to make the adapter available:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/adapters/huma"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/huma"
 
 adapter, err := server.New("huma", server.Config{
     Extra: map[string]any{

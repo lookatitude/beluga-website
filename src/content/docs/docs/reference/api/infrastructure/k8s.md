@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/k8s/operator"
+import "github.com/lookatitude/beluga-ai/v2/k8s/operator"
 ```
 
 Package operator implements a Kubernetes operator for Beluga AI agents and
@@ -195,7 +195,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/k8s/operator"
+    "github.com/lookatitude/beluga-ai/v2/k8s/operator"
 )
 
 reconciler := operator.NewDefaultReconciler(
@@ -257,7 +257,7 @@ type StatusWriter interface {
 import (
     "context"
 
-    "github.com/lookatitude/beluga-ai/k8s/operator"
+    "github.com/lookatitude/beluga-ai/v2/k8s/operator"
 )
 
 reconciler := operator.NewDefaultReconciler()
@@ -304,30 +304,50 @@ re-queue with backoff via the watch layer.
 
 ## Helm Chart
 
-The Helm chart at `k8s/helm/` deploys the operator and its RBAC resources into
-a cluster.
+The Helm chart at `k8s/helm/` is a preview chart. The operator container image
+(`ghcr.io/lookatitude/beluga-operator`) is not built or published by the Beluga
+repository yet, and the repository has no operator binary: `k8s/operator`
+provides the reconcile logic and `operator.NewHealthHandler` as a library. With
+the defaults, `helm install` only installs the CRDs from `crds/`. Enable the
+operator only with an image you built yourself.
 
 ```bash
-# Install with default values.
+# Install the CRDs only (default values).
 helm install beluga-operator ./k8s/helm \
   --namespace beluga-system \
   --create-namespace
 
-# Upgrade with custom values.
+# Deploy your own operator build, scoped to one namespace.
 helm upgrade beluga-operator ./k8s/helm \
-  --set operator.workers=4 \
-  --set operator.image.tag=v1.2.0
+  --set operator.enabled=true \
+  --set image.repository=my-registry/beluga-operator \
+  --set image.tag=v1.2.0 \
+  --set operator.watchNamespace=beluga-system \
+  --set metrics.enabled=true
 ```
 
 Key values in `k8s/helm/values.yaml`:
 
 | Value | Default | Description |
 |-------|---------|-------------|
-| `operator.image.repository` | `beluga-operator` | Operator container image. |
-| `operator.image.tag` | `latest` | Image tag. |
-| `operator.workers` | `2` | Reconciliation worker count. |
-| `operator.namespace` | `""` | Restrict to namespace; empty means cluster-scoped. |
-| `rbac.create` | `true` | Create ClusterRole and ClusterRoleBinding. |
+| `operator.enabled` | `false` | Render the operator Deployment, Service, ServiceAccount and RBAC. Off by default because no official operator image is published. |
+| `operator.watchNamespace` | `""` | When set, replaces the cluster-wide ClusterRole/ClusterRoleBinding with a namespaced Role/RoleBinding in that namespace. Your operator binary must be configured to watch the same namespace. |
+| `rbac.create` | `true` | Render RBAC resources (requires `operator.enabled=true`). The operator gets no access to Secrets. |
+| `replicaCount` | `1` | Operator replicas (use with leader election). |
+| `image.repository` | `ghcr.io/lookatitude/beluga-operator` | Operator container image. |
+| `image.tag` | `""` | Image tag; empty uses the chart's `appVersion`. |
+| `image.pullPolicy` | `IfNotPresent` | Image pull policy. |
+| `imagePullSecrets` | `[]` | Secret names used to pull private images. |
+| `serviceAccount.create` / `serviceAccount.name` | `true` / `""` | Create the operator's ServiceAccount; an empty name is generated from the fullname. |
+| `podSecurityContext` / `securityContext` | non-root, `RuntimeDefault` seccomp, read-only root filesystem, all capabilities dropped | Pod and container security contexts. |
+| `resources` | 100m / 128Mi / 64Mi ephemeral-storage requests, 500m / 256Mi limits | Container resource requests and limits. |
+| `service.type` / `service.port` / `service.targetPort` | `ClusterIP` / `8080` / `8080` | Operator Service. The `/healthz` and `/readyz` probes hit `targetPort`; your binary must serve `operator.NewHealthHandler` there. |
+| `leaderElection.enabled` | `true` | Grant the RBAC for Lease-based leader election. It does not configure the operator process; your binary must enable leader election through its own flags. |
+| `leaderElection.namespace` | `""` | Namespace holding the Lease; empty uses the release namespace. |
+| `metrics.enabled` / `metrics.port` | `false` / `8081` | Expose the metrics endpoint. |
+| `webhook.enabled` / `webhook.port` | `false` / `9443` | Expose an admission-webhook port and mount its serving cert. The chart does not create the TLS secret or any Validating/MutatingWebhookConfiguration, and `k8s/webhooks` is a library (no server). |
+| `webhook.certSecretName` | `""` | Name of an existing `kubernetes.io/tls` secret (for example one issued by cert-manager). Required when `webhook.enabled=true`. |
+| `webhook.certDir` | `/tmp/k8s-webhook-server/serving-certs` | Where the cert secret is mounted in the container. |
 
 ## Related Packages
 

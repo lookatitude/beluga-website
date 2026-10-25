@@ -1,6 +1,6 @@
 ---
 title: Preemptive Generation Strategies
-description: "Reduce perceived voice latency in Go by generating agent replies from interim STT transcripts before the user finishes speaking — with Beluga AI's voice pipeline."
+description: "Reduce perceived voice latency in Go by generating agent replies from interim STT transcripts before the user finishes speaking — with Beluga AI's voice packages."
 head:
   - tag: meta
     attrs:
@@ -8,28 +8,31 @@ head:
       content: "Beluga AI, Go, tutorial, preemptive generation, voice latency, interim transcripts, STT, voice AI"
 ---
 
-Preemptive generation uses interim (partial) STT transcripts to begin generating a response before the user finishes speaking. The core idea is that most of a sentence's meaning is established in the first few words -- "What is the weather in" almost certainly ends with a location -- so starting generation early produces a usable response by the time the final transcript arrives. When the final transcript confirms the interim, the preemptive response can be used immediately, reducing perceived latency by hundreds of milliseconds.
+Preemptive generation uses interim (partial) STT transcripts to start generating a response before the user finishes speaking. Much of a sentence's meaning is set in its first words: "What is the weather in" almost certainly ends with a location. Starting generation early can produce a usable response by the time the final transcript arrives. When the final transcript confirms the interim, the preemptive response is used right away, hiding most of the LLM latency inside the user's speaking time.
+
+The cost is extra LLM calls per user turn, and a risk of answering the wrong question if the transcript changes at the end. The strategies below let you choose that tradeoff.
 
 ## What You Will Build
 
-A voice session that processes interim STT results to speculatively generate responses, with strategies for deciding when to use the preemptive result versus regenerating from the final transcript.
+A preemptive handler that consumes streaming STT events, speculatively generates replies from interim transcripts in the background, and decides on the final transcript whether to use the preemptive reply or regenerate.
 
 ## Prerequisites
 
-- Go 1.23+
-- A streaming STT provider (e.g., Deepgram, Google) that supports interim results
-- Completion of [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming)
+- Go 1.26 or later
+- A streaming STT provider that emits interim results. In Beluga, `assemblyai` emits partial transcripts (`IsFinal: false`) and `gladia` passes through the provider's `is_final` flag. The `deepgram` engine does not request interim results, so it emits only final transcripts.
+- An LLM provider for `llm.New`
+- [Real-time STT Streaming](/docs/guides/capabilities/voice/stt-realtime-streaming) is recommended background
 
 ## The Latency Problem
 
-In a standard pipeline, the agent waits for the final transcript before generating a response. This means the LLM processing and TTS synthesis happen sequentially after the user finishes speaking, creating a noticeable gap:
+In a standard pipeline, the agent waits for the final transcript before generating a response, so LLM processing and TTS synthesis happen after the user stops speaking:
 
 ```
 User speaks ──▶ Silence detected ──▶ Final transcript ──▶ LLM ──▶ TTS ──▶ Audio
                                      ▲ latency starts here
 ```
 
-With preemptive generation, the agent starts the LLM call during the user's speech, overlapping generation with the remaining speech. If the interim and final transcripts are sufficiently similar, the preemptive response is ready before the user finishes:
+With preemptive generation, the LLM call starts during the user's speech. If the interim and final transcripts are similar enough, the response is ready when the user finishes:
 
 ```
 User speaks ──▶ Interim transcript ──▶ LLM (preemptive) ──▶ Buffer
@@ -40,62 +43,55 @@ User speaks ──▶ Interim transcript ──▶ LLM (preemptive) ──▶ Bu
                                                    TTS ──▶ Audio
 ```
 
-## Step 1: Session with Streaming STT
+## Step 1: Streaming STT Engine
 
-Create a voice session with a streaming-capable STT provider. Streaming STT is essential for preemptive generation because batch STT only produces a single final transcript after the entire audio is processed, providing no interim results to act on.
+Streaming is essential: batch transcription (`Transcribe`) returns one final transcript and gives you nothing to act on early. `TranscribeStream` takes an audio iterator and returns an iterator of `stt.TranscriptEvent` values, each with `Text` and `IsFinal`:
 
 ```go
 package main
 
 import (
 	"context"
+	"fmt"
+	"iter"
 	"log"
+	"os"
 
-	"github.com/lookatitude/beluga-ai/voice/session"
-	"github.com/lookatitude/beluga-ai/voice/stt"
-	"github.com/lookatitude/beluga-ai/voice/tts"
-	_ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-	_ "github.com/lookatitude/beluga-ai/voice/tts/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/assemblyai"
 )
 
 func main() {
 	ctx := context.Background()
 
-	sttProvider, err := stt.NewProvider(ctx, "deepgram", stt.DefaultConfig(),
-		stt.WithAPIKey("your-key"),
-		stt.WithEnableStreaming(true),
-	)
+	engine, err := stt.New("assemblyai", stt.Config{
+		Language:   "en",
+		SampleRate: 16000,
+		Extra:      map[string]any{"api_key": os.Getenv("ASSEMBLYAI_API_KEY")},
+	})
 	if err != nil {
 		log.Fatalf("create STT: %v", err)
 	}
 
-	ttsProvider, err := tts.NewProvider(ctx, "openai", tts.DefaultConfig(),
-		tts.WithAPIKey("your-key"),
-	)
-	if err != nil {
-		log.Fatalf("create TTS: %v", err)
+	for event, err := range engine.TranscribeStream(ctx, microphone(ctx)) {
+		if err != nil {
+			log.Fatalf("transcribe: %v", err)
+		}
+		fmt.Printf("final=%v text=%q\n", event.IsFinal, event.Text)
 	}
+}
 
-	sess, err := session.NewVoiceSession(ctx,
-		session.WithSTTProvider(sttProvider),
-		session.WithTTSProvider(ttsProvider),
-		session.WithConfig(session.DefaultConfig()),
-	)
-	if err != nil {
-		log.Fatalf("create session: %v", err)
+// microphone yields 16-bit PCM chunks from your audio source.
+func microphone(ctx context.Context) iter.Seq2[[]byte, error] {
+	return func(yield func([]byte, error) bool) {
+		// Read from your capture device or transport and yield chunks here.
 	}
-
-	_ = sess
 }
 ```
 
-## Step 2: Preemptive Generation Strategies
+## Step 2: Choose a Strategy
 
-There are three strategies for handling preemptive responses. The choice depends on your tolerance for incorrect responses versus your latency requirements:
-
-### Use-If-Similar
-
-Generate from the interim transcript. When the final arrives, compare the two. If they are sufficiently similar (high word overlap), use the preemptive response. This is the safest strategy that still provides latency benefits.
+There are three ways to handle a preemptive response. The choice depends on your tolerance for wrong answers versus your latency budget:
 
 ```go
 // PreemptiveStrategy determines how to handle preemptive responses.
@@ -105,8 +101,7 @@ const (
 	// UseIfSimilar uses the preemptive response if the final transcript
 	// is similar to the interim that generated it.
 	UseIfSimilar PreemptiveStrategy = iota
-	// AlwaysUse always uses the preemptive response, regardless of
-	// how the final transcript differs.
+	// AlwaysUse uses the preemptive response whenever one is ready.
 	AlwaysUse
 	// Discard ignores preemptive responses and always generates
 	// from the final transcript.
@@ -114,152 +109,204 @@ const (
 )
 ```
 
-### Strategy Comparison
+| Strategy     | Latency reduction | Risk                                             |
+|--------------|-------------------|--------------------------------------------------|
+| UseIfSimilar | Moderate          | Low: falls back to the final if the interim was wrong |
+| AlwaysUse    | Maximum           | Medium: may answer the wrong transcript          |
+| Discard      | None              | None: standard behavior                          |
 
-| Strategy     | Latency Reduction | Risk                                         |
-|-------------|-------------------|----------------------------------------------|
-| UseIfSimilar | Moderate          | Low -- falls back to final if interim was wrong |
-| AlwaysUse    | Maximum           | Medium -- may respond to wrong transcript      |
-| Discard      | None              | None -- safest, standard behavior              |
+Use `UseIfSimilar` or `Discard` when correctness matters. `AlwaysUse` suits rapid-fire Q&A where users will simply rephrase.
 
 ## Step 3: Implement the Preemptive Handler
 
-The handler tracks interim transcripts, preemptive responses, and applies the chosen strategy when the final transcript arrives. The `isSimilar` method uses word overlap as a simple but effective similarity metric -- if 80% or more of the words match, the transcripts are considered equivalent for generation purposes.
+Interim events arrive while earlier generations are still running, so the handler runs each generation in a goroutine, cancels the previous one when a newer interim arrives, and guards its state with a mutex. It also skips interims that barely changed, so you don't pay for an LLM call on every 100-200 ms update.
 
 ```go
-import "strings"
+import (
+	"context"
+	"strings"
+	"sync"
+)
 
-// PreemptiveHandler manages preemptive generation for a voice session.
+// GenerateFunc produces a reply for a transcript, typically by calling an LLM.
+type GenerateFunc func(ctx context.Context, transcript string) (string, error)
+
+// generation is one speculative reply for one interim transcript.
+type generation struct {
+	interim string
+	cancel  context.CancelFunc
+	done    chan struct{} // closed after reply and err are set
+	reply   string
+	err     error
+}
+
+// PreemptiveHandler manages preemptive generation for one conversation.
 type PreemptiveHandler struct {
-	strategy          PreemptiveStrategy
-	similarityThreshold float64
-	lastInterim       string
-	preemptiveReply   string
-	generateFn        func(ctx context.Context, transcript string) (string, error)
+	strategy  PreemptiveStrategy
+	threshold float64 // word-overlap similarity, 0.0-1.0
+	generate  GenerateFunc
+
+	mu      sync.Mutex
+	current *generation
 }
 
 // NewPreemptiveHandler creates a handler with the given strategy.
-func NewPreemptiveHandler(
-	strategy PreemptiveStrategy,
-	threshold float64,
-	generateFn func(ctx context.Context, transcript string) (string, error),
-) *PreemptiveHandler {
-	return &PreemptiveHandler{
-		strategy:          strategy,
-		similarityThreshold: threshold,
-		generateFn:        generateFn,
-	}
+func NewPreemptiveHandler(strategy PreemptiveStrategy, threshold float64, generate GenerateFunc) *PreemptiveHandler {
+	return &PreemptiveHandler{strategy: strategy, threshold: threshold, generate: generate}
 }
 
-// OnInterim processes an interim transcript. If the strategy allows,
-// it generates a preemptive response in the background.
+// OnInterim starts a background generation for an interim transcript.
 func (h *PreemptiveHandler) OnInterim(ctx context.Context, interim string) {
-	h.lastInterim = interim
-
 	if h.strategy == Discard {
 		return
 	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
-	// Generate preemptive response (in production, run in a goroutine)
-	reply, err := h.generateFn(ctx, interim)
-	if err != nil {
-		return
+	if h.current != nil {
+		// Skip interims that barely changed since the last generation.
+		if similarity(h.current.interim, interim) >= 0.95 {
+			return
+		}
+		h.current.cancel() // the previous interim is stale
 	}
-	h.preemptiveReply = reply
+
+	genCtx, cancel := context.WithCancel(ctx)
+	g := &generation{interim: interim, cancel: cancel, done: make(chan struct{})}
+	h.current = g
+
+	go func() {
+		g.reply, g.err = h.generate(genCtx, interim)
+		close(g.done)
+	}()
 }
 
-// OnFinal processes the final transcript and returns the response to use.
+// OnFinal returns the reply to speak for the final transcript.
 func (h *PreemptiveHandler) OnFinal(ctx context.Context, final string) (string, error) {
-	switch h.strategy {
-	case AlwaysUse:
-		if h.preemptiveReply != "" {
-			reply := h.preemptiveReply
-			h.reset()
-			return reply, nil
+	h.mu.Lock()
+	g := h.current
+	h.current = nil
+	h.mu.Unlock()
+
+	usable := g != nil && (h.strategy == AlwaysUse ||
+		(h.strategy == UseIfSimilar && similarity(g.interim, final) >= h.threshold))
+
+	if usable {
+		select {
+		case <-g.done: // wait for the in-flight generation; it started earlier
+		case <-ctx.Done():
+			g.cancel()
+			return "", ctx.Err()
 		}
-	case UseIfSimilar:
-		if h.preemptiveReply != "" && h.isSimilar(h.lastInterim, final) {
-			reply := h.preemptiveReply
-			h.reset()
-			return reply, nil
+		g.cancel() // release the context's resources
+		if g.err == nil && g.reply != "" {
+			return g.reply, nil
 		}
+	} else if g != nil {
+		g.cancel()
 	}
 
-	// Fall back to generating from the final transcript
-	h.reset()
-	return h.generateFn(ctx, final)
+	// Fall back to generating from the final transcript.
+	return h.generate(ctx, final)
 }
 
-func (h *PreemptiveHandler) isSimilar(a, b string) bool {
+// similarity is the share of words two transcripts have in common.
+// Swap in edit distance or embedding similarity for production.
+func similarity(a, b string) float64 {
 	wordsA := strings.Fields(strings.ToLower(a))
 	wordsB := strings.Fields(strings.ToLower(b))
 	if len(wordsA) == 0 || len(wordsB) == 0 {
-		return false
+		return 0
 	}
-
-	matches := 0
-	bSet := make(map[string]bool, len(wordsB))
+	inB := make(map[string]bool, len(wordsB))
 	for _, w := range wordsB {
-		bSet[w] = true
+		inB[w] = true
 	}
+	matches := 0
 	for _, w := range wordsA {
-		if bSet[w] {
+		if inB[w] {
 			matches++
 		}
 	}
-
-	overlap := float64(matches) / float64(max(len(wordsA), len(wordsB)))
-	return overlap >= h.similarityThreshold
-}
-
-func (h *PreemptiveHandler) reset() {
-	h.lastInterim = ""
-	h.preemptiveReply = ""
+	return float64(matches) / float64(max(len(wordsA), len(wordsB)))
 }
 ```
 
-## Step 4: Wire into the Voice Pipeline
+Word overlap is fast but crude: "weather in Paris" and "weather in London" overlap by two thirds. Pick a threshold high enough (0.8 is a reasonable start) that a changed key word causes regeneration, or use edit distance or embedding similarity instead.
 
-Integrate the preemptive handler with your STT streaming session. The handler receives both interim and final transcript results and decides which response to use. The `IsFinal` flag from the STT provider distinguishes between partial results (which trigger preemptive generation) and confirmed results (which trigger the strategy comparison).
+## Step 4: Wire It to STT, the LLM, and TTS
+
+Feed the STT event stream into the handler. Interim events start speculative generation, and final events resolve the strategy and produce the reply to synthesize. This uses the `engine` and `microphone` from Step 1:
 
 ```go
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	"github.com/lookatitude/beluga-ai/v2/voice/stt"
+	"github.com/lookatitude/beluga-ai/v2/voice/tts"
+)
+
+func converse(ctx context.Context, engine stt.STT, speaker tts.TTS) error {
+	model, err := llm.New("openai", config.ProviderConfig{
+		APIKey: os.Getenv("OPENAI_API_KEY"),
+		Model:  "gpt-4o-mini",
+	})
+	if err != nil {
+		return err
+	}
+
 	handler := NewPreemptiveHandler(UseIfSimilar, 0.8, func(ctx context.Context, transcript string) (string, error) {
-		// Call your LLM or agent here
-		return "Response to: " + transcript, nil
+		resp, err := model.Generate(ctx, []schema.Message{
+			schema.NewSystemMessage("You are a concise voice assistant."),
+			schema.NewHumanMessage(transcript),
+		})
+		if err != nil {
+			return "", err
+		}
+		return resp.Text(), nil
 	})
 
-	// In your STT transcript processing loop:
-	streamSession, err := sttProvider.StartStreaming(ctx)
-	if err != nil {
-		log.Fatalf("start streaming: %v", err)
-	}
-	defer streamSession.Close()
-
-	for result := range streamSession.ReceiveTranscript() {
-		if result.Error != nil {
+	for event, err := range engine.TranscribeStream(ctx, microphone(ctx)) {
+		if err != nil {
+			return err
+		}
+		if !event.IsFinal {
+			handler.OnInterim(ctx, event.Text)
 			continue
 		}
 
-		if result.IsFinal {
-			response, err := handler.OnFinal(ctx, result.Text)
-			if err != nil {
-				log.Printf("generate response: %v", err)
-				continue
-			}
-			// Use response for TTS
-			log.Printf("Response: %s", response)
-		} else {
-			handler.OnInterim(ctx, result.Text)
+		reply, err := handler.OnFinal(ctx, event.Text)
+		if err != nil {
+			log.Printf("generate reply: %v", err)
+			continue
 		}
+		audio, err := speaker.Synthesize(ctx, reply)
+		if err != nil {
+			log.Printf("synthesize: %v", err)
+			continue
+		}
+		play(audio)
 	}
+	return nil
+}
+
+// play sends synthesized audio to your output device or transport.
+func play(audio []byte) {}
 ```
 
 ## Verification
 
-1. Run the session with streaming STT and log interim vs. final transcripts.
-2. Measure time-to-first-audio-response with preemptive generation enabled vs. disabled.
-3. Use the `UseIfSimilar` strategy and speak a sentence that changes significantly at the end. Verify the handler falls back to the final transcript.
-4. Use the `AlwaysUse` strategy and verify the fastest response time.
+1. Log interim and final transcripts to see how early they stabilize for your users.
+2. Measure time from the final transcript to the first audio byte with `Discard` (baseline) and with `UseIfSimilar`.
+3. With `UseIfSimilar`, say a sentence whose key word changes at the end ("book a flight to Paris... no, Rome") and check that the handler regenerates.
+4. With `AlwaysUse`, check that you get the fastest responses, and note how often they answer a stale transcript.
+5. Count LLM calls per turn to confirm the skip-unchanged-interims rule keeps cost in check.
 
 ## Next Steps
 

@@ -15,7 +15,7 @@ Choose DeepEval when you want a self-hosted evaluation server with a broad set o
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/eval/providers/deepeval
+go get github.com/lookatitude/beluga-ai/v2/eval/providers/deepeval
 ```
 
 ## Configuration
@@ -37,8 +37,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/eval"
-    "github.com/lookatitude/beluga-ai/eval/providers/deepeval"
+    "github.com/lookatitude/beluga-ai/v2/eval"
+    "github.com/lookatitude/beluga-ai/v2/eval/providers/deepeval"
 )
 
 func main() {

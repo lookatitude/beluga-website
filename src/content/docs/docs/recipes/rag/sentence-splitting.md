@@ -32,7 +32,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.textsplitters.sentence_boundary")
@@ -67,7 +67,7 @@ func (sbs *SentenceBoundarySplitter) SplitText(ctx context.Context, text string)
 
 	chunks := sbs.mergeSentences(sentences)
 	span.SetAttributes(attribute.Int("chunk_count", len(chunks)))
-	span.SetStatus(trace.StatusOK, "text split at sentence boundaries")
+	span.SetStatus(codes.Ok, "text split at sentence boundaries")
 	return chunks, nil
 }
 
@@ -167,5 +167,5 @@ func isAbbreviation(word string) bool {
 
 ## Related Recipes
 
-- **[Code Splitting with Tree-sitter](./code-splitting)** -- Structure-aware code splitting
-- **[Document Ingestion](./document-ingestion)** -- Document loading patterns
+- **[Code Splitting with Tree-sitter](/docs/recipes/rag/code-splitting/)** -- Structure-aware code splitting
+- **[Document Ingestion](/docs/recipes/rag/document-ingestion/)** -- Document loading patterns

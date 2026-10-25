@@ -15,7 +15,7 @@ Choose the In-Memory cache for development, testing, and single-process deployme
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/cache/providers/inmemory
+go get github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory
 ```
 
 ## Configuration
@@ -36,8 +36,8 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/cache"
-    _ "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/cache"
+    _ "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 )
 
 func main() {
@@ -148,7 +148,7 @@ if err != nil {
 The in-memory provider exposes a `Len()` method for monitoring:
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 
 c := inmemory.New(cache.Config{MaxSize: 1000})
 // ... add entries ...
@@ -158,7 +158,7 @@ fmt.Printf("Cache entries: %d\n", c.Len())
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 
 c := inmemory.New(cache.Config{
     TTL:     10 * time.Minute,
@@ -190,8 +190,8 @@ Combine the In-Memory provider with `SemanticCache` for embedding-based lookups:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/cache"
-    "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+    "github.com/lookatitude/beluga-ai/v2/cache"
+    "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 )
 
 c := inmemory.New(cache.Config{

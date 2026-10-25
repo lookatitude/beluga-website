@@ -67,7 +67,7 @@ Core memory solves the problem of persistent identity: who is this agent, and wh
 Because core memory is included in every context window, it must remain small (typically under 2KB). Storing large amounts of data here would waste token budget that should be used for conversation history and retrieved context.
 
 ```go
-import "github.com/lookatitude/beluga-ai/memory"
+import "github.com/lookatitude/beluga-ai/v2/memory"
 
 core := memory.NewCore(memory.CoreConfig{
 	PersonaLimit: 2000,  // Max chars for persona block
@@ -94,26 +94,32 @@ msgs := core.ToMessages()
 //   [Human] Name: Alice. Age: 35...
 ```
 
-When `SelfEditable` is true, the agent can modify its persona and user blocks through tool calls, allowing it to update its own knowledge as conversations progress.
+`SelfEditable` records whether the agent is allowed to rewrite these blocks (check it with `core.IsSelfEditable()`). Beluga does not inject memory-editing tools for you; if you want the agent to update its own blocks, expose `SetPersona`/`SetHuman` as a tool (for example with `tool.NewFuncTool`) and gate it on that flag.
 
 ## Recall Memory
 
 Recall memory addresses the problem of conversation continuity. Users expect agents to remember what was discussed in previous turns and sessions, but LLM context windows are finite. Recall memory stores the full conversation history in a searchable backend and retrieves the most relevant past messages for each new query. This is analogous to RAM — not everything fits in the context window at once, but recent and relevant data can be loaded quickly.
 
 ```go
-recall := memory.NewRecall(memory.RecallConfig{
-	Store:    store,     // A RecallStore backend
-	MaxItems: 1000,      // Maximum messages to retain
-})
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
+
+// Recall takes any MessageStore backend (in-memory, Redis, PostgreSQL, ...).
+recall := memory.NewRecall(inmemory.NewMessageStore())
 
 // Save a conversation turn
 err := recall.Save(ctx,
 	schema.NewHumanMessage("What's my portfolio value?"),
 	schema.NewAIMessage("Your portfolio is currently valued at $125,000."),
 )
+if err != nil {
+	log.Fatal(err)
+}
 
-// Load recent messages relevant to a query
+// Load past messages that match a query
 msgs, err := recall.Load(ctx, "portfolio")
+if err != nil {
+	log.Fatal(err)
+}
 ```
 
 ## Archival Memory
@@ -121,19 +127,28 @@ msgs, err := recall.Load(ctx, "portfolio")
 Archival memory handles long-term knowledge that goes beyond conversation history. When a user mentions important facts — deadlines, preferences, project details — the agent needs to store these in a way that can be retrieved semantically months later. Archival memory uses vector embeddings for storage, enabling similarity search over arbitrary text. This is the "disk" tier: virtually unlimited capacity with content-addressable retrieval.
 
 ```go
-archival := memory.NewArchival(memory.ArchivalConfig{
-	Store:    archivalStore,  // An ArchivalStore backend
-	Embedder: embedder,       // Embedding model for vector search
+archival, err := memory.NewArchival(memory.ArchivalConfig{
+	VectorStore: store,    // any vectorstore.VectorStore
+	Embedder:    embedder, // any embedding.Embedder
 })
+if err != nil {
+	log.Fatal(err)
+}
 
 // Save information for long-term storage
-err := archival.Save(ctx,
+err = archival.Save(ctx,
 	schema.NewHumanMessage("Remember that my daughter Sarah starts college in 2028."),
 	schema.NewAIMessage("I'll remember that."),
 )
+if err != nil {
+	log.Fatal(err)
+}
 
 // Search long-term memory
 docs, err := archival.Search(ctx, "when does Sarah start college", 5)
+if err != nil {
+	log.Fatal(err)
+}
 for _, doc := range docs {
 	fmt.Println(doc.Content)
 }
@@ -143,163 +158,204 @@ for _, doc := range docs {
 
 Vector similarity search excels at finding topically related content, but it cannot capture structured relationships between entities. If a user mentions "Bob manages the AI team at TechCorp," a vector search for "who works at TechCorp" might return that passage, but it cannot traverse the relationship graph to answer "who reports to Bob?" or "what teams exist at TechCorp?"
 
-Graph memory solves this by extracting entities and relationships from conversations and storing them as nodes and edges in a graph database. This enables relationship traversal, multi-hop reasoning, and structured queries that pure vector search cannot support.
+Graph memory solves this by storing entities and relationships as nodes and edges in a graph database through the `memory.GraphStore` interface (`AddEntity`, `AddRelation`, `Query`, `Neighbors`). This enables relationship traversal, multi-hop reasoning, and structured queries that pure vector search cannot support. Beluga does not extract entities from conversations automatically; your application (or an LLM extraction step you write) decides what to add.
 
 ```go
-graphMem := memory.NewGraph(memory.GraphConfig{
-	Store: graphStore, // Neo4j or Memgraph backend
-})
+import "github.com/lookatitude/beluga-ai/v2/memory/stores/neo4j"
 
-// Entities and relationships are extracted from conversations
-// and stored as nodes and edges in the graph
-err := graphMem.Save(ctx,
-	schema.NewHumanMessage("My colleague Bob manages the AI team at TechCorp."),
-	schema.NewAIMessage("Got it. Bob manages the AI team at TechCorp."),
-)
+graphStore, err := neo4j.New(neo4j.Config{
+	URI:      "neo4j://localhost:7687",
+	Username: "neo4j",
+	Password: os.Getenv("NEO4J_PASSWORD"),
+})
+if err != nil {
+	log.Fatal(err)
+}
+defer graphStore.Close(ctx)
+
+// Store the facts from "My colleague Bob manages the AI team at TechCorp."
+if err := graphStore.AddEntity(ctx, memory.Entity{ID: "bob", Type: "person"}); err != nil {
+	log.Fatal(err)
+}
+if err := graphStore.AddEntity(ctx, memory.Entity{ID: "ai-team", Type: "team"}); err != nil {
+	log.Fatal(err)
+}
+if err := graphStore.AddRelation(ctx, "bob", "ai-team", "MANAGES", nil); err != nil {
+	log.Fatal(err)
+}
+
+// Traverse: everything within one hop of Bob
+entities, relations, err := graphStore.Neighbors(ctx, "bob", 1)
+if err != nil {
+	log.Fatal(err)
+}
+fmt.Println(len(entities), len(relations))
 ```
 
 ## Loading memory
 
-On each turn, composite memory fetches from all three tiers in parallel, merges results (deduplicating and ranking by relevance), and returns a single combined context. The agent sees one list, not three.
+On each turn, composite memory's `Load` returns the core blocks (always in context) followed by the recall messages that match the query. Archival memory is queried separately through `Search`, and graph memory through the `GraphStore` methods. The agent sees one message list for core and recall.
 
 ```mermaid
 sequenceDiagram
   participant A as Agent
   participant C as Composite
-  participant W as Working
+  participant K as Core
   participant R as Recall
-  participant V as Archival
   A->>C: Load(query)
-  par parallel fetch
-    C->>W: recent messages
-    C->>R: relevant summaries + entities
-    C->>V: top-K semantic matches
-  end
-  W-->>C: recent
-  R-->>C: summaries
-  V-->>C: vectors
-  C->>C: merge + rank
-  C-->>A: merged context
+  C->>K: persona + human blocks
+  K-->>C: system messages
+  C->>R: matching history
+  R-->>C: messages
+  C-->>A: core messages + recall messages
 ```
 
 ## Agent-controlled memory
 
-Beluga injects memory tools so the agent can update its own memory during reasoning — the MemGPT pattern. The agent treats memory like any other tool.
+Beluga does not inject memory tools automatically. To get the MemGPT pattern, where the agent updates its own memory during reasoning, wrap the memory operations you want to expose (for example `Core.SetHuman` or `Archival.Search`) as tools with `tool.NewFuncTool` and pass them to the agent with `agent.WithTools`.
 
 ```mermaid
 graph LR
   LLM[LLM] --> Think[Reasoning loop]
-  Think --> Tool[core_memory_update]
-  Tool --> WM[Working memory updated]
-  Think --> AS[archival_search]
+  Think --> Tool[your update-memory tool]
+  Tool --> WM[Core memory updated]
+  Think --> AS[your archival-search tool]
   AS --> VM[Vector matches]
   VM --> Think
 ```
 
-Available memory tools: `core_memory_update`, `recall_search`, `archival_search`, `archival_insert`. Active management is why agents with this pattern produce coherent long-term conversations.
-
 ## Composite Memory
 
-In practice, agents need all memory tiers working together. Composite memory combines Core, Recall, Archival, and Graph into a single `Memory` implementation that dispatches operations to the appropriate tier. When you save a conversation turn, it is persisted to Recall for history, analyzed for archival-worthy facts, and scanned for entity relationships. When you load context for a query, composite memory aggregates results from all tiers into a unified context.
+In practice, agents need all memory tiers working together. Composite memory combines Core, Recall, Archival, and Graph into a single `Memory` implementation that dispatches operations to the appropriate tier. Every tier is optional. `Save` writes the turn to Recall and Archival (Core is changed only through explicit edits). `Load` returns the Core blocks followed by matching Recall messages, and `Search` queries Archival. The graph store is held for direct access through `Graph()`.
 
 ```go
-composite := memory.NewComposite(memory.CompositeConfig{
-	Core:     core,
-	Recall:   recall,
-	Archival: archival,
-	Graph:    graphMem,
-})
-
-// Save dispatches to all tiers
-err := composite.Save(ctx, input, output)
-
-// Load aggregates from all tiers
-msgs, err := composite.Load(ctx, "portfolio performance")
-
-// Search focuses on archival tier
-docs, err := composite.Search(ctx, "Sarah college", 5)
-```
-
-## Memory Store Providers
-
-The memory system follows Beluga AI's registry pattern: storage backends are pluggable providers that register via `init()`. Import the provider you need with a blank identifier, and the `memory.New()` factory function handles instantiation. This lets you use in-memory stores during development and switch to Redis or PostgreSQL in production without changing application logic.
-
-| Provider | Import Path | Tiers | Best For |
-|----------|-------------|-------|----------|
-| In-Memory | `memory/stores/inmemory` | Recall, Archival | Development, testing |
-| Redis | `memory/stores/redis` | Recall, Archival | Fast, distributed |
-| PostgreSQL | `memory/stores/postgres` | Recall, Archival | Relational, durable |
-| SQLite | `memory/stores/sqlite` | Recall, Archival | Embedded, single-node |
-| MongoDB | `memory/stores/mongodb` | Recall, Archival | Document-oriented |
-| Neo4j | `memory/stores/neo4j` | Graph | Enterprise graph DB |
-| Memgraph | `memory/stores/memgraph` | Graph | Lightweight graph DB |
-| Dragonfly | `memory/stores/dragonfly` | Recall, Archival | Redis-compatible |
-
-## Using Memory with Agents
-
-The most common use case is wiring memory into an agent so that conversations are automatically persisted and recalled. The `WithMemory` option connects any `Memory` implementation to an agent. The agent then automatically saves each conversation turn after processing and loads relevant context before generating a response. From the user's perspective, the agent simply "remembers" across sessions.
-
-```go
-import (
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	_ "github.com/lookatitude/beluga-ai/memory/stores/redis"
+composite := memory.NewComposite(
+	memory.WithCore(core),
+	memory.WithRecall(recall),
+	memory.WithArchival(archival),
+	memory.WithGraph(graphStore),
 )
 
-// Create Redis-backed memory
-mem, err := memory.New("redis", config.ProviderConfig{
-	Options: map[string]any{
-		"addr": "localhost:6379",
-	},
-})
+// Save writes to the recall and archival tiers
+if err := composite.Save(ctx, input, output); err != nil {
+	log.Fatal(err)
+}
+
+// Load returns core blocks + matching recall messages
+msgs, err := composite.Load(ctx, "portfolio performance")
 if err != nil {
 	log.Fatal(err)
 }
 
-// Create agent with persistent memory
-a := agent.New("assistant",
-	agent.WithLLM(model),
-	agent.WithMemory(mem),
-	agent.WithPersona(agent.Persona{
-		Role: "personal assistant",
-		Goal: "remember user preferences and provide personalized help",
-	}),
+// Search queries the archival tier
+docs, err := composite.Search(ctx, "Sarah college", 5)
+if err != nil {
+	log.Fatal(err)
+}
+```
+
+## Memory Store Providers
+
+Storage backends are separate packages under `memory/stores/`. Message stores (`MessageStore`) back the Recall tier and graph stores (`GraphStore`) back the Graph tier; each package has its own `New(Config)` constructor. Because Recall only depends on the `MessageStore` interface, you can use the in-memory store during development and switch to Redis or PostgreSQL in production without changing application logic. The `memory.New()` registry has the built-in names `core`, `recall`, `archival`, `composite`, and `inmemory` (registered by importing `memory/stores/inmemory`).
+
+| Provider | Import Path | Tiers | Best For |
+|----------|-------------|-------|----------|
+| In-Memory | `memory/stores/inmemory` | Recall, Graph | Development, testing |
+| Redis | `memory/stores/redis` | Recall | Fast, distributed |
+| PostgreSQL | `memory/stores/postgres` | Recall | Relational, durable |
+| SQLite | `memory/stores/sqlite` | Recall | Embedded, single-node |
+| MongoDB | `memory/stores/mongodb` | Recall | Document-oriented |
+| Neo4j | `memory/stores/neo4j` | Graph | Enterprise graph DB |
+| Memgraph | `memory/stores/memgraph` | Graph | Lightweight graph DB |
+| Dragonfly | `memory/stores/dragonfly` | Recall | Redis-compatible |
+
+## Using Memory with Agents
+
+The most common use case is wiring memory into an agent's turn loop so that conversations are persisted and recalled across sessions. Load relevant context before calling the model, then save the turn afterwards. (`agent.WithMemory` takes a different, session-keyed `agent.Memory` interface, which `memory.Memory` does not implement, so wire the memory tiers explicitly as shown.)
+
+```go
+import (
+	goredis "github.com/redis/go-redis/v9"
+
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	"github.com/lookatitude/beluga-ai/v2/memory/stores/redis"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
-// Conversations are automatically persisted
-result, err := a.Invoke(ctx, "My name is Alice and I prefer dark mode.")
-// Next conversation...
-result, err = a.Invoke(ctx, "What are my preferences?")
-// Agent recalls: "You prefer dark mode."
+// Create Redis-backed recall memory
+store, err := redis.New(redis.Config{
+	Client: goredis.NewClient(&goredis.Options{Addr: "localhost:6379"}),
+	Key:    "beluga:assistant:alice", // one key per user or session
+})
+if err != nil {
+	log.Fatal(err)
+}
+mem := memory.NewComposite(
+	memory.WithCore(core),
+	memory.WithRecall(memory.NewRecall(store)),
+)
+
+// One conversation turn
+userInput := "What are my preferences?"
+history, err := mem.Load(ctx, userInput)
+if err != nil {
+	log.Fatal(err)
+}
+human := schema.NewHumanMessage(userInput)
+resp, err := model.Generate(ctx, append(history, human))
+if err != nil {
+	log.Fatal(err)
+}
+if err := mem.Save(ctx, human, resp); err != nil {
+	log.Fatal(err)
+}
+fmt.Println(resp.Text())
 ```
 
 ## Production Configuration
 
-Production deployments require durable storage, connection pooling, and data lifecycle management. The following examples show common production configurations with TTL-based expiry (to comply with data retention policies) and connection pooling (to handle concurrent agent sessions).
+Production deployments require durable storage and connection pooling. Each store takes a client or connection you create and configure yourself, so pooling, TLS, and timeouts are set on that client.
 
-### Redis with TTL
+### Redis
 
 ```go
-mem, err := memory.New("redis", config.ProviderConfig{
-	Options: map[string]any{
-		"addr": "redis-cluster:6379",
-		"db":   0,
-		"ttl":  "720h", // 30 days
-	},
+client := goredis.NewClient(&goredis.Options{
+	Addr:     "redis-cluster:6379",
+	DB:       0,
+	PoolSize: 20,
 })
+store, err := redis.New(redis.Config{Client: client, Key: "beluga:messages"})
+if err != nil {
+	log.Fatal(err)
+}
+recall := memory.NewRecall(store)
 ```
+
+The Redis store does not set a TTL on the key; apply expiry with your Redis client if your data retention policy needs it.
 
 ### PostgreSQL with Connection Pool
 
 ```go
-mem, err := memory.New("postgres", config.ProviderConfig{
-	Options: map[string]any{
-		"connection_string": os.Getenv("DATABASE_URL"),
-		"max_connections":   20,
-		"table_prefix":      "agent_memory_",
-	},
-})
+import (
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/lookatitude/beluga-ai/v2/memory/stores/postgres"
+)
+
+pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
+if err != nil {
+	log.Fatal(err)
+}
+defer pool.Close()
+
+store, err := postgres.New(postgres.Config{DB: pool, Table: "agent_memory_messages"})
+if err != nil {
+	log.Fatal(err)
+}
+if err := store.EnsureTable(ctx); err != nil {
+	log.Fatal(err)
+}
+recall := memory.NewRecall(store)
 ```
 
 ## Memory Middleware
@@ -307,9 +363,10 @@ mem, err := memory.New("postgres", config.ProviderConfig{
 Memory middleware follows the same `func(T) T` pattern used throughout Beluga AI for composable behavior wrapping. Middleware can add logging, metrics, encryption, or access control around any memory implementation without modifying the underlying store. Middleware is applied outside-in: the last middleware in the list becomes the outermost wrapper.
 
 ```go
-// Wrap memory with logging
-mem = memory.ApplyMiddleware(mem,
-	memory.WithLoggingMiddleware(logger),
+// Wrap memory with OpenTelemetry tracing and lifecycle hooks
+var wrapped memory.Memory = memory.ApplyMiddleware(mem,
+	memory.WithTracing(),
+	memory.WithHooks(hooks),
 )
 ```
 
@@ -323,7 +380,7 @@ hooks := memory.Hooks{
 		log.Println("Saving conversation turn")
 		return nil
 	},
-	AfterLoad: func(ctx context.Context, msgs []schema.Message, err error) {
+	AfterLoad: func(ctx context.Context, query string, msgs []schema.Message, err error) {
 		log.Printf("Loaded %d messages from memory", len(msgs))
 	},
 }
@@ -331,7 +388,7 @@ hooks := memory.Hooks{
 
 ## Next Steps
 
-- [Building Your First Agent](/docs/guides/first-agent/) — Wire memory into an agent
-- [RAG Pipeline](/docs/guides/rag-pipeline/) — Vector search for document retrieval
-- [Safety & Guards](/docs/guides/safety-and-guards/) — Guard memory content
-- [Deploying to Production](/docs/guides/deployment/) — Production memory backends
+- [Building Your First Agent](/docs/guides/foundations/first-agent/) — Wire memory into an agent
+- [RAG Pipeline](/docs/guides/capabilities/rag/rag-pipeline/) — Vector search for document retrieval
+- [Safety & Guards](/docs/guides/production/safety-and-guards/) — Guard memory content
+- [Deploying to Production](/docs/guides/production/deployment/) — Production memory backends

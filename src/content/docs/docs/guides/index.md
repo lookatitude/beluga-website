@@ -39,12 +39,12 @@ Domain-specific subsystems that extend the foundation. Each capability follows t
 
 | Guide | What You'll Learn |
 |-------|-------------------|
-| [RAG Pipeline](./capabilities/rag-pipeline/) | Give agents access to your data — build retrieval pipelines with embeddings, vector stores, and advanced strategies like hybrid search (BM25 + vector + RRF fusion), CRAG for self-correcting retrieval, and HyDE for hypothetical document generation |
-| [Document Processing](./capabilities/document-processing/) | Prepare data for retrieval — load documents from files, URLs, and databases, split them into semantically meaningful chunks, and ingest them into vector stores for downstream search |
-| [Memory System](./capabilities/memory-system/) | Give agents persistent memory across conversations — implement the MemGPT-inspired 3-tier model with Core memory (always in context), Recall memory (searchable conversation history), and Archival memory (vector-searchable long-term storage) |
-| [Tools & MCP](./capabilities/tools-and-mcp/) | Extend what agents can do — create typed Go functions as tools, organize them in registries with middleware, and connect to remote MCP servers for runtime tool discovery and cross-framework interoperability |
-| [Voice AI Pipeline](./capabilities/voice-ai/) | Build real-time voice applications — process audio through a frame-based pipeline with STT, TTS, and speech-to-speech models, handle voice activity detection, and stream over WebSocket or WebRTC transports |
-| [Multimodal AI](./capabilities/multimodal/) | Process images, audio, and video alongside text — send mixed-content messages to multimodal models for document intelligence, visual question answering, audio transcription, and content analysis |
+| [RAG Pipeline](/docs/guides/capabilities/rag/rag-pipeline/) | Give agents access to your data — build retrieval pipelines with embeddings, vector stores, and advanced strategies like hybrid search (BM25 + vector + RRF fusion), CRAG for self-correcting retrieval, and HyDE for hypothetical document generation |
+| [Document Processing](/docs/guides/capabilities/documents/document-processing/) | Prepare data for retrieval — load documents from files, URLs, and databases, split them into semantically meaningful chunks, and ingest them into vector stores for downstream search |
+| [Memory System](/docs/guides/capabilities/memory/memory-system/) | Give agents persistent memory across conversations — implement the MemGPT-inspired 3-tier model with Core memory (always in context), Recall memory (searchable conversation history), and Archival memory (vector-searchable long-term storage) |
+| [Tools & MCP](/docs/guides/capabilities/agents/tools-and-mcp/) | Extend what agents can do — create typed Go functions as tools, organize them in registries with middleware, and connect to remote MCP servers for runtime tool discovery and cross-framework interoperability |
+| [Voice AI Pipeline](/docs/guides/capabilities/voice/voice-ai/) | Build real-time voice applications — process audio through a frame-based pipeline with STT, TTS, and speech-to-speech models, handle voice activity detection, and stream over WebSocket or WebRTC transports |
+| [Multimodal AI](/docs/guides/capabilities/multimodal/multimodal-overview/) | Process images, audio, and video alongside text — send mixed-content messages to multimodal models for document intelligence, visual question answering, audio transcription, and content analysis |
 
 ### [Production](./production/)
 

@@ -37,7 +37,7 @@ import (
 	"iter"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/core"
+	"github.com/lookatitude/beluga-ai/v2/core"
 )
 
 // stepRunnable implements core.Runnable for a named processing step.
@@ -93,7 +93,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/lookatitude/beluga-ai/core"
+	"github.com/lookatitude/beluga-ai/v2/core"
 )
 
 // Step represents an agent step with dependencies.

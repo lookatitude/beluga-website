@@ -24,7 +24,7 @@ Key properties:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI project initialized with `go mod init`
 - A Redis server (v5.0 or later)
 - The `go-redis/v9` client library
@@ -172,10 +172,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/memory"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/memory"
+	_ "github.com/lookatitude/beluga-ai/v2/memory/stores/inmemory"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 	"github.com/redis/go-redis/v9"
+
+	"myapp/distlock" // the package defined above
 )
 
 func main() {
@@ -407,5 +410,5 @@ This occurs when `Release` is called after the TTL has expired and another insta
 ## Related Resources
 
 - [MongoDB Context Persistence](/docs/guides/production/integrations/mongodb-persistence) -- Persistent memory storage
-- [Memory System Guide](/docs/guides/memory) -- Full memory architecture documentation
-- [Resilience Package](/docs/guides/resilience) -- Framework-level retry and circuit breaker patterns
+- [Memory System Guide](/docs/guides/capabilities/memory/memory-system/) -- Full memory architecture documentation
+- [Resilience Package](/docs/guides/production/resilience/) -- Framework-level retry and circuit breaker patterns

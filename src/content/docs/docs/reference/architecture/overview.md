@@ -99,7 +99,7 @@ Beluga ships with **100+ providers** across 16 categories, covering every major 
 | **HTTP Adapters** | 7 | Gin, Chi, Echo, Fiber, Huma, gRPC, Connect |
 | **Observability** | 4 | LangSmith, Langfuse, Phoenix, Opik |
 
-See the [Provider Integration Guide](./providers/) for the full catalog, discovery methods, and step-by-step instructions for adding your own.
+See the [Provider Integration Guide](/docs/reference/architecture/providers/) for the full catalog, discovery methods, and step-by-step instructions for adding your own.
 
 ## Key Architectural Decisions
 
@@ -214,7 +214,7 @@ graph TD
   GRPC --> A
 ```
 
-See [DOC-12 — Protocol Layer](../../../../architecture/12-protocol-layer.md) for configuration details.
+See [DOC-12 — Protocol Layer](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/12-protocol-layer.md) for configuration details.
 
 ## Documents
 
@@ -222,7 +222,7 @@ Dive deeper into the architecture through these focused documents:
 
 | Document | What it covers |
 |----------|---------------|
-| [Design Concepts](./concepts/) | The "why" — architectural vision, 10 design principles, key decisions with rationale, data flow examples, and framework comparison |
-| [Package Layout](./packages/) | The "what" — every package, its interfaces, dependency graph, how packages collaborate, and framework statistics |
-| [Full Architecture](./architecture/) | The "how" — extensibility patterns in detail, streaming architecture, error handling, step-by-step guides for adding providers and tools |
-| [Provider Integration Guide](./providers/) | The "who" — complete provider catalog by category, discovery methods, and the universal provider implementation checklist |
+| [Design Concepts](/docs/concepts/) | The "why" — architectural vision, 10 design principles, key decisions with rationale, data flow examples, and framework comparison |
+| [Package Layout](/docs/reference/architecture/packages/) | The "what" — every package, its interfaces, dependency graph, how packages collaborate, and framework statistics |
+| [Full Architecture](/docs/reference/architecture/overview/) | The "how" — extensibility patterns in detail, streaming architecture, error handling, step-by-step guides for adding providers and tools |
+| [Provider Integration Guide](/docs/reference/architecture/providers/) | The "who" — complete provider catalog by category, discovery methods, and the universal provider implementation checklist |

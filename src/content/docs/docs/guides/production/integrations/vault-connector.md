@@ -12,7 +12,7 @@ AI applications manage an unusually high number of API keys -- one per LLM provi
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - A running HashiCorp Vault instance (local dev server or remote)
 - The Vault Go client library
@@ -372,4 +372,4 @@ vault token capabilities secret/beluga/llm/openai
 ## Related Resources
 
 - [Viper and Environment Overrides](/docs/guides/production/integrations/viper-environment) -- Configuration management with Viper
-- [Infrastructure Integrations](/docs/guides/production/integrations/infrastructure) -- Deployment and infrastructure overview
+- [Infrastructure Integrations](/docs/guides/production/) -- Deployment and infrastructure overview

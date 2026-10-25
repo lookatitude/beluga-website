@@ -27,9 +27,9 @@ A metrics pipeline that exports Beluga AI metrics to Prometheus and displays the
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.26 or later
 - Docker (for Prometheus and Grafana)
-- Understanding of [OpenTelemetry Tracing](/docs/guides/foundations/otel-tracing)
+- Understanding of [OpenTelemetry Tracing](/docs/guides/production/otel-tracing/)
 
 ## The Metrics Pipeline
 
@@ -54,6 +54,7 @@ import (
     "log"
     "net/http"
 
+    "github.com/prometheus/client_golang/prometheus/promhttp"
     "go.opentelemetry.io/otel"
     promexporter "go.opentelemetry.io/otel/exporters/prometheus"
     "go.opentelemetry.io/otel/sdk/metric"
@@ -72,8 +73,9 @@ func setupMetrics() error {
     )
     otel.SetMeterProvider(provider)
 
-    // Serve the /metrics endpoint
-    http.Handle("/metrics", exporter)
+    // Serve the /metrics endpoint (the exporter registers with the
+    // default Prometheus registry, which promhttp.Handler serves)
+    http.Handle("/metrics", promhttp.Handler())
 
     go func() {
         fmt.Println("Metrics available at :2222/metrics")
@@ -202,5 +204,5 @@ Avoid: user IDs, session IDs, message text, timestamps.
 
 ## Next Steps
 
-- [OpenTelemetry Tracing](/docs/guides/foundations/otel-tracing) — Distributed trace visualization
+- [OpenTelemetry Tracing](/docs/guides/production/otel-tracing/) — Distributed trace visualization
 - [Health Checks](/docs/guides/foundations/health-checks) — Component health monitoring

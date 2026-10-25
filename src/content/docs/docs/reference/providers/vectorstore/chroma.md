@@ -8,14 +8,14 @@ head:
       content: "ChromaDB, vector store, embedding database, open-source, metadata filtering, Go, RAG, Beluga AI"
 ---
 
-The ChromaDB provider implements the `vectorstore.VectorStore` interface using ChromaDB's REST API. ChromaDB is an open-source embedding database with a simple API, supporting multi-tenant deployments.
+The ChromaDB provider implements the `vectorstore.VectorStore` interface using ChromaDB's v2 REST API (`/api/v2`, required by Chroma 1.x). ChromaDB is an open-source embedding database with a simple API, supporting multi-tenant deployments.
 
 Choose ChromaDB for its simplicity and ease of setup. ChromaDB is straightforward to run locally with Docker and requires minimal configuration, making it a good choice for prototyping and small-to-medium workloads. Its multi-tenant support (tenants and databases) allows data isolation without separate deployments.
 
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma
 ```
 
 Start ChromaDB locally:
@@ -33,10 +33,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma"
 )
 
 func main() {
@@ -79,7 +79,7 @@ The provider automatically creates collections via `get_or_create` semantics. Yo
 
 ```go
 import (
-    chromastore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma"
+    chromastore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma"
 )
 
 store := chromastore.New("http://localhost:8000",

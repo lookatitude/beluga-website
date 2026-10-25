@@ -21,10 +21,12 @@ Beluga AI follows idiomatic Go conventions with a set of project-specific patter
 Define the interface, then write implementations. Keep interfaces small — ideally 1 to 4 methods. The "small interface" constraint exists because every interface in Beluga has a corresponding mock in `internal/testutil/`, and every provider must implement the full interface. Smaller interfaces mean less boilerplate for mocks, less work for provider authors, and clearer contracts for users. When an interface grows beyond 4 methods, it's a signal to split it or use type assertions for optional capabilities.
 
 ```go
-// ChatModel is the core LLM abstraction.
+// ChatModel is the core LLM abstraction (llm/llm.go).
 type ChatModel interface {
-    Generate(ctx context.Context, messages []schema.Message, opts ...Option) (*schema.Message, error)
-    Stream(ctx context.Context, messages []schema.Message, opts ...Option) iter.Seq2[schema.Event, error]
+    Generate(ctx context.Context, msgs []schema.Message, opts ...GenerateOption) (*schema.AIMessage, error)
+    Stream(ctx context.Context, msgs []schema.Message, opts ...GenerateOption) iter.Seq2[schema.StreamChunk, error]
+    BindTools(tools []schema.ToolDefinition) ChatModel
+    ModelID() string
 }
 ```
 
@@ -58,7 +60,7 @@ Beluga's error model uses typed errors with retry semantics because agentic syst
 - Use typed errors from `core/errors.go` with `ErrorCode`:
 
 ```go
-return nil, core.NewError(core.ErrCodeInvalidInput, "temperature must be between 0 and 2")
+return nil, core.NewError("llm.generate", core.ErrInvalidInput, "temperature must be between 0 and 2", nil)
 ```
 
 - Always check `IsRetryable()` for LLM and tool errors before retrying:
@@ -85,7 +87,7 @@ func (a *Agent) Run(input string) (string, error)
 
 | Pattern | Convention | Example |
 |---|---|---|
-| Constructors | `New()` or `NewXxx()` | `NewAgent(opts...)` |
+| Constructors | `New()` or `NewXxx()` | `agent.New(id, opts...)` |
 | Registry | `Register()` + `New()` + `List()` | `llm.Register("openai", factory)` |
 | Options | `WithXxx()` | `WithTemperature(0.7)` |
 | Getters | No `Get` prefix | `agent.Name()` not `agent.GetName()` |
@@ -97,7 +99,7 @@ No mutable global state beyond `init()` registrations. Registry mutations happen
 
 ```go
 func init() {
-    llm.Register("openai", func(cfg llm.ProviderConfig) (llm.ChatModel, error) {
+    llm.Register("openai", func(cfg config.ProviderConfig) (llm.ChatModel, error) {
         return New(cfg)
     })
 }
@@ -120,8 +122,8 @@ Beluga uses `iter.Seq2[T, error]` (Go 1.23+) for all public streaming APIs. Chan
 
 ```go
 // Good — iter.Seq2
-func (a *Agent) Stream(ctx context.Context, input string) iter.Seq2[schema.Event, error] {
-    return func(yield func(schema.Event, error) bool) {
+func (a *Agent) Stream(ctx context.Context, input string) iter.Seq2[agent.Event, error] {
+    return func(yield func(agent.Event, error) bool) {
         for _, event := range events {
             if !yield(event, nil) {
                 return
@@ -131,7 +133,7 @@ func (a *Agent) Stream(ctx context.Context, input string) iter.Seq2[schema.Event
 }
 
 // Consumers use range
-for event, err := range agent.Stream(ctx, input) {
+for event, err := range myAgent.Stream(ctx, input) {
     if err != nil {
         break
     }

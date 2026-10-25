@@ -20,7 +20,7 @@ The loader implements Beluga AI's `DocumentLoader` interface from the `rag/loade
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - AWS account with S3 and SQS/Lambda access
 - AWS credentials configured (IAM role or access keys)
@@ -47,7 +47,7 @@ export AWS_SECRET_ACCESS_KEY="your-secret"
 Before building the custom loader, review the interface it must satisfy:
 
 ```go
-// From github.com/lookatitude/beluga-ai/rag/loader
+// From github.com/lookatitude/beluga-ai/v2/rag/loader
 type DocumentLoader interface {
     Load(ctx context.Context, source string) ([]schema.Document, error)
 }
@@ -74,7 +74,7 @@ import (
     "github.com/aws/aws-sdk-go-v2/aws"
     awsconfig "github.com/aws/aws-sdk-go-v2/config"
     "github.com/aws/aws-sdk-go-v2/service/s3"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // S3Loader loads documents from an S3 bucket. It implements a Load method
@@ -284,15 +284,15 @@ Connect the S3 loader to splitters, embedders, and vector stores:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
 )
 
 // Load documents from S3
-docs, err := loader.Load(ctx, "documents/")
+docs, err := s3Loader.Load(ctx, "documents/") // s3Loader is the *S3Loader built above
 if err != nil {
     log.Fatal(err)
 }
@@ -346,5 +346,5 @@ if err != nil {
 ## Related Resources
 
 - [Document Loaders](/docs/guides/production/integrations/document-loaders) -- All document loader integrations
-- [Embedding Providers](/docs/guides/production/integrations/embedding-providers) -- Generating embeddings for loaded documents
+- [Embedding Providers](/docs/reference/providers/embedding/) -- Generating embeddings for loaded documents
 - [Google Drive Scraper](/docs/guides/production/integrations/google-drive-scraper) -- Google Drive document loading

@@ -26,7 +26,7 @@ A Markdown splitting pipeline that divides documents based on heading hierarchy,
 All splitters implement the same interface. This uniform contract means you can swap between `MarkdownSplitter`, `RecursiveSplitter`, and custom splitters without changing your pipeline code. The `SplitDocuments` method handles the additional work of preserving and augmenting document metadata through the splitting process.
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/splitter"
+import "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 
 type TextSplitter interface {
     Split(ctx context.Context, text string) ([]string, error)
@@ -68,7 +68,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/rag/splitter"
+    "github.com/lookatitude/beluga-ai/v2/rag/splitter"
 )
 
 func main() {
@@ -175,7 +175,7 @@ Create a config file at ~/.config/project.yaml:
 Use `SplitDocuments` to split a collection while preserving and augmenting metadata. Each chunk document inherits its parent's metadata and receives additional fields (`parent_id`, `chunk_index`, `chunk_total`) that enable reconstruction of the original document order and provide useful signals for retrieval ranking -- for example, a retriever could boost chunks from the same parent document to provide more coherent context.
 
 ```go
-import "github.com/lookatitude/beluga-ai/schema"
+import "github.com/lookatitude/beluga-ai/v2/schema"
 
 func splitDocuments(ctx context.Context, docs []schema.Document) {
     s := splitter.NewMarkdownSplitter(
@@ -214,13 +214,15 @@ Each chunk document includes metadata:
 Create splitters via the registry for configuration-driven pipelines. This follows the standard Beluga AI registry pattern (`Register()` + `New()` + `List()`), enabling splitter selection from configuration files or environment variables without hardcoding the splitter type.
 
 ```go
-import "github.com/lookatitude/beluga-ai/config"
+import "github.com/lookatitude/beluga-ai/v2/config"
 
 func createFromRegistry() {
     s, err := splitter.New("markdown", config.ProviderConfig{
+        // Numeric options are read as float64 (the type JSON and YAML
+        // decoding produce), so write 1000.0 rather than 1000.
         Options: map[string]any{
-            "chunk_size":       1000,
-            "chunk_overlap":    0,
+            "chunk_size":       1000.0,
+            "chunk_overlap":    0.0,
             "preserve_headers": true,
         },
     })

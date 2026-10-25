@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/core"
+import "github.com/lookatitude/beluga-ai/v2/core"
 ```
 
 Package core provides the foundational primitives for the Beluga AI framework.
@@ -42,7 +42,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func main() {
@@ -100,7 +100,7 @@ import (
     "log"
     "time"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func embed(ctx context.Context, text string) ([]float32, error) {
@@ -132,9 +132,9 @@ func main() {
 | Field | Type | Description |
 |---|---|---|
 | `MaxConcurrency` | `int` | Max concurrent executions. 0 = unlimited. |
-| `BatchSize` | `int` | Informational; BatchInvoke calls fn once per item. |
+| `BatchSize` | `int` | Reserved: currently ignored; `BatchInvoke` calls fn once per item. |
 | `Timeout` | `time.Duration` | Per-item timeout. 0 = no per-item timeout. |
-| `RetryPolicy` | `*RetryPolicy` | Optional retry configuration per item. |
+| `RetryPolicy` | `*RetryPolicy` | Optional per-item retries (`MaxAttempts`, `InitialBackoff`, `MaxBackoff`, `BackoffFactor`, `Jitter`). Only errors for which `core.IsRetryable` reports true are retried, and retries stop when the item's context is done. `nil` = no retries. |
 
 `BatchResult[O]` carries `Value O` and `Err error` for each input.
 
@@ -167,7 +167,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func main() {
@@ -224,6 +224,8 @@ Error codes and their retryability:
 | `guard_blocked` | `ErrGuardBlocked` | no |
 | `budget_exhausted` | `ErrBudgetExhausted` | no |
 | `not_found` | `ErrNotFound` | no |
+| `canceled` | `ErrCanceled` | no |
+| `internal_error` | `ErrInternal` | no |
 
 Use `IsRetryable` to decide whether to retry:
 

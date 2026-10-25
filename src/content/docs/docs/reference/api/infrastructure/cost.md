@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/cost"
+import "github.com/lookatitude/beluga-ai/v2/cost"
 ```
 
 Package cost tracks LLM token usage and enforces spending budgets. It records
@@ -88,7 +88,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/cost"
+    "github.com/lookatitude/beluga-ai/v2/cost"
 )
 
 tracker := cost.NewInMemoryTracker(
@@ -173,7 +173,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/cost"
+    "github.com/lookatitude/beluga-ai/v2/cost"
 )
 
 tracker := cost.NewInMemoryTracker()

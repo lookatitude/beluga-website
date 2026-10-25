@@ -53,6 +53,7 @@ import (
     "log"
     "net/http"
 
+    "github.com/prometheus/client_golang/prometheus/promhttp"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/exporters/prometheus"
     "go.opentelemetry.io/otel/sdk/metric"
@@ -73,7 +74,8 @@ func initMetrics() (*metric.MeterProvider, http.Handler, error) {
     // Set as global
     otel.SetMeterProvider(provider)
 
-    return provider, exporter, nil
+    // The exporter registers with the default Prometheus registry.
+    return provider, promhttp.Handler(), nil
 }
 
 func main() {
@@ -371,6 +373,6 @@ Organize dashboards hierarchically:
 
 ## Related Resources
 
-- [Observability Guide](/docs/guides/observability/) for OpenTelemetry setup
-- [PII Leakage Detection](/docs/guides/pii-leakage-detection/) for security monitoring
-- [Token Cost Attribution](/docs/guides/token-cost-attribution/) for cost tracking
+- [Observability Guide](/docs/guides/production/observability/) for OpenTelemetry setup
+- [PII Leakage Detection](/docs/guides/production/pii-leakage-detection/) for security monitoring
+- [Token Cost Attribution](/docs/guides/production/token-cost-attribution/) for cost tracking

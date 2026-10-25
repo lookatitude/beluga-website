@@ -34,7 +34,7 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 )
 
 var tracer = otel.Tracer("beluga.safety.pii_redaction")
@@ -100,9 +100,9 @@ func (pr *PIIRedactor) Redact(ctx context.Context, text string) (string, map[str
     )
 
     if len(counts) > 0 {
-        span.SetStatus(trace.StatusOK, fmt.Sprintf("redacted %d PII items", pr.sumCounts(counts)))
+        span.SetStatus(codes.Ok, fmt.Sprintf("redacted %d PII items", pr.sumCounts(counts)))
     } else {
-        span.SetStatus(trace.StatusOK, "no PII detected")
+        span.SetStatus(codes.Ok, "no PII detected")
     }
 
     return redacted, counts
@@ -158,7 +158,7 @@ func (pr *PIIRedactor) RedactStructured(ctx context.Context, data map[string]int
     }
 
     span.SetAttributes(attribute.Int("total_redactions", totalRedactions))
-    span.SetStatus(trace.StatusOK, "structured data redacted")
+    span.SetStatus(codes.Ok, "structured data redacted")
 
     return redacted, nil
 }
@@ -269,5 +269,5 @@ type MLPIIRedactor struct {
 
 ## Related Recipes
 
-- [Prompt Injection Detection](/docs/recipes/prompt-injection-detection) — Additional safety patterns
-- [Config Masking Secrets in Logs](/docs/recipes/config-secret-masking) — Secret masking
+- [Prompt Injection Detection](/docs/recipes/infrastructure/prompt-injection-detection/) — Additional safety patterns
+- [Config Masking Secrets in Logs](/docs/recipes/infrastructure/config-secret-masking/) — Secret masking

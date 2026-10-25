@@ -62,6 +62,7 @@ import (
 	"github.com/lookatitude/beluga-ai/v2/config"
 	"github.com/lookatitude/beluga-ai/v2/llm"
 	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -76,15 +77,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	resp, err := model.Generate(ctx, "What is a language model?")
+	resp, err := model.Generate(ctx, []schema.Message{
+		schema.NewHumanMessage("What is a language model?"),
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	fmt.Println(resp.Content)
+	fmt.Println(resp.Text())
 }
 ```
+
+:::note[Correction]
+An earlier version of this post passed a plain string to `model.Generate` and printed `resp.Content`. `Generate` takes a `[]schema.Message`, and the response text is `resp.Text()`. The example above is corrected.
+:::
 
 The blank import of `github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic` registers the Anthropic provider with the LLM registry. `llm.New("anthropic", ...)` resolves the provider by name at runtime. Set `ANTHROPIC_API_KEY` in your environment before running.
 

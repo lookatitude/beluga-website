@@ -15,7 +15,7 @@ Choose Bedrock when you need AWS-native integration with IAM roles, VPC endpoint
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/bedrock
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock
 ```
 
 ## Configuration
@@ -55,10 +55,10 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
 )
 
 func main() {
@@ -148,13 +148,13 @@ For models that support vision (e.g. Claude on Bedrock):
 
 ```go
 msgs := []schema.Message{
-    schema.NewHumanMessageWithParts(
+    &schema.HumanMessage{Parts: []schema.ContentPart{
         schema.TextPart{Text: "Describe this image."},
         schema.ImagePart{
             Data:     imageBytes,
             MimeType: "image/png",
         },
-    ),
+    }},
 }
 
 resp, err := model.Generate(ctx, msgs)
@@ -199,7 +199,7 @@ fmt.Println("Stop reason:", resp.Metadata["stop_reason"])
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
 
 model, err := bedrock.New(config.ProviderConfig{
     Model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",

@@ -4,92 +4,142 @@ import EditorialSection from "@/components/marketing/EditorialSection.astro";
 import CodeProof from "@/components/marketing/CodeProof.astro";
 
 const buildCode = `import (
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    "github.com/lookatitude/beluga-ai/agent"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
-model, _ := llm.New("anthropic", llm.Config{Model: "claude-sonnet-4-6"})
+model, err := llm.New("anthropic", config.ProviderConfig{Model: "claude-sonnet-4-6"})
+if err != nil {
+    return err
+}
 
-researchAgent, _ := agent.New(ctx,
+search := tool.NewFuncTool("search", "Search the knowledge base",
+    func(ctx context.Context, in SearchInput) (*tool.Result, error) {
+        return tool.TextResult(lookup(in.Query)), nil
+    })
+
+researcher := agent.New("researcher",
     agent.WithLLM(model),
-    agent.WithPersona("senior researcher, cites sources"),
-    agent.WithPlanner("react"),
-    agent.WithTools(tool.Must(tool.HTTPFetch()), tool.Must(tool.MarkdownParser())),
+    agent.WithPersona(agent.Persona{Role: "senior researcher", Traits: []string{"cites sources"}}),
+    agent.WithPlannerName("react"),
+    agent.WithTools([]tool.Tool{search}),
 )
 
-stream, _ := researchAgent.Stream(ctx, "summarise streaming-first patterns in Beluga")
-for ev, err := range stream.Range {
-    if err != nil { break }
-    ev.Render()
+for ev, err := range researcher.Stream(ctx, "summarise streaming-first patterns in Beluga") {
+    if err != nil {
+        return err
+    }
+    if ev.Type == agent.EventText {
+        fmt.Print(ev.Text)
+    }
 }`;
 
 const knowCode = `import (
-    "github.com/lookatitude/beluga-ai/rag/retriever"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/rag/retriever"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
-store, _ := vectorstore.New("pgvector", vectorstore.Config{
-    DSN:       "postgres://beluga@db:5432/kb",
-    Dimension: 1536,
+emb, err := embedding.New("openai", config.ProviderConfig{Model: "text-embedding-3-small"})
+if err != nil {
+    return err
+}
+store, err := vectorstore.New("pgvector", config.ProviderConfig{
+    BaseURL: "postgres://beluga@db:5432/kb",
+    Options: map[string]any{"dimension": 1536.0},
 })
+if err != nil {
+    return err
+}
 
-// Hybrid retrieval: BM25 + dense vector, fused with RRF.
-hybrid := retriever.Hybrid(
-    retriever.BM25(store, retriever.WithK(40)),
-    retriever.Dense(store, retriever.WithK(40)),
-    retriever.RRF(60),
-)
+// Hybrid retrieval: dense vectors + BM25 (any retriever.BM25Searcher),
+// fused with Reciprocal Rank Fusion.
+hybrid := retriever.NewHybridRetriever(store, emb, bm25Index, retriever.WithHybridRRFK(60))
 
-docs, err := hybrid.Retrieve(ctx, "how does crash-durable workflow replay work?")`;
+docs, err := hybrid.Retrieve(ctx, "how does crash-durable workflow replay work?", retriever.WithTopK(10))`;
 
 const shipCode = `// Resilience + observability + safety compose on the same interface.
-// Read outside-in: guardrails wrap tracing wraps rate-limit wraps retry.
+// The first middleware listed is the outermost wrapper.
 safeModel := llm.ApplyMiddleware(base,
-    llm.WithGuardrails(pipeline),     // input + output + tool guards
-    llm.WithTracing(),                // gen_ai.* OTel spans at every boundary
-    llm.WithRateLimit(60, 150000),    // 60 req/min, 150k tok/min
-    llm.WithRetry(3),                 // respects core.IsRetryable()
-    llm.WithCostTracking(costCenter),
-)`;
+    llm.WithHooks(guardHooks), // guard.Pipeline checks in BeforeGenerate
+    llm.WithTracing(),         // gen_ai.* OTel spans at every boundary
+    llm.WithProviderLimits(llm.ProviderLimits{RPM: 60, MaxConcurrent: 10}),
+    llm.WithFallback(backup),  // switch models when the primary fails
+)
+
+// Retries wrap the call site and only retry errors core.IsRetryable accepts.
+resp, err := resilience.Retry(ctx, resilience.DefaultRetryPolicy(),
+    func(ctx context.Context) (*schema.AIMessage, error) {
+        return safeModel.Generate(ctx, msgs)
+    })`;
 
 const voiceCode = `import (
-    "github.com/lookatitude/beluga-ai/voice"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/deepgram"
-    _ "github.com/lookatitude/beluga-ai/voice/tts/providers/cartesia"
-    _ "github.com/lookatitude/beluga-ai/voice/vad/providers/silero"
-    _ "github.com/lookatitude/beluga-ai/voice/transport/providers/livekit"
+    "github.com/lookatitude/beluga-ai/v2/voice"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/deepgram"
+    "github.com/lookatitude/beluga-ai/v2/voice/transport"
+    "github.com/lookatitude/beluga-ai/v2/voice/tts"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/tts/providers/cartesia"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
-pipeline, _ := voice.NewPipeline(voice.Config{
-    Transport: "livekit",
-    VAD:       "silero",
-    STT:       "deepgram",
-    LLM:       model,
-    TTS:       "cartesia",
+recognizer, err := stt.New("deepgram", stt.Config{
+    Model: "nova-3",
+    Extra: map[string]any{"api_key": os.Getenv("DEEPGRAM_API_KEY")},
 })
+if err != nil {
+    return err
+}
+synth, err := tts.New("cartesia", tts.Config{
+    Extra: map[string]any{"api_key": os.Getenv("CARTESIA_API_KEY")},
+})
+if err != nil {
+    return err
+}
+vad, err := voice.NewVAD("silero", map[string]any{"threshold": 0.5})
+if err != nil {
+    return err
+}
+conn, err := transport.NewWebSocketTransport(ctx, "wss://voice.example.com/session")
+if err != nil {
+    return err
+}
 
-// Frame-based — pipeline.Run handles barge-in, turn detection,
-// and sub-800ms glass-to-glass latency.
-pipeline.Run(ctx)`;
+// Frame-based: VAD gates audio into STT, text flows to your agent,
+// and TTS streams audio back over the same transport.
+pipe := voice.NewPipeline(
+    voice.WithTransport(conn),
+    voice.WithVAD(vad),
+    voice.WithSTT(stt.AsFrameProcessor(recognizer)),
+    voice.WithLLM(agentProcessor), // your voice.FrameProcessor around an agent
+    voice.WithTTS(tts.AsFrameProcessor(synth, 24000)),
+)
+err = pipe.Run(ctx)`;
 
 const protocolCode = `import (
-    "github.com/lookatitude/beluga-ai/protocol/mcp"
-    "github.com/lookatitude/beluga-ai/runtime"
+    "github.com/lookatitude/beluga-ai/v2/protocol/a2a"
+    "github.com/lookatitude/beluga-ai/v2/protocol/rest"
 )
 
-runner, _ := runtime.NewRunner(runtime.Config{
-    Agent: myAgent,
-    Expose: runtime.ExposeAll{
-        MCP:   mcp.Server(":8080"),    // Model Context Protocol
-        A2A:   true,                   // /.well-known/agent.json
-        REST:  ":3000",                // REST + SSE streaming
-        GRPC:  ":50051",               // protobuf contracts
-    },
+api := rest.NewServer()
+if err := api.RegisterAgent("/agents/researcher", researcher); err != nil {
+    return err
+}
+peer := a2a.NewServer(researcher, a2a.AgentCard{
+    Name:     "researcher",
+    Endpoint: "https://agents.example.com",
 })
-runner.Serve(ctx)`;
+
+errc := make(chan error, 2)
+go func() { errc <- api.Serve(ctx, ":3000") }()  // REST + SSE streaming
+go func() { errc <- peer.Serve(ctx, ":8081") }() // A2A, /.well-known/agent.json
+return <-errc`;
 
 const jsonLd = JSON.stringify({
   "@context": "https://schema.org",
@@ -140,7 +190,7 @@ const jsonLd = JSON.stringify({
       code={buildCode}
       lang="go"
       title="examples/research-agent.go"
-      caption={`ReAct planner with two tools, streamed to the caller. Swap WithPlanner("react") for "lats", "tot", or "moa" without touching the rest.`}
+      caption={`ReAct planner with two tools, streamed to the caller. Swap WithPlannerName("react") for "lats", "tot", or "moa" without touching the rest.`}
       cite={{ label: "The eight reasoning strategies", href: "/docs/guides/capabilities/agents/" }}
     />
   </EditorialSection>
@@ -152,10 +202,10 @@ const jsonLd = JSON.stringify({
     eyebrow="KNOW"
     headline="Memory that persists. Retrieval that finds the right thing."
     headlineFont="display"
-    deck="Three-tier memory — working, recall, archival — with graph-store support. RAG uses hybrid retrieval: BM25, dense vector, and graph traversal, fused with Reciprocal Rank Fusion. Strategies include CRAG, Adaptive RAG, HyDE, and GraphRAG. Thirteen vector-store backends, nine embedding providers, eight memory stores."
+    deck="Three-tier memory — working, recall, archival — with graph-store support. RAG uses hybrid retrieval: BM25 and dense vectors, fused with Reciprocal Rank Fusion. Strategies include CRAG, Adaptive RAG, HyDE, multi-query, and RAPTOR. Thirteen vector-store backends, nine embedding providers, eight memory stores."
     layout="split"
     bleed
-    cite={{ label: "RAG pipeline guide", href: "/docs/guides/capabilities/rag/" }}
+    cite={{ label: "RAG pipeline guide", href: "/docs/guides/capabilities/rag/rag-pipeline/" }}
   >
     <CodeProof
       code={knowCode}
@@ -172,7 +222,7 @@ const jsonLd = JSON.stringify({
     eyebrow="SHIP"
     headline="Production defaults, not production afterthoughts."
     headlineFont="display"
-    deck="The guard pipeline runs three stages — Input, Output, Tool — around every LLM interaction. Circuit breakers, rate limits, and retry are middleware on the same interface as your LLM call. OTel GenAI spans emit from 17 packages at every boundary. Durable workflows replay from an event log. Cost tracking attributes every token to a team."
+    deck="The guard pipeline runs three stages — Input, Output, Tool — around every LLM interaction. Rate limits, fallback, hooks, and tracing are middleware on the same interface as your LLM call; retry and circuit breakers wrap the call site. OTel GenAI spans emit from 17 packages at every boundary. Durable workflows replay from an event log. Cost tracking attributes every token to a team."
     layout="split"
     cite={{ label: "Production defaults — observability, resilience, durability", href: "/docs/guides/production/" }}
   >
@@ -180,7 +230,7 @@ const jsonLd = JSON.stringify({
       code={shipCode}
       lang="go"
       title="main.go · wrapping a model for production"
-      caption="Five lines of middleware around base is the difference between a demo and a system you page on."
+      caption="Four middlewares around base plus retry at the call site is the difference between a demo and a system you page on."
     />
   </EditorialSection>
 
@@ -191,10 +241,10 @@ const jsonLd = JSON.stringify({
     eyebrow="VOICE"
     headline="Frame-based voice, built in."
     headlineFont="display"
-    deck="STT → LLM → TTS as a typed pipeline. Six STT providers, seven TTS providers, three speech-to-speech providers. LiveKit, Daily, and Pipecat transports. Silero and WebRTC VAD. No other Go agent framework includes this."
+    deck="STT → LLM → TTS as a typed pipeline. Six STT providers, seven TTS providers, three speech-to-speech providers. A WebSocket transport today; the LiveKit, Daily, and Pipecat transport adapters are registered but not yet functional. Silero and WebRTC VAD. No other Go agent framework includes this."
     layout="split"
     bleed
-    cite={{ label: "Voice pipeline guide", href: "/docs/guides/capabilities/voice/" }}
+    cite={{ label: "Voice pipeline guide", href: "/docs/guides/capabilities/voice/voice-applications/" }}
   >
     <CodeProof
       code={voiceCode}
@@ -217,7 +267,7 @@ const jsonLd = JSON.stringify({
     <CodeProof
       code={protocolCode}
       lang="go"
-      title="examples/runner.go"
+      title="examples/serve.go"
     />
   </EditorialSection>
 

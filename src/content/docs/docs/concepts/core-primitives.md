@@ -48,7 +48,7 @@ everything.
 **Why `Meta map[string]any`.** The metadata map carries per-event observational
 data — OTel trace IDs, token counts, cost hints — that no critical-path code
 depends on. The payload stays strictly typed; the metadata stays flexible. See
-[DOC-14 — Observability](/docs/reference/architecture/overview/observability).
+[DOC-14 — Observability](/docs/guides/production/observability/).
 
 ## Stream\[T\] — the transport
 
@@ -72,7 +72,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func consumeStream[T any](ctx context.Context, stream core.Stream[T]) error {
@@ -120,7 +120,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func bufferExample[T any](ctx context.Context, src core.Stream[T]) error {
@@ -161,7 +161,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/lookatitude/beluga-ai/core"
+    "github.com/lookatitude/beluga-ai/v2/core"
 )
 
 func pipeExample(ctx context.Context, retriever, promptBuild, llm core.Runnable) error {
@@ -198,5 +198,5 @@ returns the last non-error value. Middleware and hooks attach to `Stream`;
 
 - [Streaming](/docs/concepts/streaming) — `iter.Seq2` in depth: producers, consumers, backpressure.
 - [Extensibility](/docs/concepts/extensibility) — how middleware and hooks layer on top of `Runnable`.
-- [DOC-02 — Core Primitives](/docs/reference/architecture/overview/core-primitives) — the full architecture doc with more detail on context helpers.
+- [DOC-02 — Core Primitives](/docs/concepts/core-primitives/) — the full architecture doc with more detail on context helpers.
 - [`core/stream.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/stream.go) — canonical source.

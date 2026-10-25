@@ -14,16 +14,16 @@ General-purpose APM tools show you that an LLM call took 800ms, but LangSmith sh
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI application
 - A LangSmith account and API key (from [smith.langchain.com](https://smith.langchain.com))
 
 ## Installation
 
-Install the LangSmith Go SDK:
+Beluga AI ships a LangSmith exporter in `o11y/providers/langsmith`. It talks to the LangSmith runs API over HTTP, so no extra SDK is needed:
 
 ```bash
-go get github.com/langchain-ai/langsmith-go
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 Set the required environment variables:
@@ -35,128 +35,40 @@ export LANGSMITH_PROJECT="beluga-ai"  # optional, defaults to "default"
 
 ## Configuration
 
-| Variable | Description | Default | Required |
+The exporter is configured with functional options. The environment variables above are read by your application code, not by the exporter itself.
+
+| Option | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `LANGSMITH_API_KEY` | LangSmith API key | - | Yes |
-| `LANGSMITH_PROJECT` | Project name for organizing traces | `default` | No |
-| `LANGSMITH_ENDPOINT` | LangSmith API endpoint | `https://api.smith.langchain.com` | No |
+| `langsmith.WithAPIKey` | LangSmith API key | - | Yes |
+| `langsmith.WithProject` | Project name for organizing traces | `default` | No |
+| `langsmith.WithBaseURL` | LangSmith API endpoint | `https://api.smith.langchain.com` | No |
+| `langsmith.WithTimeout` | HTTP client timeout | `10s` | No |
 
 ## Usage
 
-### Create a LangSmith Tracer
+### Create a LangSmith Exporter
 
-The tracer wraps the LangSmith client and provides methods for creating trace runs:
+`langsmith.New` returns an `*langsmith.Exporter` that implements `o11y.TraceExporter`. Each `ExportLLMCall` call posts one `llm` run to LangSmith:
 
 ```go
-package main
-
 import (
-	"context"
-	"fmt"
 	"os"
 
-	"github.com/langchain-ai/langsmith-go"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/o11y/providers/langsmith"
 )
 
-// LangSmithTracer captures LLM calls as LangSmith runs.
-type LangSmithTracer struct {
-	client *langsmith.Client
-}
-
-func NewLangSmithTracer() (*LangSmithTracer, error) {
-	apiKey := os.Getenv("LANGSMITH_API_KEY")
-	if apiKey == "" {
-		return nil, fmt.Errorf("LANGSMITH_API_KEY environment variable is required")
-	}
-
-	client, err := langsmith.NewClient(
-		langsmith.WithAPIKey(apiKey),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create LangSmith client: %w", err)
-	}
-
-	return &LangSmithTracer{client: client}, nil
-}
-
-func (t *LangSmithTracer) CreateRun(ctx context.Context, name string, messages []schema.Message) (*langsmith.Run, error) {
-	run, err := t.client.CreateRun(ctx, &langsmith.CreateRunRequest{
-		Name:        name,
-		RunType:     "llm",
-		Inputs:      map[string]interface{}{"messages": messages},
-		ProjectName: os.Getenv("LANGSMITH_PROJECT"),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create run: %w", err)
-	}
-
-	return run, nil
+exporter, err := langsmith.New(
+	langsmith.WithAPIKey(os.Getenv("LANGSMITH_API_KEY")),
+	langsmith.WithProject(os.Getenv("LANGSMITH_PROJECT")),
+)
+if err != nil {
+	return fmt.Errorf("create LangSmith exporter: %w", err)
 }
 ```
 
-### Build an LLM Middleware
+### Trace Every LLM Call
 
-Wrap a Beluga AI `ChatModel` with LangSmith tracing using the middleware pattern. This approach traces every call without modifying the underlying provider:
-
-```go
-import (
-	"context"
-	"time"
-
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/schema"
-)
-
-// TracedChatModel wraps a ChatModel to emit LangSmith traces.
-type TracedChatModel struct {
-	model  llm.ChatModel
-	tracer *LangSmithTracer
-}
-
-func NewTracedChatModel(model llm.ChatModel, tracer *LangSmithTracer) *TracedChatModel {
-	return &TracedChatModel{
-		model:  model,
-		tracer: tracer,
-	}
-}
-
-func (t *TracedChatModel) Generate(ctx context.Context, messages []schema.Message) (*schema.AIMessage, error) {
-	run, err := t.tracer.CreateRun(ctx, "llm_call", messages)
-	if err != nil {
-		// If tracing fails, continue without it.
-		return t.model.Generate(ctx, messages)
-	}
-
-	start := time.Now()
-	response, genErr := t.model.Generate(ctx, messages)
-	duration := time.Since(start)
-
-	// Record the result in LangSmith.
-	updateReq := &langsmith.UpdateRunRequest{
-		EndTime: time.Now(),
-		Extra: map[string]interface{}{
-			"duration_ms": duration.Milliseconds(),
-		},
-	}
-	if genErr != nil {
-		updateReq.Error = genErr.Error()
-	} else {
-		updateReq.Outputs = map[string]interface{}{
-			"response": response.Content,
-		}
-	}
-
-	_ = t.tracer.client.UpdateRun(ctx, run.ID, updateReq)
-
-	return response, genErr
-}
-```
-
-### Complete Example
-
-Wire the tracer into a Beluga AI application:
+Wrap a Beluga AI `ChatModel` so every `Generate` call is exported as an `o11y.LLMCallData` record, including the prompt, response, latency, and token usage. The wrapper implements `llm.ChatModel`, so it can be used anywhere a model is expected:
 
 ```go
 package main
@@ -164,24 +76,91 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log"
 	"os"
+	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/o11y"
+	"github.com/lookatitude/beluga-ai/v2/o11y/providers/langsmith"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
+
+// TracedChatModel wraps a ChatModel and exports each call to a TraceExporter.
+type TracedChatModel struct {
+	model    llm.ChatModel
+	provider string
+	exporter o11y.TraceExporter
+}
+
+func NewTracedChatModel(model llm.ChatModel, provider string, exporter o11y.TraceExporter) *TracedChatModel {
+	return &TracedChatModel{model: model, provider: provider, exporter: exporter}
+}
+
+func (t *TracedChatModel) Generate(ctx context.Context, msgs []schema.Message, opts ...llm.GenerateOption) (*schema.AIMessage, error) {
+	start := time.Now()
+	resp, genErr := t.model.Generate(ctx, msgs, opts...)
+
+	data := o11y.LLMCallData{
+		Model:    t.model.ModelID(),
+		Provider: t.provider,
+		Duration: time.Since(start),
+		Messages: toMaps(msgs),
+	}
+	if genErr != nil {
+		data.Error = genErr.Error()
+	} else {
+		data.InputTokens = resp.Usage.InputTokens
+		data.OutputTokens = resp.Usage.OutputTokens
+		data.Response = map[string]any{"content": resp.Text()}
+	}
+
+	// Tracing failures must not break the request path.
+	if err := t.exporter.ExportLLMCall(ctx, data); err != nil {
+		log.Printf("langsmith export failed: %v", err)
+	}
+	return resp, genErr
+}
+
+func (t *TracedChatModel) Stream(ctx context.Context, msgs []schema.Message, opts ...llm.GenerateOption) iter.Seq2[schema.StreamChunk, error] {
+	return t.model.Stream(ctx, msgs, opts...)
+}
+
+func (t *TracedChatModel) BindTools(tools []schema.ToolDefinition) llm.ChatModel {
+	return &TracedChatModel{model: t.model.BindTools(tools), provider: t.provider, exporter: t.exporter}
+}
+
+func (t *TracedChatModel) ModelID() string { return t.model.ModelID() }
+
+// toMaps serialises messages into the generic form LLMCallData expects.
+func toMaps(msgs []schema.Message) []map[string]any {
+	out := make([]map[string]any, 0, len(msgs))
+	for _, m := range msgs {
+		var text string
+		for _, p := range m.GetContent() {
+			if tp, ok := p.(schema.TextPart); ok {
+				text += tp.Text
+			}
+		}
+		out = append(out, map[string]any{"role": string(m.GetRole()), "content": text})
+	}
+	return out
+}
 
 func main() {
 	ctx := context.Background()
 
-	// Create the LangSmith tracer.
-	tracer, err := NewLangSmithTracer()
+	exporter, err := langsmith.New(
+		langsmith.WithAPIKey(os.Getenv("LANGSMITH_API_KEY")),
+		langsmith.WithProject(os.Getenv("LANGSMITH_PROJECT")),
+	)
 	if err != nil {
-		log.Fatalf("failed to create tracer: %v", err)
+		log.Fatalf("failed to create exporter: %v", err)
 	}
 
-	// Create an LLM provider via the registry.
 	model, err := llm.New("openai", config.ProviderConfig{
 		APIKey: os.Getenv("OPENAI_API_KEY"),
 		Model:  "gpt-4o",
@@ -190,22 +169,21 @@ func main() {
 		log.Fatalf("failed to create model: %v", err)
 	}
 
-	// Wrap with LangSmith tracing.
-	traced := NewTracedChatModel(model, tracer)
+	traced := NewTracedChatModel(model, "openai", exporter)
 
-	messages := []schema.Message{
+	response, err := traced.Generate(ctx, []schema.Message{
 		schema.NewHumanMessage("What is the capital of France?"),
-	}
-
-	response, err := traced.Generate(ctx, messages)
+	})
 	if err != nil {
 		log.Fatalf("generation failed: %v", err)
 	}
 
-	fmt.Printf("Response: %s\n", response.Content)
+	fmt.Printf("Response: %s\n", response.Text())
 	fmt.Println("View the trace at https://smith.langchain.com")
 }
 ```
+
+To send the same records to several backends, combine exporters with `o11y.NewMultiExporter(exporterA, exporterB)`; the result also implements `o11y.TraceExporter`.
 
 ## Advanced Topics
 
@@ -223,7 +201,7 @@ func (t *TracedChatModel) shouldTrace() bool {
 
 ### Sensitive Data Filtering
 
-Remove personally identifiable information (PII) from traces before sending them to LangSmith. Filter message content in the `CreateRun` inputs to strip sensitive fields.
+Remove personally identifiable information (PII) from traces before sending them to LangSmith. Redact message content in `toMaps` (and the `Response` map) before calling `ExportLLMCall`.
 
 ### Project Organization
 
@@ -252,14 +230,10 @@ Verify that `LANGSMITH_API_KEY` is set in the environment. API keys are availabl
 
 ### Traces not appearing
 
-Check that the API key is valid and the endpoint is reachable. If using a custom endpoint, verify the `LANGSMITH_ENDPOINT` variable:
-
-```bash
-export LANGSMITH_ENDPOINT="https://api.smith.langchain.com"
-```
+Check that the API key is valid and the endpoint is reachable, and check the error returned by `ExportLLMCall`. If you use a self-hosted or regional endpoint, pass it with `langsmith.WithBaseURL`.
 
 ## Related Resources
 
 - [Datadog Dashboards](/docs/guides/production/integrations/datadog-dashboards) -- Metrics and dashboard monitoring
-- [Observability and Tracing](/docs/guides/observability-tracing) -- Beluga AI observability setup
+- [Observability and Tracing](/docs/guides/production/otel-tracing/) -- Beluga AI observability setup
 - [LLM Providers](/docs/reference/providers/llm/openai) -- Configuring LLM providers

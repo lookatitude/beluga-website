@@ -28,21 +28,22 @@ import (
     "fmt"
     "log"
     "os"
+    "strings"
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.documentloaders.error_handling")
 
 // DocumentLoadResult represents the result of loading a single document.
 type DocumentLoadResult struct {
-    Document schema.Document
-    Error    error
+    Documents []schema.Document
+    Error     error
     FilePath string
 }
 
@@ -88,11 +89,11 @@ func (rdl *RobustDocumentLoader) LoadDocuments(ctx context.Context, filePaths []
 
             if !rdl.skipErrors {
                 span.RecordError(result.Error)
-                span.SetStatus(trace.StatusError, "error encountered, not skipping")
+                span.SetStatus(codes.Error, "error encountered, not skipping")
                 return nil, results, fmt.Errorf("failed to load %s: %w", filePath, result.Error)
             }
         } else {
-            documents = append(documents, result.Document)
+            documents = append(documents, result.Documents...)
         }
     }
 
@@ -115,7 +116,7 @@ func (rdl *RobustDocumentLoader) loadDocument(ctx context.Context, filePath stri
         if r := recover(); r != nil {
             err := fmt.Errorf("panic loading %s: %v", filePath, r)
             span.RecordError(err)
-            span.SetStatus(trace.StatusError, "panic recovered")
+            span.SetStatus(codes.Error, "panic recovered")
         }
     }()
 
@@ -123,26 +124,26 @@ func (rdl *RobustDocumentLoader) loadDocument(ctx context.Context, filePath stri
     if _, err := os.Stat(filePath); err != nil {
         err := fmt.Errorf("file not found: %w", err)
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return DocumentLoadResult{FilePath: filePath, Error: err}
     }
 
     // Try to load document
-    doc, err := rdl.loader.Load(ctx)
+    docs, err := rdl.loader.Load(ctx, filePath)
     if err != nil {
         if rdl.isRecoverableError(err) {
-            doc, err = rdl.attemptRecovery(ctx, filePath, err)
+            docs, err = rdl.attemptRecovery(ctx, filePath, err)
         }
 
         if err != nil {
             span.RecordError(err)
-            span.SetStatus(trace.StatusError, err.Error())
+            span.SetStatus(codes.Error, err.Error())
             return DocumentLoadResult{FilePath: filePath, Error: err}
         }
     }
 
-    span.SetStatus(trace.StatusOK, "document loaded")
-    return DocumentLoadResult{FilePath: filePath, Document: doc}
+    span.SetStatus(codes.Ok, "document loaded")
+    return DocumentLoadResult{FilePath: filePath, Documents: docs}
 }
 
 // isRecoverableError checks if an error is recoverable.
@@ -159,14 +160,14 @@ func (rdl *RobustDocumentLoader) isRecoverableError(err error) bool {
 }
 
 // attemptRecovery attempts to recover from a loading error.
-func (rdl *RobustDocumentLoader) attemptRecovery(ctx context.Context, filePath string, err error) (schema.Document, error) {
+func (rdl *RobustDocumentLoader) attemptRecovery(ctx context.Context, filePath string, err error) ([]schema.Document, error) {
     // Try to load with error-tolerant parser
     // In practice, would try different parsing strategies
     return nil, err
 }
 
 func contains(s, substr string) bool {
-    return len(s) >= len(substr)
+    return strings.Contains(strings.ToLower(s), substr)
 }
 
 // ErrorSummary provides a summary of loading errors.
@@ -217,8 +218,8 @@ func getErrorType(err error) string {
 func main() {
     ctx := context.Background()
 
-    // Create robust loader (loader is your DocumentLoader instance)
-    // robustLoader := NewRobustDocumentLoader(loader, true)
+    // Wrap any loader.DocumentLoader; here, the built-in plain-text loader.
+    robustLoader := NewRobustDocumentLoader(loader.NewTextLoader(), true)
 
     filePaths := []string{"doc1.txt", "corrupt.doc", "doc3.txt"}
     docs, results, err := robustLoader.LoadDocuments(ctx, filePaths)
@@ -227,7 +228,7 @@ func main() {
     }
 
     summary := GetErrorSummary(results)
-    fmt.Printf("Loaded: %d, Failed: %d\n", summary.Successful, summary.Failed)
+    fmt.Printf("Files loaded: %d, failed: %d, documents: %d\n", summary.Successful, summary.Failed, len(docs))
 }
 ```
 
@@ -258,12 +259,12 @@ func (rdl *RobustDocumentLoader) LoadWithRetry(ctx context.Context, filePath str
 Recover partial content from corrupt documents where possible:
 
 ```go
-func (rdl *RobustDocumentLoader) RecoverPartial(ctx context.Context, filePath string) (schema.Document, error) {
+func (rdl *RobustDocumentLoader) RecoverPartial(ctx context.Context, filePath string) ([]schema.Document, error) {
     // Extract readable portions from corrupt files
 }
 ```
 
 ## Related Recipes
 
-- [Parallel File Loading](/docs/recipes/parallel-file-loading) -- Parallel loading with worker pools
-- [Document Ingestion Recipes](/docs/recipes/document-ingestion) -- Additional document loading patterns
+- [Parallel File Loading](/docs/recipes/rag/parallel-file-loading/) -- Parallel loading with worker pools
+- [Document Ingestion Recipes](/docs/recipes/rag/document-ingestion/) -- Additional document loading patterns

@@ -11,7 +11,7 @@ head:
 ## cache
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache"
+import "github.com/lookatitude/beluga-ai/v2/cache"
 ```
 
 Package cache provides exact and semantic caching for the Beluga AI framework.
@@ -45,7 +45,7 @@ similarity threshold when creating the wrapper.
 Exact caching with the in-memory provider:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+import _ "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 
 c, err := cache.New("inmemory", cache.Config{
     TTL:     5 * time.Minute,
@@ -77,7 +77,7 @@ val, ok, err = sc.GetSemantic(ctx, queryEmbedding, 0)
 ## inmemory
 
 ```go
-import "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 ```
 
 Package inmemory provides an in-memory LRU cache implementation for the
@@ -98,7 +98,7 @@ When MaxSize is reached, the least-recently-used entry is evicted.
 Import for side-effect registration, then create via the cache registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/cache/providers/inmemory"
+import _ "github.com/lookatitude/beluga-ai/v2/cache/providers/inmemory"
 
 c, err := cache.New("inmemory", cache.Config{
     TTL:     5 * time.Minute,

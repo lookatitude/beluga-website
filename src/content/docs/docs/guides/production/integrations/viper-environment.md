@@ -12,7 +12,7 @@ Production applications need configuration that adapts to the deployment environ
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - The Viper configuration library
 
@@ -315,4 +315,4 @@ BELUGA_APP_PORT=9090
 ## Related Resources
 
 - [HashiCorp Vault Connector](/docs/guides/production/integrations/vault-connector) -- Secure secret management with Vault
-- [Infrastructure Integrations](/docs/guides/production/integrations/infrastructure) -- Deployment and infrastructure overview
+- [Infrastructure Integrations](/docs/guides/production/) -- Deployment and infrastructure overview

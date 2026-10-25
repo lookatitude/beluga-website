@@ -15,7 +15,7 @@ Choose Milvus when you need a vector database designed for large-scale deploymen
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/milvus
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/milvus
 ```
 
 Start Milvus locally:
@@ -33,10 +33,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/milvus"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/milvus"
 )
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 
 ```go
 import (
-    milvusstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/milvus"
+    milvusstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/milvus"
 )
 
 store := milvusstore.New("http://localhost:19530",

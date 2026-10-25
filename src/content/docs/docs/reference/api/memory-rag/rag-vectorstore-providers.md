@@ -11,11 +11,11 @@ head:
 ## chroma
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma"
 ```
 
 Package chroma provides a VectorStore backed by ChromaDB. It communicates
-with ChromaDB via its HTTP REST API.
+with ChromaDB via its v2 HTTP REST API (/api/v2, required by Chroma 1.x).
 
 ## Registration
 
@@ -23,8 +23,8 @@ The provider registers as "chroma" in the vectorstore registry:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/chroma"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/chroma"
 )
 
 store, err := vectorstore.New("chroma", config.ProviderConfig{
@@ -55,7 +55,7 @@ The collection ID is resolved automatically on first Add or Search call.
 ## elasticsearch
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/elasticsearch"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/elasticsearch"
 ```
 
 Package elasticsearch provides a VectorStore backed by Elasticsearch's kNN search.
@@ -66,7 +66,7 @@ It uses Elasticsearch's dense_vector field type and approximate kNN search.
 The provider registers as "elasticsearch" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/elasticsearch"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/elasticsearch"
 
 store, err := vectorstore.New("elasticsearch", config.ProviderConfig{
     BaseURL: "http://localhost:9200",
@@ -96,7 +96,7 @@ appropriate dense_vector mapping if it does not exist.
 ## inmemory
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
 ```
 
 Package inmemory provides an in-memory VectorStore for testing and
@@ -108,7 +108,7 @@ and is safe for concurrent use.
 The provider registers as "inmemory" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/inmemory"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/inmemory"
 
 store, err := vectorstore.New("inmemory", config.ProviderConfig{})
 ```
@@ -125,7 +125,7 @@ store, err := vectorstore.New("inmemory", config.ProviderConfig{})
 ## milvus
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/milvus"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/milvus"
 ```
 
 Package milvus provides a VectorStore backed by the Milvus vector database.
@@ -136,7 +136,7 @@ It communicates with Milvus via its REST API for broad compatibility.
 The provider registers as "milvus" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/milvus"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/milvus"
 
 store, err := vectorstore.New("milvus", config.ProviderConfig{
     BaseURL: "http://localhost:19530",
@@ -160,24 +160,28 @@ ProviderConfig fields:
 ## mongodb
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/mongodb"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/mongodb"
 ```
 
 Package mongodb provides a VectorStore backed by MongoDB Atlas Vector Search.
-It communicates with MongoDB via its HTTP Data API to avoid requiring the
-full MongoDB Go driver as a dependency, and supports cosine, dot-product,
-and Euclidean distance strategies.
+It uses the official MongoDB Go driver (go.mongodb.org/mongo-driver/v2) and
+the $vectorSearch aggregation stage. The similarity function (cosine,
+dot product or Euclidean) is set by the Atlas vector index definition.
+
+Earlier releases spoke the Atlas Data API, which MongoDB retired on
+30 September 2025. A Data API URL is now rejected with a
+core.ErrInvalidInput error; pass a MongoDB connection string instead.
+WithAPIKey and WithHTTPClient are deprecated no-ops.
 
 ## Registration
 
 The provider registers as "mongodb" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/mongodb"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/mongodb"
 
 store, err := vectorstore.New("mongodb", config.ProviderConfig{
-    BaseURL: "https://data.mongodb-api.com/app/<app-id>/endpoint/data/v1",
-    APIKey:  "your-api-key",
+    BaseURL: "mongodb+srv://user:pass@cluster0.example.mongodb.net",
     Options: map[string]any{
         "database":   "my_db",
         "collection": "documents",
@@ -186,21 +190,32 @@ store, err := vectorstore.New("mongodb", config.ProviderConfig{
 })
 ```
 
+To reuse an existing client, wrap a collection handle:
+
+```go
+store := mongodb.NewWithCollection(client.Database("my_db").Collection("documents"))
+```
+
 ## Configuration
 
 ProviderConfig fields:
-- BaseURL — MongoDB Data API endpoint (required)
-- APIKey — API key for authentication (required)
+- BaseURL — MongoDB connection string, mongodb:// or mongodb+srv:// (required)
 - Options["database"] — database name (default: "beluga")
 - Options["collection"] — collection name (default: "documents")
-- Options["index"] — vector search index name (default: "vector_index")
+- Options["index"] — Atlas vector search index name (default: "vector_index")
+
+Documents are stored as {_id, content, embedding, metadata}. The vector
+index must index "embedding" and declare every "metadata.<key>" used in
+search filters as a filter field. Filter keys must be plain identifiers and
+values scalars. Stores created by New or NewFromConfig own their client;
+call Close to disconnect it.
 
 ---
 
 ## pgvector
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 ```
 
 Package pgvector provides a VectorStore backed by PostgreSQL with the
@@ -212,7 +227,7 @@ cosine, dot-product, and Euclidean distance strategies.
 The provider registers as "pgvector" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 
 store, err := vectorstore.New("pgvector", config.ProviderConfig{
     BaseURL: "postgres://user:pass@localhost:5432/db",
@@ -247,7 +262,7 @@ The provider maps [vectorstore.SearchStrategy] to pgvector SQL operators:
 ## pinecone
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pinecone"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pinecone"
 ```
 
 Package pinecone provides a VectorStore backed by the Pinecone vector
@@ -258,7 +273,7 @@ database. It communicates with Pinecone via its REST API.
 The provider registers as "pinecone" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pinecone"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pinecone"
 
 store, err := vectorstore.New("pinecone", config.ProviderConfig{
     APIKey:  "your-api-key",
@@ -281,7 +296,7 @@ ProviderConfig fields:
 ## qdrant
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/qdrant"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/qdrant"
 ```
 
 Package qdrant provides a VectorStore backed by the Qdrant vector database.
@@ -293,7 +308,7 @@ dependencies, and supports cosine, dot-product, and Euclidean distance.
 The provider registers as "qdrant" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/qdrant"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/qdrant"
 
 store, err := vectorstore.New("qdrant", config.ProviderConfig{
     BaseURL: "http://localhost:6333",
@@ -318,7 +333,7 @@ ProviderConfig fields:
 ## redis
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/redis"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/redis"
 ```
 
 Package redis provides a VectorStore backed by Redis with the RediSearch module.
@@ -330,7 +345,7 @@ search for retrieval.
 The provider registers as "redis" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/redis"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/redis"
 
 store, err := vectorstore.New("redis", config.ProviderConfig{
     BaseURL: "localhost:6379",
@@ -355,7 +370,7 @@ ProviderConfig fields:
 ## sqlitevec
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlitevec"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlitevec"
 ```
 
 Package sqlitevec provides a VectorStore backed by SQLite with the
@@ -372,7 +387,7 @@ CGO_ENABLED=1 go build
 The provider registers as "sqlitevec" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/sqlitevec"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/sqlitevec"
 
 store, err := vectorstore.New("sqlitevec", config.ProviderConfig{
     BaseURL: "/path/to/database.db",
@@ -395,7 +410,7 @@ ProviderConfig fields:
 ## turbopuffer
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/turbopuffer"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/turbopuffer"
 ```
 
 Package turbopuffer provides a VectorStore backed by the Turbopuffer
@@ -406,7 +421,7 @@ serverless vector database. It communicates with Turbopuffer via its REST API.
 The provider registers as "turbopuffer" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/turbopuffer"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/turbopuffer"
 
 store, err := vectorstore.New("turbopuffer", config.ProviderConfig{
     APIKey: "...",
@@ -427,7 +442,7 @@ ProviderConfig fields:
 ## vespa
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/vespa"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/vespa"
 ```
 
 Package vespa provides a VectorStore backed by the Vespa search engine.
@@ -439,7 +454,7 @@ supporting cosine, dot-product, and Euclidean distance strategies.
 The provider registers as "vespa" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/vespa"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/vespa"
 
 store, err := vectorstore.New("vespa", config.ProviderConfig{
     BaseURL: "http://localhost:8080",
@@ -462,7 +477,7 @@ ProviderConfig fields:
 ## weaviate
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/weaviate"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/weaviate"
 ```
 
 Package weaviate provides a VectorStore backed by the Weaviate vector database.
@@ -473,7 +488,7 @@ It communicates with Weaviate via its REST API using the internal httpclient.
 The provider registers as "weaviate" in the vectorstore registry:
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/weaviate"
+import _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/weaviate"
 
 store, err := vectorstore.New("weaviate", config.ProviderConfig{
     BaseURL: "http://localhost:8080",

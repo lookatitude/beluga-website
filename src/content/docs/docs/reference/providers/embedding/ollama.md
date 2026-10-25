@@ -15,7 +15,7 @@ Choose Ollama embeddings for local development, offline environments, or when da
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama
+go get github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama
 ```
 
 Ensure Ollama is running locally:
@@ -36,9 +36,9 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 )
 
 func main() {
@@ -82,7 +82,7 @@ Any model available in Ollama that supports the embed API can be used. Pull the 
 
 ```go
 import (
-    ollamaemb "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+    ollamaemb "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 )
 
 emb, err := ollamaemb.New(config.ProviderConfig{

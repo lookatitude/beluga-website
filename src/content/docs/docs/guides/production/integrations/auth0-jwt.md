@@ -14,7 +14,7 @@ Exposing AI agents as API endpoints introduces the same authentication requireme
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - An Auth0 account with an API application configured
 - Auth0 tenant domain, client ID, and API audience identifier
@@ -208,7 +208,7 @@ func UserRoles(ctx context.Context) []string {
 
 ### Integrate with the Beluga AI Server
 
-Wire the middleware into a Beluga AI REST server:
+Wire the middleware into a Beluga AI HTTP server. `server.NewAgentHandler` exposes an agent at `POST {prefix}/invoke` and `POST {prefix}/stream`; wrapping it with `Authenticate` protects both routes:
 
 ```go
 package main
@@ -216,9 +216,15 @@ package main
 import (
     "context"
     "log"
+    "net/http"
     "os"
+    "time"
 
-    "github.com/lookatitude/beluga-ai/server"
+    "github.com/lookatitude/beluga-ai/v2/agent"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    "github.com/lookatitude/beluga-ai/v2/server"
 )
 
 func main() {
@@ -229,26 +235,32 @@ func main() {
         os.Getenv("AUTH0_AUDIENCE"),
     )
 
-    restServer, err := server.NewRESTServer(
-        server.WithRESTConfig(server.RESTConfig{
-            Config: server.Config{
-                Host: "0.0.0.0",
-                Port: 8080,
-            },
-        }),
-    )
+    model, err := llm.New("openai", config.ProviderConfig{
+        APIKey: os.Getenv("OPENAI_API_KEY"),
+        Model:  "gpt-4o",
+    })
     if err != nil {
-        log.Fatalf("Failed to create server: %v", err)
+        log.Fatalf("Failed to create model: %v", err)
+    }
+    assistant := agent.New("assistant", agent.WithLLM(model))
+
+    srv := server.NewStdlibAdapter(server.Config{
+        ReadTimeout:  30 * time.Second,
+        WriteTimeout: 60 * time.Second,
+    })
+
+    protected := authMiddleware.Authenticate(server.NewAgentHandler(assistant))
+    if err := srv.RegisterHandler("/api/agents/", http.StripPrefix("/api/agents", protected)); err != nil {
+        log.Fatalf("Failed to register handler: %v", err)
     }
 
-    restServer.UseMiddleware(authMiddleware.Authenticate)
-    restServer.RegisterHandler("/api/agents", agentHandler)
-
-    if err := restServer.Start(ctx); err != nil {
+    if err := srv.Serve(ctx, "0.0.0.0:8080"); err != nil {
         log.Fatalf("Server failed: %v", err)
     }
 }
 ```
+
+The same pattern works with the framework adapters under `server/adapters/` (chi, echo, fiber, gin, huma, ...): every `server.ServerAdapter` accepts a raw `http.Handler` through `RegisterHandler`.
 
 ## Advanced Topics
 
@@ -281,17 +293,14 @@ func (c *JWKSCache) GetKey(ctx context.Context, kid string) (interface{}, error)
 
 ### Role-Based Access Control
 
-Combine Auth0 roles with Beluga AI's `auth` package for fine-grained access:
+Gate handlers on the roles carried in the Auth0 token. For policy-based decisions beyond a role check, evaluate the same identity with Beluga AI's `auth` package.
 
 ```go
-import "github.com/lookatitude/beluga-ai/auth"
-
 func requireRole(role string, next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        roles := UserRoles(r.Context())
-        for _, r := range roles {
-            if r == role {
-                next.ServeHTTP(w, r.WithContext(r.Context()))
+        for _, have := range UserRoles(r.Context()) {
+            if have == role {
+                next.ServeHTTP(w, r)
                 return
             }
         }
@@ -328,6 +337,6 @@ span.SetAttributes(
 
 ## Related Resources
 
-- [Beluga AI Auth Package](/docs/guides/auth) -- RBAC and ABAC integration
+- [Beluga AI Auth Package](/docs/reference/api/infrastructure/auth/) -- RBAC and ABAC integration
 - [Kubernetes Helm Deployment](/docs/guides/production/integrations/kubernetes-helm) -- Deploy authenticated services to Kubernetes
-- [Server Package Guide](/docs/reference/api/server) -- Full server configuration reference
+- [Server Package Guide](/docs/reference/api/protocol/server/) -- Full server configuration reference

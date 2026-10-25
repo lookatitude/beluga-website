@@ -20,7 +20,7 @@ The recommended model is `nomic-embed-text`, which produces 768-dimensional vect
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - Ollama installed and running ([ollama.com](https://ollama.com))
 
@@ -82,11 +82,11 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
     // Register the Ollama provider
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 )
 
 func main() {
@@ -138,10 +138,10 @@ import (
     "log"
     "math"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 )
 
 func main() {
@@ -248,12 +248,12 @@ Connect Ollama embeddings to a vector store for similarity search:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/pgvector"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/pgvector"
 )
 
 emb, err := embedding.New("ollama", config.ProviderConfig{
@@ -329,6 +329,6 @@ Provider-specific options can be passed via the `Options` map in `config.Provide
 
 ## Related Resources
 
-- [Embedding Providers](/docs/guides/production/integrations/embedding-providers) -- All embedding provider integrations
+- [Embedding Providers](/docs/reference/providers/embedding/) -- All embedding provider integrations
 - [Cohere Multilingual Embeddings](/docs/guides/production/integrations/cohere-multilingual) -- Cloud-based multilingual embeddings
-- [Vector Stores](/docs/guides/production/integrations/vector-stores) -- Storing and searching embeddings
+- [Vector Stores](/docs/reference/providers/vectorstore/) -- Storing and searching embeddings

@@ -31,6 +31,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/google/uuid"
@@ -76,7 +77,7 @@ func (rip *RequestIDPropagator) ExtractRequestID(ctx context.Context, headers ht
 	reqID := rip.generator()
 	ctx = context.WithValue(ctx, requestIDKey, reqID)
 	span.SetAttributes(attribute.String("request_id", reqID))
-	span.SetStatus(trace.StatusOK, "request ID generated")
+	span.SetStatus(codes.Ok, "request ID generated")
 	return reqID, ctx
 }
 
@@ -155,5 +156,5 @@ func GenerateChildID(parentID string) string {
 
 ## Related Recipes
 
-- **[Rate Limiting per Project](./rate-limiting)** — Per-project rate limiting
-- **[Trace Aggregation for Multi-Agents](./trace-aggregation)** — Aggregate traces across agents
+- **[Rate Limiting per Project](/docs/recipes/infrastructure/rate-limiting/)** — Per-project rate limiting
+- **[Trace Aggregation for Multi-Agents](/docs/recipes/infrastructure/trace-aggregation/)** — Aggregate traces across agents

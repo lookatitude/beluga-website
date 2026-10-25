@@ -15,7 +15,7 @@ Choose Inngest when you want event-driven workflow state persistence with a deve
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/workflow/providers/inngest
+go get github.com/lookatitude/beluga-ai/v2/workflow/providers/inngest
 ```
 
 Start the Inngest dev server for local development:
@@ -34,8 +34,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/workflow"
-    "github.com/lookatitude/beluga-ai/workflow/providers/inngest"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow/providers/inngest"
 )
 
 func main() {

@@ -32,9 +32,9 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.vectorstores.reindexing")
@@ -96,7 +96,7 @@ func (rt *ReindexTracker) StartReindex(ctx context.Context, jobID string, docume
 
 	go rt.executeReindex(context.Background(), jobID, documents)
 
-	span.SetStatus(trace.StatusOK, "reindex started")
+	span.SetStatus(codes.Ok, "reindex started")
 	return nil
 }
 
@@ -133,7 +133,7 @@ func (rt *ReindexTracker) executeReindex(ctx context.Context, jobID string, docu
 	job.CompletedAt = &completedAt
 	rt.mu.Unlock()
 
-	span.SetStatus(trace.StatusOK, "reindex completed")
+	span.SetStatus(codes.Ok, "reindex completed")
 }
 
 // GetStatus returns the status of a reindexing job.
@@ -226,5 +226,5 @@ func (p *PersistentReindexTracker) SaveStatus(ctx context.Context, job *ReindexJ
 
 ## Related Recipes
 
-- **[Advanced Metadata Filtering](./meta-filtering)** -- Complex vectorstore filtering
-- **[Parallel File Loading](./parallel-file-loading)** -- Parallel document loading for reindexing
+- **[Advanced Metadata Filtering](/docs/recipes/rag/meta-filtering/)** -- Complex vectorstore filtering
+- **[Parallel File Loading](/docs/recipes/rag/parallel-file-loading/)** -- Parallel document loading for reindexing

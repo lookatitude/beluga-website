@@ -21,7 +21,7 @@ When using Beluga AI's voice pipeline with the LiveKit transport, webhooks provi
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - Beluga AI framework installed
 - LiveKit project with URL, API key, and API secret
 - A publicly accessible HTTPS endpoint for webhook delivery
@@ -31,7 +31,7 @@ When using Beluga AI's voice pipeline with the LiveKit transport, webhooks provi
 Install the Beluga AI module:
 
 ```bash
-go get github.com/lookatitude/beluga-ai
+go get github.com/lookatitude/beluga-ai/v2
 ```
 
 ## Configuration
@@ -241,5 +241,5 @@ LiveKit cannot reach the webhook URL. Confirm that:
 
 ## Related Resources
 
-- [Voice Services Overview](/docs/guides/production/integrations/voice-services) -- All supported voice providers
+- [Voice Services Overview](/docs/reference/providers/voice/) -- All supported voice providers
 - [Vapi Custom Tools Integration](/docs/guides/production/integrations/vapi-custom-tools) -- Custom tools with Vapi

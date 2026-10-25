@@ -34,7 +34,7 @@ Produce technical marketing content: blog posts, release notes, social threads (
 3. Read `.guild/wiki/index.md` — website wiki router (currently a stub).
 4. Read `../research/competitor-signals.md` when writing comparisons. It is the workspace's weekly competitor scan digest and is only visible when checked out inside the multi-repo Beluga workspace. If they're not reachable, cut comparison content rather than inventing it.
 5. For technical claims about the framework itself, read the relevant file in `public/godoc/` (framework godoc pulled from the latest release) or the framework release's `CHANGELOG.md` spliced into `src/content/docs/docs/contributing/project-reports/changelog.md`. For live provider counts, read `../framework/docs/reference/providers.md` if the workspace is available.
-6. Read accumulated rules in `.claude/agents/marketeer/rules/`.
+6. Read website-local learnings in `.guild/wiki/corrections.md`.
 
 ## Reading specialist context (A3)
 

@@ -15,7 +15,7 @@ Choose GitHub when you need to load source code, documentation, or configuration
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/loader/providers/github
+go get github.com/lookatitude/beluga-ai/v2/rag/loader/providers/github
 ```
 
 ## Quick Start
@@ -29,9 +29,9 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/loader"
-    _ "github.com/lookatitude/beluga-ai/rag/loader/providers/github"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/loader"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/loader/providers/github"
 )
 
 func main() {

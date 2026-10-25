@@ -15,7 +15,7 @@ Choose xAI when you want access to Grok models, which offer strong reasoning and
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/xai
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/xai
 ```
 
 ## Configuration
@@ -44,10 +44,10 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/xai"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/xai"
 )
 
 func main() {
@@ -125,7 +125,7 @@ if err != nil {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/llm/providers/xai"
+import "github.com/lookatitude/beluga-ai/v2/llm/providers/xai"
 
 model, err := xai.New(config.ProviderConfig{
     Model:  "grok-3",

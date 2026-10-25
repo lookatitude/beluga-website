@@ -30,7 +30,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // SessionPool manages concurrent voice sessions with resource limits.
@@ -115,7 +115,7 @@ func main() {
 
 **Problem:** The user starts speaking while the agent is still generating audio. You need to immediately stop TTS output and start processing the new input.
 
-**Solution:** Use control frames to signal interruptions through the pipeline. In Beluga AI's frame-based architecture, control frames propagate through the same channel as audio and text frames but carry metadata that triggers special behavior in downstream processors. This approach keeps the interrupt signal in-band with the data stream, avoiding race conditions between separate signal and data paths.
+**Solution:** Use control frames to signal interruptions through the pipeline. In Beluga AI's frame-based architecture, control frames propagate through the same frame stream as audio and text frames but carry metadata that triggers special behavior in downstream processors. This approach keeps the interrupt signal in-band with the data stream, avoiding race conditions between separate signal and data paths.
 
 ```go
 package main
@@ -124,75 +124,45 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
-// InterruptHandler processes barge-in events in the voice pipeline.
-type InterruptHandler struct{}
-
-func (h *InterruptHandler) Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-	defer close(out)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-
-		case frame, ok := <-in:
-			if !ok {
-				return nil
+// interruptHandler forwards barge-in signals and passes other frames through.
+func interruptHandler() voice.FrameProcessor {
+	return voice.FrameLoop(func(ctx context.Context, frame voice.Frame) ([]voice.Frame, error) {
+		if frame.Type == voice.FrameControl {
+			if signal, _ := frame.Metadata["signal"].(string); signal == voice.SignalInterrupt {
+				slog.Info("barge-in detected, flushing TTS queue")
+				// Send interrupt downstream to stop TTS output.
+				return []voice.Frame{voice.NewControlFrame(voice.SignalInterrupt)}, nil
 			}
-
-			// Check for interrupt signal from VAD.
-			if frame.Type == voice.FrameControl {
-				signal, _ := frame.Metadata["signal"].(string)
-				if signal == voice.SignalInterrupt {
-					slog.Info("barge-in detected, flushing TTS queue")
-
-					// Send interrupt downstream to stop TTS output.
-					out <- voice.Frame{
-						Type: voice.FrameControl,
-						Metadata: map[string]any{
-							"signal": voice.SignalInterrupt,
-						},
-					}
-					continue
-				}
-			}
-
-			// Pass through non-interrupt frames.
-			out <- frame
 		}
-	}
+		// Pass through non-interrupt frames.
+		return []voice.Frame{frame}, nil
+	})
 }
 
 func main() {
 	// Chain the interrupt handler into the pipeline.
 	pipeline := voice.Chain(
-		&InterruptHandler{},
+		interruptHandler(),
 		// ... STT, LLM, TTS processors follow.
 	)
 
 	ctx := context.Background()
-	in := make(chan voice.Frame)
-	out := make(chan voice.Frame)
 
-	go func() {
-		err := pipeline.Process(ctx, in, out)
-		if err != nil {
-			slog.Error("pipeline error", "error", err)
-		}
-	}()
-
-	// Simulate a barge-in.
-	in <- voice.Frame{
-		Type: voice.FrameControl,
-		Metadata: map[string]any{
-			"signal": voice.SignalInterrupt,
-		},
+	// Simulate a barge-in: the input is an iter.Seq2 of frames.
+	input := func(yield func(voice.Frame, error) bool) {
+		yield(voice.NewControlFrame(voice.SignalInterrupt), nil)
 	}
 
-	close(in)
+	for frame, err := range pipeline.Process(ctx, input) {
+		if err != nil {
+			slog.Error("pipeline error", "error", err)
+			return
+		}
+		slog.Info("output frame", "type", frame.Type)
+	}
 }
 ```
 
@@ -210,13 +180,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
+	"sync"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // LatencyTracker measures time through each pipeline stage.
 type LatencyTracker struct {
+	mu           sync.Mutex
 	stageTimings map[string]time.Duration
 }
 
@@ -226,24 +199,29 @@ func NewLatencyTracker() *LatencyTracker {
 	}
 }
 
-// Wrap creates a FrameProcessor that tracks latency through a stage.
+// Wrap creates a FrameProcessor that tracks latency through a stage: the time
+// from the stage pulling an input frame to it producing an output frame.
 func (lt *LatencyTracker) Wrap(name string, inner voice.FrameProcessor) voice.FrameProcessor {
-	return voice.FrameProcessorFunc(func(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-		defer close(out)
-
-		for frame := range in {
-			start := time.Now()
-			// Process through inner via a temp channel pair.
-			tempIn := make(chan voice.Frame, 1)
-			tempOut := make(chan voice.Frame, 1)
-			tempIn <- frame
-			close(tempIn)
-
-			go inner.Process(ctx, tempIn, tempOut)
-
-			for result := range tempOut {
-				elapsed := time.Since(start)
+	return voice.FrameProcessorFunc(func(ctx context.Context, in iter.Seq2[voice.Frame, error]) iter.Seq2[voice.Frame, error] {
+		var lastIn time.Time
+		timed := func(yield func(voice.Frame, error) bool) {
+			for frame, err := range in {
+				lastIn = time.Now()
+				if !yield(frame, err) {
+					return
+				}
+			}
+		}
+		return func(yield func(voice.Frame, error) bool) {
+			for result, err := range inner.Process(ctx, timed) {
+				if err != nil {
+					yield(voice.Frame{}, err)
+					return
+				}
+				elapsed := time.Since(lastIn)
+				lt.mu.Lock()
 				lt.stageTimings[name] = elapsed
+				lt.mu.Unlock()
 
 				// Attach timing metadata.
 				if result.Metadata == nil {
@@ -252,10 +230,11 @@ func (lt *LatencyTracker) Wrap(name string, inner voice.FrameProcessor) voice.Fr
 				result.Metadata["stage"] = name
 				result.Metadata["latency_ms"] = elapsed.Milliseconds()
 
-				out <- result
+				if !yield(result, nil) {
+					return
+				}
 			}
 		}
-		return nil
 	})
 }
 
@@ -319,9 +298,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // LongUtteranceHandler splits long speech into manageable segments.
@@ -337,63 +317,65 @@ func NewLongUtteranceHandler(maxSegment, silenceThreshold time.Duration) *LongUt
 	}
 }
 
-func (h *LongUtteranceHandler) Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-	defer close(out)
+func (h *LongUtteranceHandler) Process(ctx context.Context, in iter.Seq2[voice.Frame, error]) iter.Seq2[voice.Frame, error] {
+	return func(yield func(voice.Frame, error) bool) {
+		var buffer []voice.Frame
+		var segmentStart time.Time
 
-	var buffer []voice.Frame
-	var segmentStart time.Time
-	var lastSpeech time.Time
-
-	for frame := range in {
-		now := time.Now()
-
-		if frame.Type == voice.FrameAudio {
-			if segmentStart.IsZero() {
-				segmentStart = now
+		flush := func(reason string) bool {
+			if len(buffer) == 0 {
+				return true
 			}
-			lastSpeech = now
-			buffer = append(buffer, frame)
-
-			// Check if we should flush the segment.
-			segmentDuration := now.Sub(segmentStart)
-			silenceDuration := now.Sub(lastSpeech)
-
-			shouldFlush := segmentDuration >= h.maxSegmentDuration ||
-				silenceDuration >= h.silenceThreshold
-
-			if shouldFlush && len(buffer) > 0 {
-				// Emit all buffered frames as a segment.
-				for _, f := range buffer {
-					out <- f
+			// Emit all buffered frames as a segment.
+			for _, f := range buffer {
+				if !yield(f, nil) {
+					return false
 				}
-				// Signal end of segment.
-				out <- voice.Frame{
-					Type: voice.FrameControl,
-					Metadata: map[string]any{
-						"signal":           voice.SignalEndOfUtterance,
-						"segment_duration": segmentDuration.String(),
-					},
-				}
-				buffer = buffer[:0]
-				segmentStart = time.Time{}
 			}
-		} else {
-			out <- frame
+			// Signal end of segment.
+			end := voice.NewControlFrame(voice.SignalEndOfUtterance)
+			end.Metadata["segment_duration"] = time.Since(segmentStart).String()
+			end.Metadata["reason"] = reason
+			buffer = buffer[:0]
+			segmentStart = time.Time{}
+			return yield(end, nil)
 		}
-	}
 
-	// Flush remaining buffer.
-	for _, f := range buffer {
-		out <- f
-	}
+		for frame, err := range in {
+			if err != nil {
+				yield(voice.Frame{}, err)
+				return
+			}
+			switch {
+			case frame.Type == voice.FrameAudio:
+				if segmentStart.IsZero() {
+					segmentStart = time.Now()
+				}
+				buffer = append(buffer, frame)
+				if time.Since(segmentStart) >= h.maxSegmentDuration && !flush("max_segment") {
+					return
+				}
+			case frame.Type == voice.FrameControl && frame.Metadata["signal"] == voice.SignalEndOfUtterance:
+				// An upstream VAD stage reported the end of speech.
+				if !flush("silence") {
+					return
+				}
+			default:
+				if !yield(frame, nil) {
+					return
+				}
+			}
+		}
 
-	return nil
+		// Flush remaining buffer.
+		flush("end_of_stream")
+	}
 }
 
 func main() {
 	handler := NewLongUtteranceHandler(
 		10*time.Second,        // Max 10s per segment.
-		500*time.Millisecond,  // Flush after 500ms silence.
+		500*time.Millisecond,  // Silence budget for your upstream VAD.
 	)
 	fmt.Printf("Long utterance handler: max=%v, silence=%v\n",
 		handler.maxSegmentDuration, handler.silenceThreshold)
@@ -414,9 +396,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // PreemptiveTTSFeeder sends complete sentences to TTS as they arrive from the LLM.
@@ -428,61 +411,50 @@ func NewPreemptiveTTSFeeder() *PreemptiveTTSFeeder {
 	return &PreemptiveTTSFeeder{sentenceEnders: ".!?"}
 }
 
-func (f *PreemptiveTTSFeeder) Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-	defer close(out)
+func (f *PreemptiveTTSFeeder) Process(ctx context.Context, in iter.Seq2[voice.Frame, error]) iter.Seq2[voice.Frame, error] {
+	return func(yield func(voice.Frame, error) bool) {
+		var buffer strings.Builder
 
-	var buffer strings.Builder
-
-	for frame := range in {
-		if frame.Type != voice.FrameText {
-			out <- frame
-			continue
-		}
-
-		text, _ := frame.Data.(string)
-		buffer.WriteString(text)
-
-		// Check if the buffer contains a complete sentence.
-		content := buffer.String()
-		lastEnd := -1
-		for i, ch := range content {
-			if strings.ContainsRune(f.sentenceEnders, ch) {
-				lastEnd = i
+		for frame, err := range in {
+			if err != nil {
+				yield(voice.Frame{}, err)
+				return
 			}
-		}
+			if frame.Type != voice.FrameText {
+				if !yield(frame, nil) {
+					return
+				}
+				continue
+			}
 
-		if lastEnd >= 0 {
+			buffer.Write(frame.Data)
+
+			// Check if the buffer contains a complete sentence.
+			content := buffer.String()
+			lastEnd := strings.LastIndexAny(content, f.sentenceEnders)
+			if lastEnd < 0 {
+				continue
+			}
+
 			// Send the complete sentence(s) to TTS.
-			sentence := content[:lastEnd+1]
-			out <- voice.Frame{
-				Type: voice.FrameText,
-				Data: strings.TrimSpace(sentence),
-				Metadata: map[string]any{
-					"preemptive": true,
-				},
+			out := voice.NewTextFrame(strings.TrimSpace(content[:lastEnd+1]))
+			out.Metadata = map[string]any{"preemptive": true}
+			if !yield(out, nil) {
+				return
 			}
 
 			// Keep the remainder in the buffer.
 			buffer.Reset()
-			if lastEnd+1 < len(content) {
-				buffer.WriteString(content[lastEnd+1:])
-			}
+			buffer.WriteString(content[lastEnd+1:])
+		}
+
+		// Flush any remaining text.
+		if rest := strings.TrimSpace(buffer.String()); rest != "" {
+			out := voice.NewTextFrame(rest)
+			out.Metadata = map[string]any{"preemptive": true, "final": true}
+			yield(out, nil)
 		}
 	}
-
-	// Flush any remaining text.
-	if buffer.Len() > 0 {
-		out <- voice.Frame{
-			Type: voice.FrameText,
-			Data: strings.TrimSpace(buffer.String()),
-			Metadata: map[string]any{
-				"preemptive": true,
-				"final":      true,
-			},
-		}
-	}
-
-	return nil
 }
 
 func main() {
@@ -491,7 +463,7 @@ func main() {
 	// Chain: LLM → PreemptiveTTSFeeder → TTS
 	// TTS starts generating audio for the first sentence while the
 	// LLM is still producing the rest of the response.
-	_ = feeder
+	var _ voice.FrameProcessor = feeder
 	fmt.Println("Preemptive TTS: sentences are spoken as soon as they complete")
 }
 ```
@@ -510,9 +482,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // JitterBuffer smooths irregular audio arrival for STT processing.
@@ -528,38 +501,29 @@ func NewJitterBuffer(bufferDuration time.Duration, sampleRate int) *JitterBuffer
 	}
 }
 
-func (jb *JitterBuffer) Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-	defer close(out)
+// Process paces audio frames at a steady 20 ms cadence; non-audio frames pass
+// through immediately.
+func (jb *JitterBuffer) Process(ctx context.Context, in iter.Seq2[voice.Frame, error]) iter.Seq2[voice.Frame, error] {
+	return func(yield func(voice.Frame, error) bool) {
+		ticker := time.NewTicker(20 * time.Millisecond) // 20ms output intervals.
+		defer ticker.Stop()
 
-	// Buffer incoming frames.
-	buffer := make([]voice.Frame, 0, 100)
-	ticker := time.NewTicker(20 * time.Millisecond) // 20ms output intervals.
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-
-		case frame, ok := <-in:
-			if !ok {
-				// Flush remaining buffer.
-				for _, f := range buffer {
-					out <- f
-				}
-				return nil
+		for frame, err := range in {
+			if err != nil {
+				yield(voice.Frame{}, err)
+				return
 			}
 			if frame.Type == voice.FrameAudio {
-				buffer = append(buffer, frame)
-			} else {
-				out <- frame // Pass through non-audio frames immediately.
+				// Deliver audio at a steady rate.
+				select {
+				case <-ctx.Done():
+					yield(voice.Frame{}, ctx.Err())
+					return
+				case <-ticker.C:
+				}
 			}
-
-		case <-ticker.C:
-			// Deliver buffered frames at a steady rate.
-			if len(buffer) > 0 {
-				out <- buffer[0]
-				buffer = buffer[1:]
+			if !yield(frame, nil) {
+				return
 			}
 		}
 	}
@@ -586,9 +550,10 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"iter"
 	"math"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // NoiseGate filters audio frames below an energy threshold.
@@ -600,28 +565,17 @@ func NewNoiseGate(threshold float64) *NoiseGate {
 	return &NoiseGate{threshold: threshold}
 }
 
-func (ng *NoiseGate) Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-	defer close(out)
-
-	for frame := range in {
+func (ng *NoiseGate) Process(ctx context.Context, in iter.Seq2[voice.Frame, error]) iter.Seq2[voice.Frame, error] {
+	return voice.FrameLoop(func(_ context.Context, frame voice.Frame) ([]voice.Frame, error) {
 		if frame.Type != voice.FrameAudio {
-			out <- frame
-			continue
-		}
-
-		// Calculate RMS energy of the audio frame.
-		data, ok := frame.Data.([]byte)
-		if !ok || len(data) < 2 {
-			continue
-		}
-
-		rms := calculateRMS(data)
-		if rms >= ng.threshold {
-			out <- frame // Audio is above noise floor.
+			return []voice.Frame{frame}, nil
 		}
 		// Below threshold: frame is silently dropped (noise gate closed).
-	}
-	return nil
+		if len(frame.Data) < 2 || calculateRMS(frame.Data) < ng.threshold {
+			return nil, nil
+		}
+		return []voice.Frame{frame}, nil // Audio is above noise floor.
+	}).Process(ctx, in)
 }
 
 func calculateRMS(pcm16 []byte) float64 {
@@ -661,7 +615,7 @@ func main() {
 
 **Problem:** Your application involves multiple AI characters speaking in a conversation. Each needs a distinct voice.
 
-**Solution:** Route TTS requests to different voice configurations based on speaker identity. This router sits between the LLM output and TTS in the pipeline, inspecting frame metadata to determine which speaker is talking and dispatching to the appropriate TTS processor. A fallback processor handles cases where the speaker ID is unknown, ensuring the pipeline never silently drops frames.
+**Solution:** Route TTS requests to different voice configurations based on speaker identity. This router sits between the LLM output and TTS in the pipeline, inspecting frame metadata to determine which speaker is talking and dispatching to the appropriate TTS processor. A fallback processor handles cases where the speaker ID is unknown, ensuring the pipeline never silently drops frames. Speaker TTS processors can be built with `tts.AsFrameProcessor(engine, sampleRate, tts.WithVoice(id))`.
 
 ```go
 package main
@@ -669,8 +623,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // SpeakerRouter routes text frames to the correct TTS voice based on speaker metadata.
@@ -690,37 +645,44 @@ func (r *SpeakerRouter) AddSpeaker(id string, tts voice.FrameProcessor) {
 	r.speakers[id] = tts
 }
 
-func (r *SpeakerRouter) Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-	defer close(out)
+func (r *SpeakerRouter) Process(ctx context.Context, in iter.Seq2[voice.Frame, error]) iter.Seq2[voice.Frame, error] {
+	return func(yield func(voice.Frame, error) bool) {
+		for frame, err := range in {
+			if err != nil {
+				yield(voice.Frame{}, err)
+				return
+			}
+			if frame.Type != voice.FrameText {
+				if !yield(frame, nil) {
+					return
+				}
+				continue
+			}
 
-	for frame := range in {
-		if frame.Type != voice.FrameText {
-			out <- frame
-			continue
-		}
+			// Look up the speaker from frame metadata.
+			speakerID, _ := frame.Metadata["speaker"].(string)
+			tts, ok := r.speakers[speakerID]
+			if !ok {
+				tts = r.fallback
+			}
 
-		// Look up the speaker from frame metadata.
-		speakerID, _ := frame.Metadata["speaker"].(string)
-		tts, ok := r.speakers[speakerID]
-		if !ok {
-			tts = r.fallback
-		}
-
-		// Process through the speaker-specific TTS.
-		tempIn := make(chan voice.Frame, 1)
-		tempOut := make(chan voice.Frame, 1)
-		tempIn <- frame
-		close(tempIn)
-
-		go tts.Process(ctx, tempIn, tempOut)
-
-		for result := range tempOut {
-			result.Metadata["speaker"] = speakerID
-			out <- result
+			// Process this frame through the speaker-specific TTS.
+			single := func(y func(voice.Frame, error) bool) { y(frame, nil) }
+			for result, err := range tts.Process(ctx, single) {
+				if err != nil {
+					yield(voice.Frame{}, err)
+					return
+				}
+				if result.Metadata == nil {
+					result.Metadata = make(map[string]any)
+				}
+				result.Metadata["speaker"] = speakerID
+				if !yield(result, nil) {
+					return
+				}
+			}
 		}
 	}
-
-	return nil
 }
 
 func main() {
@@ -747,9 +709,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
 	"strings"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 // SSMLAnnotator transforms plain text into SSML for more natural TTS output.
@@ -762,23 +725,17 @@ func NewSSMLAnnotator(rate, pitch string) *SSMLAnnotator {
 	return &SSMLAnnotator{defaultRate: rate, defaultPitch: pitch}
 }
 
-func (a *SSMLAnnotator) Process(ctx context.Context, in <-chan voice.Frame, out chan<- voice.Frame) error {
-	defer close(out)
-
-	for frame := range in {
-		if frame.Type != voice.FrameText {
-			out <- frame
-			continue
+func (a *SSMLAnnotator) Process(ctx context.Context, in iter.Seq2[voice.Frame, error]) iter.Seq2[voice.Frame, error] {
+	return voice.FrameLoop(func(_ context.Context, frame voice.Frame) ([]voice.Frame, error) {
+		if frame.Type == voice.FrameText {
+			frame.Data = []byte(a.annotate(string(frame.Data)))
+			if frame.Metadata == nil {
+				frame.Metadata = make(map[string]any)
+			}
+			frame.Metadata["format"] = "ssml"
 		}
-
-		text, _ := frame.Data.(string)
-		ssml := a.annotate(text)
-
-		frame.Data = ssml
-		frame.Metadata["format"] = "ssml"
-		out <- frame
-	}
-	return nil
+		return []voice.Frame{frame}, nil
+	}).Process(ctx, in)
 }
 
 func (a *SSMLAnnotator) annotate(text string) string {
@@ -820,10 +777,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
-// VADProfile configures VAD for a specific environment.
+// VADProfile configures VAD for a specific environment. EnergyThreshold is the
+// RMS level (on 16-bit PCM samples) used by the built-in "energy" detector.
+// SpeechPadding and SilenceThreshold are not detector settings: apply them in
+// your own smoothing wrapper around the detector.
 type VADProfile struct {
 	Name             string
 	EnergyThreshold  float64
@@ -835,29 +795,27 @@ type VADProfile struct {
 var (
 	ProfileQuietRoom = VADProfile{
 		Name:             "quiet",
-		EnergyThreshold:  0.01,
+		EnergyThreshold:  500,
 		SpeechPadding:    3,
 		SilenceThreshold: 15,
 	}
 	ProfileOffice = VADProfile{
 		Name:             "office",
-		EnergyThreshold:  0.03,
+		EnergyThreshold:  1000,
 		SpeechPadding:    5,
 		SilenceThreshold: 20,
 	}
 	ProfileNoisyCallCenter = VADProfile{
 		Name:             "noisy",
-		EnergyThreshold:  0.08,
+		EnergyThreshold:  2000,
 		SpeechPadding:    8,
 		SilenceThreshold: 30,
 	}
 )
 
-func createVAD(profile VADProfile) (voice.VAD, error) {
+func createVAD(profile VADProfile) (voice.ActivityDetector, error) {
 	return voice.NewVAD("energy", map[string]any{
-		"threshold":         profile.EnergyThreshold,
-		"speech_padding":    profile.SpeechPadding,
-		"silence_threshold": profile.SilenceThreshold,
+		"threshold": profile.EnergyThreshold,
 	})
 }
 
@@ -890,7 +848,7 @@ func main() {
 
 **Problem:** You need to monitor and respond to pipeline events (speech start/end, transcripts, errors) without modifying processor code.
 
-**Solution:** Use `voice.Hooks` and `voice.ComposeHooks` for event callbacks. Beluga AI follows the hooks pattern consistently across all packages: optional function fields where `nil` means "skip this hook." This lets you layer observability, error handling, and business logic onto the voice pipeline without touching processor implementations. `ComposeHooks` merges multiple hook sets into one, so monitoring and error handling can be defined independently and combined at configuration time.
+**Solution:** Use `voice.Hooks` and `voice.ComposeHooks` for event callbacks. Beluga AI follows the hooks pattern consistently across all packages: optional function fields where `nil` means "skip this hook." This lets you layer observability, error handling, and business logic onto the voice pipeline without touching processor implementations. `ComposeHooks` merges multiple hook sets into one, so monitoring and error handling can be defined independently and combined at configuration time. Note that the cascading `voice.VoicePipeline` currently invokes `OnSpeechStart`, `OnSpeechEnd`, and `OnError`; `OnTranscript` and `OnResponse` are defined on `voice.Hooks` but not yet called by the pipeline, so record transcripts in your STT or LLM stage for now.
 
 ```go
 package main
@@ -901,7 +859,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
 func main() {
@@ -932,8 +890,14 @@ func main() {
 
 	// Compose multiple hook sets.
 	hooks := voice.ComposeHooks(monitoring, errorHandling)
-	_ = hooks // Pass to pipeline: voice.WithPipelineHooks(hooks)
 
-	fmt.Println("Voice hooks configured: monitoring + error handling")
+	// Pass the composed hooks to the pipeline.
+	pipe := voice.NewPipeline(
+		voice.WithVAD(voice.NewEnergyVAD(voice.EnergyVADConfig{})),
+		voice.WithHooks(hooks),
+		// voice.WithTransport(...), voice.WithSTT(...), voice.WithLLM(...), voice.WithTTS(...)
+	)
+
+	fmt.Printf("Voice hooks configured: monitoring + error handling (%T)\n", pipe)
 }
 ```

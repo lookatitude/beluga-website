@@ -34,7 +34,7 @@ MCP in Beluga AI spans two packages:
 Connect to any MCP server and use its tools as native `tool.Tool` instances:
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
 
 // Discover and wrap all tools from an MCP server
 tools, err := mcp.FromMCP(ctx, "https://mcp-server.example.com/mcp")
@@ -90,8 +90,8 @@ Expose Beluga tools as an MCP server over HTTP:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/protocol/mcp"
-    "github.com/lookatitude/beluga-ai/tool"
+    "github.com/lookatitude/beluga-ai/v2/protocol/mcp"
+    "github.com/lookatitude/beluga-ai/v2/tool"
 )
 
 weatherTool := tool.NewFuncTool("get_weather", "Get current weather",
@@ -124,7 +124,7 @@ The server implements JSON-RPC 2.0 over HTTP POST and handles:
 The MCP registry discovers and aggregates tools from multiple MCP servers:
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp/registry"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp/registry"
 
 reg := registry.New()
 reg.AddServer("weather", "https://weather-mcp.example.com/mcp", "weather", "utilities")
@@ -155,7 +155,7 @@ if err != nil {
 Bridge between Beluga tools and the official MCP Go SDK:
 
 ```go
-import "github.com/lookatitude/beluga-ai/protocol/mcp/sdk"
+import "github.com/lookatitude/beluga-ai/v2/protocol/mcp/sdk"
 
 // Create an SDK-native MCP server from Beluga tools
 sdkServer := sdk.NewServer("my-server", "1.0.0", weatherTool, searchTool)
@@ -192,7 +192,7 @@ This means MCP-sourced tools work identically with agents, middleware, hooks, an
 For environments where MCP servers are known at compile time, use the static registry in the `tool` package:
 
 ```go
-import "github.com/lookatitude/beluga-ai/tool"
+import "github.com/lookatitude/beluga-ai/v2/tool"
 
 reg := tool.NewStaticMCPRegistry(
     tool.MCPServerInfo{

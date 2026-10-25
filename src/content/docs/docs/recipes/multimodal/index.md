@@ -27,10 +27,10 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/schema"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // CompareMultipleImages sends multiple images in a single prompt.
@@ -108,11 +108,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/schema"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 // ProviderCapabilities describes what a given model supports.
@@ -227,7 +227,7 @@ func main() {
 
 Sending raw, high-resolution images to vision models wastes tokens and money. Preprocessing (resize, compress, format conversion) reduces API costs and improves response latency while preserving sufficient visual information for the model.
 
-This example uses only the Go standard library; the `image/jpeg` and `image/png` packages handle encoding, and `golang.org/x/image/draw` handles resizing without external dependencies:
+This example uses the Go standard library's `image/jpeg` and `image/png` packages for encoding, plus `golang.org/x/image/draw` (the Go project's extended image module) for resizing:
 
 ```go
 package main
@@ -237,16 +237,17 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/draw"
 	"image/jpeg"
 	_ "image/png"
 	"log/slog"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/schema"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+
+	"golang.org/x/image/draw"
 )
 
 // ImageProcessor resizes and reencodes images before sending to vision models.
@@ -367,10 +368,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/schema"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 // ClassificationResult holds the outcome for a single image.

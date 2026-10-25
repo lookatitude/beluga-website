@@ -15,7 +15,7 @@ Choose Gladia when automatic language detection is important — for example, in
 ## Installation
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/voice/stt/providers/gladia"
+import _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/gladia"
 ```
 
 The blank import registers the `"gladia"` provider with the STT registry.
@@ -46,8 +46,8 @@ import (
     "log"
     "os"
 
-    "github.com/lookatitude/beluga-ai/voice/stt"
-    _ "github.com/lookatitude/beluga-ai/voice/stt/providers/gladia"
+    "github.com/lookatitude/beluga-ai/v2/voice/stt"
+    _ "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/gladia"
 )
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 ## Direct Construction
 
 ```go
-import "github.com/lookatitude/beluga-ai/voice/stt/providers/gladia"
+import "github.com/lookatitude/beluga-ai/v2/voice/stt/providers/gladia"
 
 engine, err := gladia.New(stt.Config{
     Language: "en",

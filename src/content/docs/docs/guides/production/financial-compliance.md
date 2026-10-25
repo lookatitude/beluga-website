@@ -56,9 +56,7 @@ import (
     "fmt"
     "regexp"
 
-    "github.com/lookatitude/beluga-ai/guard"
-
-    _ "github.com/lookatitude/beluga-ai/guard/providers/content"
+    "github.com/lookatitude/beluga-ai/v2/guard"
 )
 
 // ComplianceFirewall validates financial advice for regulatory compliance.
@@ -70,12 +68,9 @@ type ComplianceFirewall struct {
 }
 
 func NewComplianceFirewall(ctx context.Context) (*ComplianceFirewall, error) {
-    safetyChecker, err := guard.New("content", guard.Config{
-        Patterns: getFinancialSafetyPatterns(),
-    })
-    if err != nil {
-        return nil, fmt.Errorf("create safety checker: %w", err)
-    }
+    // guard.ContentFilter matches plain keywords; these rules need regular
+    // expressions, so they run in a small custom guard.Guard (defined below).
+    safetyChecker := &regexGuard{name: "financial_prohibited", patterns: getFinancialSafetyPatterns()}
 
     return &ComplianceFirewall{
         safetyChecker:       safetyChecker,
@@ -93,14 +88,15 @@ func (c *ComplianceFirewall) ValidateAdvice(ctx context.Context, advice string) 
     }
 
     // Check for prohibited content
-    safetyResult, err := c.safetyChecker.Check(ctx, guard.Input{
+    safetyResult, err := c.safetyChecker.Validate(ctx, guard.GuardInput{
         Content: advice,
+        Role:    "output",
     })
     if err != nil {
         return nil, fmt.Errorf("safety check failed: %w", err)
     }
 
-    if !safetyResult.Safe {
+    if !safetyResult.Allowed {
         result.Compliant = false
         result.Issues = append(result.Issues, ComplianceIssue{
             Type:        "prohibited_content",
@@ -156,7 +152,7 @@ func (c *ComplianceFirewall) hasInvestmentRecommendation(advice string) bool {
     }
 
     for _, pattern := range patterns {
-        if matched, _ := regexp.MatchString(pattern, advice); matched {
+        if regexp.MustCompile(pattern).MatchString(advice) {
             return true
         }
     }
@@ -164,15 +160,32 @@ func (c *ComplianceFirewall) hasInvestmentRecommendation(advice string) bool {
     return false
 }
 
-func getFinancialSafetyPatterns() []string {
-    return []string{
+func getFinancialSafetyPatterns() []*regexp.Regexp {
+    return []*regexp.Regexp{
         // Guaranteed returns (prohibited by SEC)
-        `(?i)\b(guaranteed|guarantee)\b.*?\b(return|profit|gain)\b`,
+        regexp.MustCompile(`(?i)\b(guaranteed|guarantee)\b.*?\b(return|profit|gain)\b`),
         // No risk statements (prohibited)
-        `(?i)\b(no\s+risk|risk-free|zero\s+risk)\b`,
+        regexp.MustCompile(`(?i)\b(no\s+risk|risk-free|zero\s+risk)\b`),
         // Specific recommendations without disclaimers
-        `(?i)\b(must\s+buy|should\s+sell)\b`,
+        regexp.MustCompile(`(?i)\b(must\s+buy|should\s+sell)\b`),
     }
+}
+
+// regexGuard implements guard.Guard: it blocks content matching any pattern.
+type regexGuard struct {
+    name     string
+    patterns []*regexp.Regexp
+}
+
+func (g *regexGuard) Name() string { return g.name }
+
+func (g *regexGuard) Validate(_ context.Context, in guard.GuardInput) (guard.GuardResult, error) {
+    for _, re := range g.patterns {
+        if re.MatchString(in.Content) {
+            return guard.GuardResult{Allowed: false, Reason: "matched " + re.String(), GuardName: g.name}, nil
+        }
+    }
+    return guard.GuardResult{Allowed: true, GuardName: g.name}, nil
 }
 
 type ComplianceResult struct {
@@ -302,7 +315,7 @@ func (i *InvestmentValidator) hasSuitabilityAnalysis(advice string) bool {
     }
 
     for _, pattern := range patterns {
-        if matched, _ := regexp.MatchString(pattern, advice); matched {
+        if regexp.MustCompile(pattern).MatchString(advice) {
             return true
         }
     }
@@ -318,7 +331,7 @@ func (i *InvestmentValidator) hasRiskDisclosure(advice string) bool {
     }
 
     for _, pattern := range patterns {
-        if matched, _ := regexp.MatchString(pattern, advice); matched {
+        if regexp.MustCompile(pattern).MatchString(advice) {
             return true
         }
     }
@@ -333,7 +346,7 @@ func (i *InvestmentValidator) hasAbsoluteRecommendation(advice string) bool {
     }
 
     for _, pattern := range patterns {
-        if matched, _ := regexp.MatchString(pattern, advice); matched {
+        if regexp.MustCompile(pattern).MatchString(advice) {
             return true
         }
     }
@@ -465,6 +478,6 @@ Financial compliance firewall delivered significant improvements:
 
 ## Related Resources
 
-- [Children's Story Safety](/docs/guides/children-stories-safety/) for content safety patterns
-- [Guard Configuration](/docs/guides/safety-guardrails/) for compliance pipeline setup
-- [Safety Integration](/docs/guides/production/integrations/) for provider-specific configuration
+- [Children's Story Safety](/docs/guides/production/children-stories-safety/) for content safety patterns
+- [Guard Configuration](/docs/guides/production/safety-and-guards/) for compliance pipeline setup
+- [Safety Integration](/docs/guides/production/) for provider-specific configuration

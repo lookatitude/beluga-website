@@ -15,7 +15,7 @@ Choose Redis when you already have Redis in your infrastructure stack and want t
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/rag/vectorstore/providers/redis
+go get github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/redis
 ```
 
 Start Redis with RediSearch:
@@ -33,10 +33,10 @@ import (
     "context"
     "log"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/vectorstore"
-    "github.com/lookatitude/beluga-ai/schema"
-    _ "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/redis"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
+    "github.com/lookatitude/beluga-ai/v2/schema"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/redis"
 )
 
 func main() {
@@ -81,7 +81,7 @@ Use `EnsureIndex` to create the RediSearch index:
 
 ```go
 import (
-    redisstore "github.com/lookatitude/beluga-ai/rag/vectorstore/providers/redis"
+    redisstore "github.com/lookatitude/beluga-ai/v2/rag/vectorstore/providers/redis"
 )
 
 store := redisstore.New("localhost:6379",

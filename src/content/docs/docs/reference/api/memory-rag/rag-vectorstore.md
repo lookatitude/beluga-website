@@ -9,7 +9,7 @@ head:
 ---
 
 ```go
-import "github.com/lookatitude/beluga-ai/rag/vectorstore"
+import "github.com/lookatitude/beluga-ai/v2/rag/vectorstore"
 ```
 
 Package vectorstore provides the VectorStore interface and registry for

@@ -33,7 +33,7 @@ graph TB
 
 ## Gateway Service
 
-The gateway uses Beluga AI's registry pattern (`llm.New()`) to create providers by name, keeping initialization uniform. Each provider is stored by name in a map, enabling dynamic addition and removal at runtime. The blank imports (`_ "github.com/lookatitude/beluga-ai/llm/providers/..."`) register providers via `init()` so they're available through the registry without explicit wiring.
+The gateway uses Beluga AI's registry pattern (`llm.New()`) to create providers by name, keeping initialization uniform. Each provider is stored by name in a map, enabling dynamic addition and removal at runtime. The blank imports (for example `_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"`) register providers via `init()` so they're available through the registry without explicit wiring.
 
 ```go
 package main
@@ -42,16 +42,17 @@ import (
     "context"
     "fmt"
     "log"
+    "os"
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/bedrock"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/bedrock"
 )
 
 type LLMGateway struct {
@@ -92,8 +93,8 @@ func NewLLMGateway(ctx context.Context) (*LLMGateway, error) {
 
     // Initialize Bedrock
     bedrockModel, err := llm.New("bedrock", config.ProviderConfig{
-        Region: "us-east-1",
-        Model:  "anthropic.claude-v2",
+        Model:   "anthropic.claude-v2",
+        Options: map[string]any{"region": "us-east-1"},
     })
     if err != nil {
         log.Printf("Failed to create Bedrock provider: %v", err)
@@ -293,9 +294,9 @@ type RateLimiter struct {
 func NewRateLimiter() *RateLimiter {
     return &RateLimiter{
         limiters: map[string]*rate.Limiter{
-            "openai":    rate.NewLimiter(rate.Every(time.Minute), 60),   // 60 req/min
-            "anthropic": rate.NewLimiter(rate.Every(time.Minute), 50),   // 50 req/min
-            "bedrock":   rate.NewLimiter(rate.Every(time.Minute), 100),  // 100 req/min
+            "openai":    rate.NewLimiter(rate.Every(time.Minute/60), 60),   // 60 req/min
+            "anthropic": rate.NewLimiter(rate.Every(time.Minute/50), 50),   // 50 req/min
+            "bedrock":   rate.NewLimiter(rate.Every(time.Minute/100), 100), // 100 req/min
         },
     }
 }
@@ -319,7 +320,7 @@ Gateway-level observability answers questions that per-provider metrics cannot: 
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
     "go.opentelemetry.io/otel/metric"
@@ -385,16 +386,15 @@ func (g *ObservableGateway) Generate(ctx context.Context, msgs []schema.Message)
     }
 
     // Record token usage
-    if resp.Usage != nil {
-        tokenCounter, _ := g.meter.Int64Counter("llm.tokens.total")
+    if tokenCounter, err := g.meter.Int64Counter("llm.tokens.total"); err == nil {
         tokenCounter.Add(ctx, int64(resp.Usage.TotalTokens), metric.WithAttributes(
             attribute.String("provider", providerName),
         ))
     }
 
     span.SetAttributes(
-        attribute.Int("gen_ai.usage.prompt_tokens", resp.Usage.PromptTokens),
-        attribute.Int("gen_ai.usage.completion_tokens", resp.Usage.CompletionTokens),
+        attribute.Int("gen_ai.usage.input_tokens", resp.Usage.InputTokens),
+        attribute.Int("gen_ai.usage.output_tokens", resp.Usage.OutputTokens),
     )
 
     return resp, nil
@@ -412,21 +412,21 @@ func status(err error) string {
 
 ### Circuit Breaker
 
-Implement circuit breaker pattern for failing providers:
+Implement the circuit breaker pattern for failing providers with `resilience.CircuitBreaker`. Create the breaker once (for example in `NewLLMGateway`) and reuse it, so its failure count survives across requests:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
-func (g *LLMGateway) GenerateWithCircuitBreaker(ctx context.Context, msgs []schema.Message) (*schema.AIMessage, error) {
-    cb := resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
-        FailureThreshold: 5,
-        SuccessThreshold: 2,
-        Timeout:          60 * time.Second,
-    })
+// cb := resilience.NewCircuitBreaker(5, 60*time.Second) // open after 5 failures, probe after 60s
 
-    return resilience.ExecuteWithCircuitBreaker(ctx, cb, func(ctx context.Context) (*schema.AIMessage, error) {
+func (g *LLMGateway) GenerateWithCircuitBreaker(ctx context.Context, cb *resilience.CircuitBreaker, msgs []schema.Message) (*schema.AIMessage, error) {
+    out, err := cb.Execute(ctx, func(ctx context.Context) (any, error) {
         return g.Generate(ctx, msgs)
     })
+    if err != nil {
+        return nil, err // resilience.ErrCircuitOpen while the breaker is open
+    }
+    return out.(*schema.AIMessage), nil
 }
 ```
 
@@ -481,6 +481,6 @@ observability:
 
 ## Related Resources
 
-- [LLM Package Guide](/docs/guides/llm-integration/) for LLM integration patterns
-- [Cost-Optimized Router](/docs/guides/cost-optimized-router/) for cost optimization strategies
-- [Observability Guide](/docs/guides/observability/) for OpenTelemetry setup
+- [LLM Package Guide](/docs/guides/foundations/working-with-llms/) for LLM integration patterns
+- [Cost-Optimized Router](/docs/guides/production/cost-optimized-router/) for cost optimization strategies
+- [Observability Guide](/docs/guides/production/observability/) for OpenTelemetry setup

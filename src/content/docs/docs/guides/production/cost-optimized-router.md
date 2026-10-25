@@ -48,12 +48,12 @@ import (
     "log"
     "strings"
 
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
 )
 
 type RequestComplexity string
@@ -423,12 +423,18 @@ func (r *CostOptimizedRouter) TestStrategy(ctx context.Context, newStrategy Rout
 
         // Control: current strategy
         controlModel := r.selectModel(complexity)
-        controlResp, _ := r.models[controlModel].Generate(ctx, msgs)
+        controlResp, err := r.models[controlModel].Generate(ctx, msgs)
+        if err != nil {
+            return nil, fmt.Errorf("control request %d: %w", i, err)
+        }
         controlCosts = append(controlCosts, r.estimateCost(controlModel, controlResp))
 
         // Treatment: new strategy
         treatmentModel := newStrategy.SelectModel(complexity)
-        treatmentResp, _ := r.models[treatmentModel].Generate(ctx, msgs)
+        treatmentResp, err := r.models[treatmentModel].Generate(ctx, msgs)
+        if err != nil {
+            return nil, fmt.Errorf("treatment request %d: %w", i, err)
+        }
         treatmentCosts = append(treatmentCosts, r.estimateCost(treatmentModel, treatmentResp))
     }
 
@@ -483,6 +489,6 @@ Organizations using cost-optimized routing with Beluga AI achieve:
 
 ## Related Resources
 
-- [Model A/B Testing](/docs/guides/model-ab-testing/) for comparing routing strategies
-- [LLM Gateway](/docs/guides/llm-gateway/) for multi-provider routing
-- [LLM Integration Guide](/docs/guides/llm-integration/) for model configuration
+- [Model A/B Testing](/docs/guides/production/model-ab-testing/) for comparing routing strategies
+- [LLM Gateway](/docs/guides/production/llm-gateway/) for multi-provider routing
+- [LLM Integration Guide](/docs/guides/foundations/working-with-llms/) for model configuration

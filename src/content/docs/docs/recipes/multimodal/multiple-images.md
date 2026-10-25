@@ -29,12 +29,15 @@ import (
     "context"
     "fmt"
     "log"
+    "net/http"
+    "os"
+    "path/filepath"
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.multimodal.multi_image")
@@ -69,7 +72,7 @@ func (mip *MultiImageProcessor) ProcessMultipleImages(ctx context.Context, promp
     if totalImages > mip.maxImages {
         err := fmt.Errorf("too many images: %d (max: %d)", totalImages, mip.maxImages)
         span.RecordError(err)
-        span.SetStatus(trace.StatusError, err.Error())
+        span.SetStatus(codes.Error, err.Error())
         return nil, err
     }
 
@@ -81,8 +84,8 @@ func (mip *MultiImageProcessor) ProcessMultipleImages(ctx context.Context, promp
         messages = append(messages, schema.NewSystemMessage(prompt))
     }
 
-    // Create user message with multiple images
-    imageMessages := []schema.ImageContent{}
+    // Collect image parts for a single user message.
+    imageParts := []schema.ContentPart{}
 
     // Add images from paths
     for i, path := range imagePaths {
@@ -91,7 +94,7 @@ func (mip *MultiImageProcessor) ProcessMultipleImages(ctx context.Context, promp
             span.RecordError(err)
             continue
         }
-        imageMessages = append(imageMessages, imgContent)
+        imageParts = append(imageParts, imgContent)
     }
 
     // Add images from URLs
@@ -101,34 +104,51 @@ func (mip *MultiImageProcessor) ProcessMultipleImages(ctx context.Context, promp
             span.RecordError(err)
             continue
         }
-        imageMessages = append(imageMessages, imgContent)
+        imageParts = append(imageParts, imgContent)
     }
 
-    // Create multimodal message
-    userMsg := schema.NewHumanMessage("")
-    // Add image contents to message
-    // This would use the actual multimodal message API
+    // Create one multimodal user message: a text part followed by the images.
+    parts := append([]schema.ContentPart{
+        schema.TextPart{Text: fmt.Sprintf("%d images follow, in order.", len(imageParts))},
+    }, imageParts...)
+    userMsg := &schema.HumanMessage{Parts: parts}
 
     messages = append(messages, userMsg)
 
-    span.SetAttributes(attribute.Int("processed_image_count", len(imageMessages)))
-    span.SetStatus(trace.StatusOK, "multiple images processed")
+    span.SetAttributes(attribute.Int("processed_image_count", len(imageParts)))
+    span.SetStatus(codes.Ok, "multiple images processed")
 
     return messages, nil
 }
 
-// loadImageFromPath loads image from file path
-func (mip *MultiImageProcessor) loadImageFromPath(ctx context.Context, path string, index int) (schema.ImageContent, error) {
-    // Load and encode image
-    // In practice, would load file, encode to base64 or bytes
-    return schema.ImageContent{}, nil
+// loadImageFromPath reads an image file into an inline ImagePart.
+func (mip *MultiImageProcessor) loadImageFromPath(ctx context.Context, path string, index int) (schema.ImagePart, error) {
+    data, err := os.ReadFile(filepath.Clean(path))
+    if err != nil {
+        return schema.ImagePart{}, fmt.Errorf("image %d: %w", index, err)
+    }
+    mimeType := http.DetectContentType(data)
+    if !mip.supported(mimeType) {
+        return schema.ImagePart{}, fmt.Errorf("image %d: unsupported type %s", index, mimeType)
+    }
+    return schema.ImagePart{Data: data, MimeType: mimeType}, nil
 }
 
-// loadImageFromURL loads image from URL
-func (mip *MultiImageProcessor) loadImageFromURL(ctx context.Context, url string, index int) (schema.ImageContent, error) {
-    // Download and encode image
-    // In practice, would download, validate, encode
-    return schema.ImageContent{}, nil
+// loadImageFromURL references a remote image; the provider fetches it.
+func (mip *MultiImageProcessor) loadImageFromURL(ctx context.Context, url string, index int) (schema.ImagePart, error) {
+    if url == "" {
+        return schema.ImagePart{}, fmt.Errorf("image %d: empty URL", index)
+    }
+    return schema.ImagePart{URL: url}, nil
+}
+
+func (mip *MultiImageProcessor) supported(mimeType string) bool {
+    for _, f := range mip.imageFormats {
+        if f == mimeType {
+            return true
+        }
+    }
+    return false
 }
 
 // AnnotateImages adds annotations to help LLM understand image relationships
@@ -190,7 +210,7 @@ Specify image order explicitly for sequential analysis:
 
 ```go
 type ImageWithContext struct {
-    Image   schema.ImageContent
+    Image   schema.ImagePart
     Context string
     Order   int
 }
@@ -209,5 +229,5 @@ type ImageRelationship struct {
 
 ## Related Recipes
 
-- [Capability-based Fallbacks](/docs/recipes/capability-fallbacks) -- Handle capability limitations across providers
-- [Voice Providers Guide](/docs/guides/voice-providers) -- For a deeper understanding of multimodal pipelines
+- [Capability-based Fallbacks](/docs/recipes/multimodal/capability-fallbacks/) -- Handle capability limitations across providers
+- [Voice Providers Guide](/docs/reference/providers/voice/) -- For a deeper understanding of multimodal pipelines

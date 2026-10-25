@@ -31,10 +31,10 @@ import (
     "fmt"
     "os"
 
-    "github.com/lookatitude/beluga-ai/config"
-    "github.com/lookatitude/beluga-ai/rag/embedding"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/openai"
-    _ "github.com/lookatitude/beluga-ai/rag/embedding/providers/ollama"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/rag/embedding"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/rag/embedding/providers/ollama"
 )
 
 func main() {
@@ -61,8 +61,16 @@ func main() {
     }
 
     text := "Kubernetes pod scheduling and resource allocation"
-    vec1, _ := openaiEmb.EmbedQuery(ctx, text)
-    vec2, _ := ollamaEmb.EmbedQuery(ctx, text)
+    vec1, err := openaiEmb.EmbedSingle(ctx, text)
+    if err != nil {
+        fmt.Printf("OpenAI embed error: %v\n", err)
+        return
+    }
+    vec2, err := ollamaEmb.EmbedSingle(ctx, text)
+    if err != nil {
+        fmt.Printf("Ollama embed error: %v\n", err)
+        return
+    }
 
     fmt.Printf("OpenAI dimensions: %d\n", len(vec1))
     fmt.Printf("Ollama dimensions: %d\n", len(vec2))
@@ -91,7 +99,7 @@ func batchEmbed(ctx context.Context, embedder embedding.Embedder, texts []string
             end = len(texts)
         }
 
-        vectors, err := embedder.EmbedDocuments(ctx, texts[i:end])
+        vectors, err := embedder.Embed(ctx, texts[i:end])
         if err != nil {
             return nil, fmt.Errorf("batch %d-%d: %w", i, end, err)
         }

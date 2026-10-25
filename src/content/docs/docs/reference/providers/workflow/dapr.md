@@ -15,7 +15,7 @@ Choose Dapr when you are already running a Dapr sidecar and want to reuse your e
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/workflow/providers/dapr
+go get github.com/lookatitude/beluga-ai/v2/workflow/providers/dapr
 ```
 
 Ensure a Dapr sidecar is running with a configured state store component.
@@ -30,8 +30,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/workflow"
-    "github.com/lookatitude/beluga-ai/workflow/providers/dapr"
+    "github.com/lookatitude/beluga-ai/v2/workflow"
+    "github.com/lookatitude/beluga-ai/v2/workflow/providers/dapr"
 )
 
 func main() {

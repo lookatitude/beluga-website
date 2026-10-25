@@ -12,11 +12,11 @@ Financial services companies process thousands of invoices daily, each requiring
 
 The challenge goes beyond OCR and extraction. Invoices arrive in varied formats from hundreds of vendors, each with different layouts. Extracted data must be validated against business rules (line items must sum to total, dates must be valid, vendor must exist in the system). Approval routing depends on amount thresholds and business unit, and the entire process must be auditable for compliance.
 
-Automated invoice processing using Beluga AI's orchestration capabilities chains these stages into a single resilient workflow with checkpointing, so no invoice is lost even if the system restarts mid-processing.
+Automated invoice processing using Beluga AI's orchestration capabilities chains these stages into a single workflow, and a small checkpointing layer (shown below) lets processing resume if the system restarts mid-invoice.
 
 ## Solution Architecture
 
-Beluga AI's `orchestration/` package coordinates multi-stage workflows with checkpointing for recovery. The pipeline uses a sequential workflow (`NewSequentialWorkflow`) where each stage is a `core.Runnable` — parse, extract, validate, approve, integrate. This design makes each stage independently testable and replaceable. Checkpointing saves state between stages so a failure in approval routing doesn't require re-extracting data from the PDF.
+Beluga AI's `orchestration/` package composes multi-stage workflows. The pipeline uses `orchestration.Chain`, which runs `core.Runnable` stages in order and feeds each stage's output to the next: parse, extract, validate, approve, integrate. This design makes each stage independently testable and replaceable. `Chain` itself keeps no state between runs, so the checkpointing in [Production Considerations](#checkpointing-for-recovery) is application code that saves state between stages, so a failure in approval routing doesn't require re-extracting data from the PDF.
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
@@ -47,19 +47,37 @@ package main
 import (
     "context"
     "fmt"
+    "iter"
+    "os"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/orchestration"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/config"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/orchestration"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 
-    _ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+    _ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
+
+// step adapts a plain function to core.Runnable so stages can be chained
+// with orchestration.Chain.
+type step func(ctx context.Context, input any) (any, error)
+
+func (f step) Invoke(ctx context.Context, input any, _ ...core.Option) (any, error) {
+    return f(ctx, input)
+}
+
+func (f step) Stream(ctx context.Context, input any, _ ...core.Option) iter.Seq2[any, error] {
+    return func(yield func(any, error) bool) {
+        out, err := f(ctx, input)
+        yield(out, err)
+    }
+}
 
 // InvoiceProcessor orchestrates invoice processing workflow
 type InvoiceProcessor struct {
-    workflow orchestration.Workflow
+    workflow core.Runnable   // the chained stages
+    stages   []core.Runnable // kept for per-stage checkpointing
     model    llm.ChatModel
 }
 
@@ -74,19 +92,18 @@ func NewInvoiceProcessor(ctx context.Context) (*InvoiceProcessor, error) {
     }
 
     // Create workflow with stages
-    workflow := orchestration.NewSequentialWorkflow(
-        "invoice-processing",
-        []core.Runnable{
-            NewParseStep(),
-            NewExtractionStep(model),
-            NewValidationStep(),
-            NewApprovalStep(),
-            NewIntegrationStep(),
-        },
-    )
+    stages := []core.Runnable{
+        NewParseStep(),
+        NewExtractionStep(model),
+        NewValidationStep(),
+        NewApprovalStep(),
+        NewIntegrationStep(),
+    }
+    workflow := orchestration.Chain(stages...)
 
     return &InvoiceProcessor{
         workflow: workflow,
+        stages:   stages,
         model:    model,
     }, nil
 }
@@ -108,7 +125,7 @@ func (p *InvoiceProcessor) ProcessInvoice(ctx context.Context, invoiceData []byt
 
 ## Data Extraction with LLM
 
-Traditional OCR extracts text but doesn't understand document structure — it can't distinguish a vendor name from an address, or a line item total from the invoice total. LLM-based extraction understands document semantics and maps them to structured fields. Using `llm.WithResponseFormat("json_object")` constrains the response to valid JSON, ensuring the output can be reliably parsed into the `InvoiceData` struct:
+Traditional OCR extracts text but doesn't understand document structure — it can't distinguish a vendor name from an address, or a line item total from the invoice total. LLM-based extraction understands document semantics and maps them to structured fields. Using `llm.WithResponseFormat(llm.ResponseFormat{Type: "json_object"})` constrains the response to valid JSON, ensuring the output can be reliably parsed into the `InvoiceData` struct:
 
 ```go
 type InvoiceData struct {
@@ -132,10 +149,11 @@ type ExtractionStep struct {
 }
 
 func NewExtractionStep(model llm.ChatModel) core.Runnable {
-    return &ExtractionStep{model: model}
+    s := &ExtractionStep{model: model}
+    return step(s.Run)
 }
 
-func (s *ExtractionStep) Invoke(ctx context.Context, input interface{}) (interface{}, error) {
+func (s *ExtractionStep) Run(ctx context.Context, input any) (any, error) {
     data := input.(map[string]interface{})
     invoiceText := data["parsed_text"].(string)
 
@@ -160,7 +178,7 @@ Return only valid JSON.`,
 
     // Use structured output for guaranteed JSON
     resp, err := s.model.Generate(ctx, msgs,
-        llm.WithResponseFormat("json_object"),
+        llm.WithResponseFormat(llm.ResponseFormat{Type: "json_object"}),
     )
     if err != nil {
         return nil, fmt.Errorf("extraction failed: %w", err)
@@ -168,7 +186,7 @@ Return only valid JSON.`,
 
     // Parse JSON response
     var invoiceData InvoiceData
-    if err := json.Unmarshal([]byte(resp.Parts[0].(schema.TextPart).Text), &invoiceData); err != nil {
+    if err := json.Unmarshal([]byte(resp.Text()), &invoiceData); err != nil {
         return nil, fmt.Errorf("invalid JSON: %w", err)
     }
 
@@ -186,10 +204,11 @@ Validate extracted data against business rules:
 type ValidationStep struct{}
 
 func NewValidationStep() core.Runnable {
-    return &ValidationStep{}
+    s := &ValidationStep{}
+    return step(s.Run)
 }
 
-func (s *ValidationStep) Invoke(ctx context.Context, input interface{}) (interface{}, error) {
+func (s *ValidationStep) Run(ctx context.Context, input any) (any, error) {
     data := input.(map[string]interface{})
     invoice := data["invoice_data"].(InvoiceData)
 
@@ -240,12 +259,13 @@ type ApprovalStep struct {
 }
 
 func NewApprovalStep() core.Runnable {
-    return &ApprovalStep{
+    s := &ApprovalStep{
         approvalService: NewApprovalService(),
     }
+    return step(s.Run)
 }
 
-func (s *ApprovalStep) Invoke(ctx context.Context, input interface{}) (interface{}, error) {
+func (s *ApprovalStep) Run(ctx context.Context, input any) (any, error) {
     data := input.(map[string]interface{})
     invoice := data["invoice_data"].(InvoiceData)
 
@@ -299,7 +319,7 @@ func (p *InvoiceProcessor) ProcessWithCheckpointing(ctx context.Context, invoice
     }
 
     // Wrap each stage to checkpoint after completion
-    for i, stage := range p.workflow.Stages {
+    for i, stage := range p.stages {
         result, err := stage.Invoke(ctx, input)
         if err != nil {
             // Save checkpoint before failing
@@ -324,9 +344,9 @@ func (p *InvoiceProcessor) ProcessWithCheckpointing(ctx context.Context, invoice
 Retry failed stages with exponential backoff:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
-func (s *ExtractionStep) InvokeWithRetry(ctx context.Context, input interface{}) (interface{}, error) {
+func (s *ExtractionStep) RunWithRetry(ctx context.Context, input any) (any, error) {
     policy := resilience.RetryPolicy{
         MaxAttempts:    3,
         InitialBackoff: 1 * time.Second,
@@ -335,8 +355,8 @@ func (s *ExtractionStep) InvokeWithRetry(ctx context.Context, input interface{})
         Jitter:         true,
     }
 
-    return resilience.Retry(ctx, policy, func(ctx context.Context) (interface{}, error) {
-        return s.Invoke(ctx, input)
+    return resilience.Retry(ctx, policy, func(ctx context.Context) (any, error) {
+        return s.Run(ctx, input)
     })
 }
 ```
@@ -383,6 +403,6 @@ func (p *InvoiceProcessor) ProcessBatch(ctx context.Context, invoices []Invoice)
 
 ## Related Resources
 
-- [Multi-Stage ETL](/docs/guides/multi-stage-etl/) for complex pipeline patterns
-- [Orchestration Guide](/docs/guides/orchestration/) for workflow design
-- [Resilience Patterns](/docs/guides/resilience/) for retry and circuit breaker setup
+- [Multi-Stage ETL](/docs/guides/capabilities/documents/multi-stage-etl/) for complex pipeline patterns
+- [Orchestration Guide](/docs/guides/production/orchestration/) for workflow design
+- [Resilience Patterns](/docs/guides/production/resilience/) for retry and circuit breaker setup

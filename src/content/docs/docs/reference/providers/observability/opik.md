@@ -15,7 +15,7 @@ Choose Opik when you want workspace-level trace organization integrated with Com
 ## Installation
 
 ```bash
-go get github.com/lookatitude/beluga-ai/o11y/providers/opik
+go get github.com/lookatitude/beluga-ai/v2/o11y/providers/opik
 ```
 
 ## Configuration
@@ -44,8 +44,8 @@ import (
     "os"
     "time"
 
-    "github.com/lookatitude/beluga-ai/o11y"
-    "github.com/lookatitude/beluga-ai/o11y/providers/opik"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/opik"
 )
 
 func main() {
@@ -64,7 +64,7 @@ func main() {
         OutputTokens: 150,
         Duration:     1200 * time.Millisecond,
         Cost:         0.003,
-        Response:     "The capital of France is Paris.",
+        Response:     map[string]any{"role": "assistant", "content": "The capital of France is Paris."},
         Metadata: map[string]any{
             "experiment": "baseline-v2",
         },
@@ -112,9 +112,9 @@ Combine Opik with other observability providers:
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/o11y"
-    "github.com/lookatitude/beluga-ai/o11y/providers/opik"
-    "github.com/lookatitude/beluga-ai/o11y/providers/langfuse"
+    "github.com/lookatitude/beluga-ai/v2/o11y"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/opik"
+    "github.com/lookatitude/beluga-ai/v2/o11y/providers/langfuse"
 )
 
 opikExporter, err := opik.New(

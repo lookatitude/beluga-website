@@ -37,9 +37,9 @@ import (
 
     "go.opentelemetry.io/otel"
     "go.opentelemetry.io/otel/attribute"
-    "go.opentelemetry.io/otel/trace"
+    "go.opentelemetry.io/otel/codes"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.prompts.message_chain")
@@ -123,7 +123,7 @@ func (mcb *MessageChainBuilder) Build(ctx context.Context) []schema.Message {
     defer span.End()
 
     span.SetAttributes(attribute.Int("message_count", len(mcb.messages)))
-    span.SetStatus(trace.StatusOK, "message chain built")
+    span.SetStatus(codes.Ok, "message chain built")
 
     return mcb.messages
 }

@@ -1,138 +1,255 @@
 ---
 title: Barge-In Detection for Voice Agents
-description: "Enable users to interrupt voice agents mid-speech with low-latency barge-in detection. Improve call satisfaction with natural turn-taking."
+description: "Let users interrupt voice agents mid-speech in Go: detect speech onset during playback with Beluga AI's VAD and stop playback with an interrupt frame."
 head:
   - tag: meta
     attrs:
       name: keywords
-      content: "barge-in detection, voice interruption, turn taking AI, contact center voice, echo cancellation, Beluga AI, Go, voice UX"
+      content: "barge-in detection, voice interruption, turn taking AI, contact center voice, echo cancellation, Beluga AI, Go, voice UX, VAD"
 ---
 
-Contact center voice agents that play out entire pre-generated responses without allowing interruption frustrate callers and fragment conversations. Users expect the same turn-taking dynamics they experience in human dialogue: the ability to interrupt when they already know the answer, correct a misunderstanding mid-sentence, or signal urgency. Without barge-in support, agents force callers to wait through irrelevant speech, increasing handle times and driving down satisfaction scores.
+Contact center voice agents that play out entire responses without allowing interruption frustrate callers. Users expect the turn-taking of human dialogue: they interrupt when they already know the answer, correct a misunderstanding mid-sentence, or signal urgency. Without barge-in, callers wait through irrelevant speech, handle times go up, and satisfaction goes down.
 
-Barge-in detection lets the system recognize when a user starts speaking during agent playback, immediately stopping TTS output and switching to listening mode. The core challenge is distinguishing genuine interruptions from false triggers caused by background noise, acoustic echo from the agent's own speaker output, or brief vocalizations like "uh-huh" that don't represent a turn change.
-
-This use case combines Beluga AI's VAD for speech onset detection with turn detection for context-aware barge-in decisions. Separating these two concerns — raw speech detection and turn-level intent — allows each component to be tuned independently, avoiding the fragile coupling that occurs when a single model tries to handle both.
+Barge-in detection recognizes when the user starts speaking during agent playback, stops the playback, and returns to listening. The hard part is telling a genuine interruption apart from false triggers: background noise, acoustic echo of the agent's own voice, or a brief "uh-huh" that is not a turn change. A VAD that fires on every speech onset interrupts too often, so the decision needs a few extra rules on top of it.
 
 ## Solution Architecture
 
 ```mermaid
 graph TB
-    Mic[Microphone] --> VAD[VAD]
-    TTS[TTS Output] --> Playback[Playback]
-    VAD --> SpeechOnset[Speech Onset?]
-    SpeechOnset -->|Yes| TurnCtx[Turn Context]
-    TurnCtx --> BargeIn{Barge-In?}
-    BargeIn -->|Yes| StopTTS[Stop TTS]
-    StopTTS --> Listen[Switch to Listening]
-    Listen --> STT[STT]
-    BargeIn -->|No| Playback
+    Mic[Client microphone] --> Recv[Transport.Recv]
+    Recv --> Check{Agent playing?}
+    Check -->|Yes| VAD[VAD]
+    VAD --> Sustained{Sustained speech?}
+    Sustained -->|Yes| Interrupt[Send interrupt frame]
+    Interrupt --> Client[Client stops playback]
+    Sustained -->|No| Pipeline
+    Check -->|No| Pipeline[Pipeline: VAD, STT, LLM, TTS]
+    Pipeline --> Send[Transport.Send]
+    Send --> Playback[Client playback]
 ```
 
-During agent playback, VAD processes microphone input. When speech onset is detected, turn-detection logic distinguishes between a genuine barge-in (user interrupting) and end-of-turn behavior, avoiding false triggers from background noise or echo.
+In Beluga's cascading pipeline (`voice.NewPipeline`), the pipeline pulls incoming frames from `Transport.Recv`, runs them through VAD, STT, LLM, and TTS, and writes the results with `Transport.Send`. The audio is played on the client after `Send` returns, so the pipeline keeps reading microphone input while the agent's voice plays. Barge-in detection therefore fits naturally in a transport wrapper:
 
-The architecture separates VAD from turn-level decision-making because each requires different tuning tradeoffs. VAD operates on raw audio frames with low latency requirements (under 30ms per frame), optimizing for recall — it should catch every potential speech onset. Turn detection then applies contextual heuristics to filter false positives, optimizing for precision. This two-stage design means you can adjust barge-in sensitivity without retraining or reconfiguring the VAD model.
+- `Send` records how long the agent's audio will play.
+- `Recv` checks each incoming audio frame while playback is active, and on a sustained speech onset sends a `voice.SignalInterrupt` control frame to the client.
+
+Two separate stages keep the tuning independent. The VAD optimizes for recall, so it catches every potential onset. The barge-in rules (sustained speech, a confidence floor) optimize for precision and filter false triggers.
 
 ## Implementation
 
-### VAD and Turn Detector Setup
+### VAD for Speech Onset
 
-The VAD is configured with a short `MinSpeechDuration` (100ms) to detect speech onset as quickly as possible. In playback scenarios, speed matters more than filtering out brief noises — false positives are handled by the turn detection layer downstream, not by the VAD itself.
+Use a VAD with a moderate threshold. Speed matters during playback, and the barge-in rules below filter brief noises:
 
 ```go
-package main
-
 import (
-    "context"
-    "time"
-
-    "github.com/lookatitude/beluga-ai/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice/vad/providers/silero"
 )
 
-func setupBargeInDetection(ctx context.Context) (voice.FrameProcessor, error) {
-    vad := voice.NewSileroVAD(voice.VADConfig{
-        Threshold:         0.5,
-        MinSpeechDuration: 100 * time.Millisecond, // Short for quick onset detection
-    })
-
-    return vad, nil
+func newOnsetVAD() (voice.ActivityDetector, error) {
+	return silero.New(silero.Config{Threshold: 0.5, SampleRate: 16000})
 }
 ```
 
-### Barge-In Logic
+The `silero` provider currently uses an energy-based approximation of Silero's speech probability rather than the ONNX model. See [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) for how to choose between `energy`, `webrtc`, and `silero`, and how to calibrate thresholds per environment.
 
-During the session playback loop, the barge-in logic monitors for speech onset and decides whether to interrupt. The key insight is using silence duration since the last detected speech as a lightweight heuristic: if the user was already speaking recently and the VAD fires again, this is likely a continuation or interruption rather than a new turn. This avoids the latency cost of running a full turn-prediction model on every VAD event.
+### Barge-In Transport Wrapper
 
-```go
-// In the session processing loop, while playing TTS audio:
-func checkBargeIn(ctx context.Context, vadResult bool, lastSpeechAt time.Time, minSilence time.Duration) bool {
-    if !vadResult {
-        return false
-    }
-
-    // Check turn context: if silence since last speech is short,
-    // this is likely a barge-in rather than end-of-turn
-    silence := time.Since(lastSpeechAt)
-    if silence < minSilence {
-        // User is interrupting agent speech
-        return true
-    }
-
-    return false
-}
-
-// On barge-in detection:
-// 1. Stop TTS playback immediately
-// 2. Clear playback buffers
-// 3. Switch session to listening mode
-// 4. Route audio to STT for the new user utterance
-```
-
-### Session Integration
-
-Wire barge-in logic into the voice session's state machine. The session uses a simple three-state model (Listening, Processing, Responding) where barge-in triggers an immediate transition from Responding back to Listening. This state machine approach ensures that audio routing (microphone to STT vs. TTS to speaker) changes atomically with the state transition, preventing audio from being sent to both paths simultaneously.
+The wrapper implements `voice.Transport`, so it can be passed to `voice.WithTransport` in place of the real transport. It requires the agent audio to be 16-bit PCM, because it estimates playback duration from the byte count. The `cartesia` provider returns raw 16-bit PCM; `elevenlabs` returns MP3, so with MP3 output have the client report when playback ends instead.
 
 ```go
-type SessionState string
+import (
+	"context"
+	"iter"
+	"sync"
+	"time"
 
-const (
-    StateListening  SessionState = "listening"
-    StateProcessing SessionState = "processing"
-    StateResponding SessionState = "responding"
+	"github.com/lookatitude/beluga-ai/v2/voice"
 )
 
-func (s *VoiceSession) handleBargeIn(ctx context.Context) {
-    s.stopTTS()
-    s.clearPlaybackBuffers()
-    s.state = StateListening
-    // New user audio is now routed to STT
+// BargeInTransport wraps a voice.Transport and interrupts client playback
+// when the user speaks over the agent.
+type BargeInTransport struct {
+	inner      voice.Transport
+	vad        voice.ActivityDetector
+	sampleRate int
+	// MinSpeech is how long speech must be sustained during playback before
+	// it counts as barge-in. Filters coughs, clicks, and short backchannels.
+	MinSpeech time.Duration
+	// MinConfidence ignores weak detections, such as residual echo.
+	MinConfidence float64
+	// OnBargeIn is called after the interrupt frame is sent (optional).
+	OnBargeIn func(ctx context.Context)
+
+	mu           sync.Mutex
+	playingUntil time.Time
+	speechRun    time.Duration
+}
+
+var _ voice.Transport = (*BargeInTransport)(nil)
+
+// NewBargeInTransport returns a wrapper with defaults suited to telephony.
+func NewBargeInTransport(inner voice.Transport, vad voice.ActivityDetector, sampleRate int) *BargeInTransport {
+	return &BargeInTransport{
+		inner:         inner,
+		vad:           vad,
+		sampleRate:    sampleRate,
+		MinSpeech:     150 * time.Millisecond,
+		MinConfidence: 0.5,
+	}
+}
+
+func (t *BargeInTransport) frameDuration(audio []byte) time.Duration {
+	return time.Duration(len(audio)/2) * time.Second / time.Duration(t.sampleRate)
+}
+
+// Send forwards the frame and extends the playback window for agent audio.
+func (t *BargeInTransport) Send(ctx context.Context, frame voice.Frame) error {
+	if err := t.inner.Send(ctx, frame); err != nil {
+		return err
+	}
+	if frame.Type == voice.FrameAudio {
+		t.mu.Lock()
+		start := time.Now()
+		if t.playingUntil.After(start) {
+			start = t.playingUntil // audio queues behind what is already playing
+		}
+		t.playingUntil = start.Add(t.frameDuration(frame.Data))
+		t.mu.Unlock()
+	}
+	return nil
+}
+
+// Recv forwards incoming frames and checks for barge-in during playback.
+func (t *BargeInTransport) Recv(ctx context.Context) iter.Seq2[voice.Frame, error] {
+	return func(yield func(voice.Frame, error) bool) {
+		for frame, err := range t.inner.Recv(ctx) {
+			if err == nil && frame.Type == voice.FrameAudio {
+				if bargeErr := t.checkBargeIn(ctx, frame.Data); bargeErr != nil {
+					yield(voice.Frame{}, bargeErr)
+					return
+				}
+			}
+			if !yield(frame, err) {
+				return
+			}
+		}
+	}
+}
+
+func (t *BargeInTransport) checkBargeIn(ctx context.Context, audio []byte) error {
+	t.mu.Lock()
+	playing := time.Now().Before(t.playingUntil)
+	if !playing {
+		t.speechRun = 0
+	}
+	t.mu.Unlock()
+	if !playing {
+		return nil
+	}
+
+	res, err := t.vad.DetectActivity(ctx, audio)
+	if err != nil {
+		return err
+	}
+
+	t.mu.Lock()
+	if res.IsSpeech && res.Confidence >= t.MinConfidence {
+		t.speechRun += t.frameDuration(audio)
+	} else {
+		t.speechRun = 0
+	}
+	triggered := t.speechRun >= t.MinSpeech
+	if triggered {
+		t.playingUntil, t.speechRun = time.Time{}, 0
+	}
+	t.mu.Unlock()
+
+	if !triggered {
+		return nil
+	}
+	// Tell the client to stop playback and drop any queued agent audio.
+	if err := t.inner.Send(ctx, voice.NewControlFrame(voice.SignalInterrupt)); err != nil {
+		return err
+	}
+	if t.OnBargeIn != nil {
+		t.OnBargeIn(ctx)
+	}
+	return nil
+}
+
+// Close closes the underlying transport.
+func (t *BargeInTransport) Close() error { return t.inner.Close() }
+```
+
+With `transport.NewWebSocketTransport`, control frames are sent as JSON text messages that carry the frame type and `metadata.signal`. Your client stops its audio player and clears its buffer when it receives `{"type":"control","metadata":{"signal":"interrupt"}}`.
+
+### Wiring It Into the Pipeline
+
+```go
+import (
+	"context"
+
+	"github.com/lookatitude/beluga-ai/v2/voice"
+	"github.com/lookatitude/beluga-ai/v2/voice/transport"
+)
+
+func runWithBargeIn(ctx context.Context, url string, stt, llm, tts voice.FrameProcessor) error {
+	ws, err := transport.NewWebSocketTransport(ctx, url, transport.WithWSSampleRate(16000))
+	if err != nil {
+		return err
+	}
+	defer ws.Close()
+
+	onset, err := newOnsetVAD()
+	if err != nil {
+		return err
+	}
+	pipelineVAD, err := newOnsetVAD() // separate instance: detectors keep per-stream state
+	if err != nil {
+		return err
+	}
+
+	sess := voice.NewSession("call-123")
+	bargeIn := NewBargeInTransport(ws, onset, 16000)
+	bargeIn.OnBargeIn = func(ctx context.Context) {
+		// Record the interruption on the session, for example for analytics.
+		sess.Metadata["last_barge_in"] = true
+	}
+
+	pipe := voice.NewPipeline(
+		voice.WithTransport(bargeIn),
+		voice.WithVAD(pipelineVAD),
+		voice.WithSTT(stt),
+		voice.WithLLM(llm),
+		voice.WithTTS(tts),
+		voice.WithSession(sess),
+	)
+	return pipe.Run(ctx)
 }
 ```
+
+After a barge-in, the user's speech continues through the pipeline's own VAD and STT as a normal turn. Text the LLM stage already produced for the interrupted response may still be synthesized and sent. The client should drop agent audio it receives after an interrupt until the next response starts, or you can add a stage that discards it.
+
+For speech-to-speech engines, sending `voice.NewControlFrame(voice.SignalInterrupt)` into `s2s.AsFrameProcessor` calls the provider session's `Interrupt` method, which cancels the in-progress response on the server side.
 
 ## Deployment Considerations
 
-- **MinSilenceDuration**: Set to 200ms or less for responsive barge-in; tune per environment
-- **Echo cancellation**: Add AEC (acoustic echo cancellation) to reduce false barge-in from speaker playback
-- **Per-agent tuning**: Different agents with different TTS lengths may need different barge-in thresholds
-- **Graceful truncation**: Accept that some agent replies will be truncated; this is expected behavior
-- **Observability**: Track barge-in events, latency (speech onset to TTS stop), and false positive rates
+- **`MinSpeech`**: 100-200 ms keeps barge-in responsive. Raise it if coughs or short backchannels ("uh-huh") interrupt the agent.
+- **Echo cancellation**: without acoustic echo cancellation (AEC) on the client, the agent's own voice reaches the microphone and triggers false barge-ins. Enable AEC in the browser or phone client early. `MinConfidence` only partly compensates.
+- **Per-agent tuning**: agents with long responses benefit from more sensitive settings, and agents that read critical information (account numbers, confirmations) may want stricter ones.
+- **Graceful truncation**: some agent replies will be cut off. That is expected; consider recording what the agent had said so far in the turn history.
+- **Observability**: track barge-in events, latency from speech onset to playback stop, and the false-positive rate (interruptions followed by no transcript).
 
-## Results
+## Lessons from Tuning
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Barge-in latency (p95) | N/A | 160ms | Met <200ms target |
-| False barge-in rate | N/A | 2.5% | Under 3% target |
-| User interrupt success | 0% | 97% | New capability |
-
-### Lessons Learned
-
-- **VAD + turn detection**: Separating "speech started" (VAD) from "turn structure" (turn detection) simplified tuning
-- **Short MinSilenceDuration**: 200ms helped react quickly without excessive false triggers
-- **Echo cancellation matters**: Add AEC early to reduce false barge-in from speaker playback
+- Separating "speech started" (VAD) from "this is a real interruption" (barge-in rules) makes each easier to tune.
+- Short sustained-speech windows keep the agent responsive without excessive false triggers, once echo cancellation is in place.
+- Measure in the real environment: thresholds that work on a headset rarely work on a speakerphone.
 
 ## Related Resources
 
-- [Low-Latency Turn Prediction](/docs/guides/low-latency-prediction/) for turn-detection tuning
-- [Voice Sessions Overview](/docs/guides/voice-sessions-overview/) for session and pipeline design
-- [Voice AI Applications](/docs/guides/voice-applications/) for voice pipeline architecture
+- [Sensitivity Tuning](/docs/guides/capabilities/voice/sensitivity-tuning) for VAD thresholds and duration rules
+- [Sentence-Boundary Turn Detection](/docs/guides/capabilities/voice/sentence-boundary) for end-of-turn rules
+- [Voice Sessions Overview](/docs/guides/capabilities/voice/voice-sessions-overview) for session and pipeline design

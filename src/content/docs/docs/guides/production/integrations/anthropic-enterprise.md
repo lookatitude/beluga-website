@@ -24,7 +24,7 @@ Key enterprise capabilities:
 
 ## Prerequisites
 
-- Go 1.23 or later
+- Go 1.26 or later
 - A Beluga AI project initialized with `go mod init`
 - An Anthropic Enterprise API key
 - Enterprise account access with model permissions configured
@@ -34,7 +34,7 @@ Key enterprise capabilities:
 Install the Anthropic provider:
 
 ```bash
-go get github.com/lookatitude/beluga-ai/llm/providers/anthropic
+go get github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic
 ```
 
 Set your enterprise API key:
@@ -58,10 +58,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/lookatitude/beluga-ai/config"
-	"github.com/lookatitude/beluga-ai/llm"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/anthropic"
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/config"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/anthropic"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 func main() {
@@ -163,10 +163,10 @@ if err != nil {
 
 ### Adding Resilience
 
-Wrap the enterprise model with Beluga's resilience middleware for production use:
+Wrap the enterprise model with Beluga's resilience retry helper for production use:
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
 policy := resilience.RetryPolicy{
 	MaxAttempts:    5,
@@ -176,12 +176,10 @@ policy := resilience.RetryPolicy{
 	Jitter:         true,
 }
 
-// Use resilience.Do to wrap calls with retry logic.
-var resp *schema.AIMessage
-err := resilience.Do(ctx, policy, func(ctx context.Context) error {
-	var genErr error
-	resp, genErr = model.Generate(ctx, msgs)
-	return genErr
+// Use resilience.Retry to wrap calls with retry logic. Only errors that
+// core.IsRetryable reports as retryable (rate limits, timeouts, 5xx) are retried.
+resp, err := resilience.Retry(ctx, policy, func(ctx context.Context) (*schema.AIMessage, error) {
+	return model.Generate(ctx, msgs)
 })
 if err != nil {
 	log.Fatalf("Generate failed after retries: %v", err)
@@ -196,7 +194,7 @@ Integrate OpenTelemetry tracing to monitor enterprise API calls:
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/llm"
+	"github.com/lookatitude/beluga-ai/v2/llm"
 	"go.opentelemetry.io/otel"
 )
 
@@ -253,6 +251,6 @@ Enterprise accounts have higher rate limits, but they can still be exceeded unde
 
 ## Related Resources
 
-- [LLM Providers Overview](/docs/guides/production/integrations/llm-providers) -- All supported LLM providers
+- [LLM Providers Overview](/docs/reference/providers/llm/) -- All supported LLM providers
 - [AWS Bedrock Integration](/docs/guides/production/integrations/bedrock-integration) -- Alternative cloud LLM provider
-- [Resilience Package](/docs/guides/resilience) -- Retry, circuit breaker, and rate limiting
+- [Resilience Package](/docs/guides/production/resilience/) -- Retry, circuit breaker, and rate limiting

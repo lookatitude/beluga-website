@@ -42,10 +42,10 @@ The following example creates a complete HTTP service from an agent. The adapter
 
 ```go
 import (
-	"github.com/lookatitude/beluga-ai/agent"
-	"github.com/lookatitude/beluga-ai/llm"
-	"github.com/lookatitude/beluga-ai/server"
-	_ "github.com/lookatitude/beluga-ai/llm/providers/openai"
+	"github.com/lookatitude/beluga-ai/v2/agent"
+	"github.com/lookatitude/beluga-ai/v2/llm"
+	"github.com/lookatitude/beluga-ai/v2/server"
+	_ "github.com/lookatitude/beluga-ai/v2/llm/providers/openai"
 )
 
 func main() {
@@ -95,15 +95,16 @@ Each adapter follows the same `ServerAdapter` interface, so switching frameworks
 | Adapter | Import Path | Framework |
 |---------|-------------|-----------|
 | `stdlib` | Built-in | `net/http` (default) |
-| `gin` | `server/providers/gin` | Gin |
-| `fiber` | `server/providers/fiber` | Fiber |
-| `echo` | `server/providers/echo` | Echo |
-| `chi` | `server/providers/chi` | Chi |
-| `grpc` | `server/providers/grpc` | gRPC |
-| `connect` | `server/providers/connect` | Connect-Go |
+| `gin` | `server/adapters/gin` | Gin |
+| `fiber` | `server/adapters/fiber` | Fiber |
+| `echo` | `server/adapters/echo` | Echo |
+| `chi` | `server/adapters/chi` | Chi |
+| `huma` | `server/adapters/huma` | Huma |
+| `grpc` | `server/adapters/grpc` | gRPC |
+| `connect` | `server/adapters/connect` | Connect-Go |
 
 ```go
-import _ "github.com/lookatitude/beluga-ai/server/providers/gin"
+import _ "github.com/lookatitude/beluga-ai/v2/server/adapters/gin"
 
 adapter, err := server.New("gin", server.Config{
 	ReadTimeout:  10 * time.Second,
@@ -113,24 +114,28 @@ adapter, err := server.New("gin", server.Config{
 
 ## Resilience Patterns
 
-The `resilience` package provides production resilience primitives that protect your application from the failure modes common in AI services: provider outages, rate limiting, high tail latency, and traffic spikes. Each pattern addresses a specific failure mode, and they compose together as LLM middleware.
+The `resilience` package provides production resilience primitives that protect your application from the failure modes common in AI services: provider outages, rate limiting, high tail latency, and traffic spikes. Each pattern addresses a specific failure mode. They are plain functions and types, so you compose them by wrapping your calls (or by writing a small `llm.Middleware`).
 
 ### Circuit Breaker
 
-When a downstream service (like an LLM provider) is failing, continuing to send requests wastes resources and increases latency. The circuit breaker pattern monitors failure rates and "opens" the circuit after a threshold is reached, immediately failing subsequent requests instead of waiting for timeouts. After a cooldown period, the circuit enters a half-open state and allows a limited number of test requests through. If those succeed, the circuit closes and normal operation resumes.
+When a downstream service (like an LLM provider) is failing, continuing to send requests wastes resources and increases latency. The circuit breaker pattern monitors failure rates and "opens" the circuit after a threshold is reached, immediately failing subsequent requests instead of waiting for timeouts. After the reset timeout, the circuit enters a half-open state and lets a single probe request through. If it succeeds, the circuit closes and normal operation resumes; while open, `Execute` returns `resilience.ErrCircuitOpen` without calling your function.
 
 ```go
-import "github.com/lookatitude/beluga-ai/resilience"
+import "github.com/lookatitude/beluga-ai/v2/resilience"
 
-cb := resilience.NewCircuitBreaker(resilience.CircuitBreakerConfig{
-	MaxFailures:     5,              // Open after 5 failures
-	Timeout:         30 * time.Second, // Try half-open after 30s
-	HalfOpenMax:     2,              // Allow 2 test requests in half-open
-})
+// Open after 5 consecutive failures; probe again after 30s.
+cb := resilience.NewCircuitBreaker(5, 30*time.Second)
 
-result, err := cb.Execute(ctx, func(ctx context.Context) (string, error) {
+result, err := cb.Execute(ctx, func(ctx context.Context) (any, error) {
 	return model.Generate(ctx, msgs)
 })
+if errors.Is(err, resilience.ErrCircuitOpen) {
+	// Fail fast: the provider is considered unhealthy.
+}
+if err != nil {
+	return err
+}
+resp := result.(*schema.AIMessage)
 ```
 
 ### Retry with Backoff
@@ -138,16 +143,16 @@ result, err := cb.Execute(ctx, func(ctx context.Context) (string, error) {
 Transient failures (network blips, temporary rate limits, provider-side errors) often resolve on their own within seconds. The retry pattern re-attempts failed operations with exponential backoff and jitter, which avoids thundering herd problems where all retries hit the provider simultaneously. The `IsRetryable` function from the `core` package ensures that only transient errors are retried; permanent failures (invalid API key, malformed request) fail immediately.
 
 ```go
-retrier := resilience.NewRetrier(resilience.RetrierConfig{
-	MaxAttempts:  3,
-	InitialDelay: 100 * time.Millisecond,
-	MaxDelay:     5 * time.Second,
-	Multiplier:   2.0,
-	Jitter:       true,
-	IsRetryable:  core.IsRetryable,
-})
+policy := resilience.RetryPolicy{
+	MaxAttempts:    3,
+	InitialBackoff: 100 * time.Millisecond,
+	MaxBackoff:     5 * time.Second,
+	BackoffFactor:  2.0,
+	Jitter:         true,
+	// RetryableErrors left empty: core.IsRetryable decides.
+}
 
-result, err := retrier.Execute(ctx, func(ctx context.Context) (string, error) {
+text, err := resilience.Retry(ctx, policy, func(ctx context.Context) (string, error) {
 	resp, err := model.Generate(ctx, msgs)
 	if err != nil {
 		return "", err
@@ -161,81 +166,118 @@ result, err := retrier.Execute(ctx, func(ctx context.Context) (string, error) {
 LLM providers occasionally exhibit high tail latency: most requests complete in under a second, but a small percentage take 10 seconds or more. The hedge pattern addresses this by sending a duplicate request after a delay. Whichever request completes first wins, and the slower one is canceled. This dramatically reduces P99 latency at the cost of slightly higher average request volume.
 
 ```go
-hedger := resilience.NewHedger(resilience.HedgerConfig{
-	Delay:      200 * time.Millisecond, // Send hedge after 200ms
-	MaxHedges:  1,                       // At most 1 hedge
-})
-
-result, err := hedger.Execute(ctx, func(ctx context.Context) (string, error) {
-	resp, err := model.Generate(ctx, msgs)
-	if err != nil {
-		return "", err
+call := func(m llm.ChatModel) func(context.Context) (string, error) {
+	return func(ctx context.Context) (string, error) {
+		resp, err := m.Generate(ctx, msgs)
+		if err != nil {
+			return "", err
+		}
+		return resp.Text(), nil
 	}
-	return resp.Text(), nil
-})
+}
+
+// Start the secondary if the primary has not answered within 200ms.
+text, err := resilience.Hedge(ctx, call(primary), call(secondary), 200*time.Millisecond)
+if err != nil {
+	return err
+}
 ```
 
 ### Rate Limiting
 
-Rate limiting protects downstream services from being overwhelmed by traffic spikes. This is especially important with LLM providers that enforce per-minute or per-second token limits, where exceeding the limit results in errors or temporary bans. The token bucket algorithm allows short bursts while enforcing a sustained rate over time.
+Rate limiting protects downstream services from being overwhelmed by traffic spikes. This is especially important with LLM providers that enforce per-minute or per-second token limits, where exceeding the limit results in errors or temporary bans. `resilience.RateLimiter` uses token buckets for requests per minute (RPM) and tokens per minute (TPM), plus a concurrency cap.
 
 ```go
-limiter := resilience.NewRateLimiter(resilience.RateLimiterConfig{
-	Rate:  100,                // 100 requests per second
-	Burst: 20,                 // Allow burst of 20
+limiter := resilience.NewRateLimiter(resilience.ProviderLimits{
+	RPM:           600, // requests per minute
+	TPM:           200_000,
+	MaxConcurrent: 20,
 })
 
-err := limiter.Wait(ctx) // Blocks until a token is available
+// Allow blocks until an RPM token and a concurrency slot are available.
+if err := limiter.Allow(ctx); err != nil {
+	return err // context canceled or deadline exceeded
+}
+defer limiter.Release()
+
+resp, err := model.Generate(ctx, msgs)
 if err != nil {
-	// Context canceled or deadline exceeded
+	return err
+}
+// Charge the tokens actually used against the TPM budget.
+if err := limiter.ConsumeTokens(ctx, resp.Usage.TotalTokens); err != nil {
+	return err
 }
 ```
 
 ### Combining Resilience Patterns
 
-Resilience patterns compose as LLM middleware using the standard `ApplyMiddleware` function. The composition order matters: middleware applies right-to-left, so the last middleware in the list becomes the outermost wrapper. In the example below, the execution order for each request is: rate limit check, then retry with backoff, then circuit breaker check, then the actual LLM call.
+The `resilience` package does not ship ready-made LLM middleware, so compose the primitives in a wrapper function. The order below is: rate limit check, then retry with backoff, then circuit breaker check, then the actual LLM call.
 
 ```go
-// Compose resilience: rate limit → retry → circuit breaker → call
-model = llm.ApplyMiddleware(model,
-	resilience.AsLLMMiddleware(
-		resilience.WithCircuitBreaker(cb),
-		resilience.WithRetry(retrier),
-		resilience.WithRateLimit(limiter),
-	),
-)
+func resilientGenerate(ctx context.Context, model llm.ChatModel, limiter *resilience.RateLimiter,
+	cb *resilience.CircuitBreaker, msgs []schema.Message) (*schema.AIMessage, error) {
+	if err := limiter.Allow(ctx); err != nil {
+		return nil, err
+	}
+	defer limiter.Release()
+
+	return resilience.Retry(ctx, resilience.DefaultRetryPolicy(), func(ctx context.Context) (*schema.AIMessage, error) {
+		out, err := cb.Execute(ctx, func(ctx context.Context) (any, error) {
+			return model.Generate(ctx, msgs)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return out.(*schema.AIMessage), nil
+	})
+}
 ```
+
+To apply the limits directly to a model, `llm.ApplyMiddleware(model, llm.WithProviderLimits(llm.ProviderLimits{RPM: 600, TPM: 100000, MaxConcurrent: 20}))` wraps it. The middleware records each response's `Usage.TotalTokens` and stops admitting requests once the trailing-minute `TPM` budget is spent.
 
 ## Configuration Management
 
-The `config` package supports loading configuration from files and environment variables with hot-reload capability. Environment variables override file values, following the twelve-factor app methodology. Hot-reload watches the configuration file for changes and invokes a callback when the configuration updates, enabling runtime adjustments without restarting the service.
+The `config` package loads JSON configuration files with `default`, `required`, `min` and `max` struct tags, merges environment-variable overrides with `config.MergeEnv`, and watches files for changes with `config.NewFileWatcher`. Environment variables override file values, following the twelve-factor app methodology. The watcher polls the file and invokes a callback with the new raw bytes when it changes, so you can re-parse and adjust at runtime without restarting the service.
 
 ```go
-import "github.com/lookatitude/beluga-ai/config"
+import "github.com/lookatitude/beluga-ai/v2/config"
 
 type AppConfig struct {
-	LLMProvider string `json:"llm_provider" env:"LLM_PROVIDER" default:"openai"`
-	LLMModel    string `json:"llm_model" env:"LLM_MODEL" default:"gpt-4o"`
-	APIKey      string `json:"api_key" env:"OPENAI_API_KEY" required:"true"`
-	Port        int    `json:"port" env:"PORT" default:"8080"`
-	MaxTokens   int    `json:"max_tokens" env:"MAX_TOKENS" default:"4096"`
+	LLMProvider string `json:"llm_provider" default:"openai"`
+	LLMModel    string `json:"llm_model" default:"gpt-4o"`
+	APIKey      string `json:"api_key" required:"true"`
+	Port        int    `json:"port" default:"8080"`
+	MaxTokens   int    `json:"max_tokens" default:"4096"`
 }
 
-// Load from file with environment variable overrides
+// Load from file (defaults applied, required fields validated)
 cfg, err := config.Load[AppConfig]("config.json")
 if err != nil {
 	log.Fatal(err)
 }
-
-// Enable hot-reload (watches file for changes)
-watcher, err := config.Watch[AppConfig]("config.json", func(newCfg AppConfig) {
-	log.Println("Configuration updated")
-	// Reinitialize components with new config
-})
-if err != nil {
+// Override from APP_LLM_PROVIDER, APP_API_KEY, APP_PORT, ...
+if err := config.MergeEnv(&cfg, "APP"); err != nil {
 	log.Fatal(err)
 }
+
+// Hot-reload: poll the file every 5s and re-parse on change
+watcher := config.NewFileWatcher("config.json", 5*time.Second)
 defer watcher.Close()
+go func() {
+	err := watcher.Watch(ctx, func(raw any) {
+		var next AppConfig
+		if err := json.Unmarshal(raw.([]byte), &next); err != nil {
+			log.Printf("invalid config update: %v", err)
+			return
+		}
+		log.Println("Configuration updated")
+		// Reinitialize components with next
+	})
+	if err != nil && ctx.Err() == nil {
+		log.Printf("config watcher stopped: %v", err)
+	}
+}()
 ```
 
 ## Docker Deployment
@@ -245,7 +287,7 @@ The multi-stage Dockerfile below produces a minimal container image with only th
 ### Dockerfile
 
 ```dockerfile
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -361,7 +403,7 @@ spec:
 Multi-tenant deployments serve multiple customers from the same service instance. Beluga supports tenant isolation through context-based routing, where each request carries a tenant identifier that flows through the entire pipeline. This identifier can be used to select tenant-specific models, apply per-tenant rate limits, and isolate memory stores.
 
 ```go
-import "github.com/lookatitude/beluga-ai/core"
+import "github.com/lookatitude/beluga-ai/v2/core"
 
 // Middleware to extract tenant from request
 func tenantMiddleware(next http.Handler) http.Handler {
@@ -371,9 +413,7 @@ func tenantMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "missing tenant ID", http.StatusBadRequest)
 			return
 		}
-		ctx := core.WithTenant(r.Context(), core.Tenant{
-			ID: tenantID,
-		})
+		ctx := core.WithTenant(r.Context(), core.TenantID(tenantID))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -487,7 +527,7 @@ graph LR
   TC --> EL[Event log · persistent]
 ```
 
-Use for long-running or human-in-the-loop workflows. See [DOC-16 — Durable Workflows](../../../../architecture/16-durable-workflows.md).
+Use for long-running or human-in-the-loop workflows. See [DOC-16 — Durable Workflows](https://github.com/lookatitude/beluga-ai/blob/main/docs/architecture/16-durable-workflows.md).
 
 ## Picking a mode
 
@@ -531,5 +571,5 @@ This checklist covers the essential configuration for a production Beluga deploy
 
 - [Monitoring & Observability](/docs/guides/production/observability/) — Production monitoring setup with distributed tracing
 - [Safety & Guards](/docs/guides/production/safety-and-guards/) — Production safety configuration and guard pipelines
-- [Working with LLMs](/docs/guides/working-with-llms/) — Multi-provider resilience and fallback strategies
-- [Memory System](/docs/guides/memory-system/) — Production memory backends with Redis and PostgreSQL
+- [Working with LLMs](/docs/guides/foundations/working-with-llms/) — Multi-provider resilience and fallback strategies
+- [Memory System](/docs/guides/capabilities/memory/memory-system/) — Production memory backends with Redis and PostgreSQL

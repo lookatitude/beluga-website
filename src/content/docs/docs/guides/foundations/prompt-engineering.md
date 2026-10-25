@@ -40,25 +40,29 @@ Before starting this guide:
 
 The `PromptManager` interface separates prompt content from application code. Templates are stored in an external source (filesystem, database, or custom backend), loaded by name and version, and rendered with variables at runtime. This separation means prompt authors can iterate on wording without redeploying the application, and prompt changes are tracked independently of code changes.
 
-The `prompt/providers/file` package implements `PromptManager` for filesystem-backed templates, making it easy to version prompts alongside your code in git.
+The `prompt/providers/file` package implements `PromptManager` for filesystem-backed templates, making it easy to version prompts alongside your code in git. Each `.json` file in the directory holds one `prompt.Template` (`name`, `version`, `content`, optional default `variables`):
+
+```json
+{
+  "name": "greeting",
+  "version": "1.0.0",
+  "content": "You are a friendly assistant for {{.Service}}. Greet {{.Name}} by name."
+}
+```
 
 ```go
 package main
 
 import (
-    "context"
     "fmt"
     "log"
 
-    "github.com/lookatitude/beluga-ai/prompt"
-    "github.com/lookatitude/beluga-ai/prompt/providers/file"
+    "github.com/lookatitude/beluga-ai/v2/prompt/providers/file"
 )
 
 func main() {
-    ctx := context.Background()
-
-    // Load templates from a directory
-    manager, err := file.New("./prompts")
+    // Load every .json template in the directory
+    manager, err := file.NewFileManager("./prompts")
     if err != nil {
         log.Fatal(err)
     }
@@ -72,7 +76,8 @@ func main() {
         log.Fatal(err)
     }
 
-    // messages is []schema.Message, ready to send to a ChatModel
+    // messages is []schema.Message (one system message rendered from the
+    // latest version of "greeting"), ready to send to a ChatModel
     fmt.Println(messages)
 }
 ```
@@ -82,10 +87,8 @@ func main() {
 Templates use Go's `text/template` syntax, which provides conditionals, loops, and variable substitution. This is a deliberate choice over custom template languages — Go developers already know the syntax, and the standard library template engine is well-tested and performant.
 
 ```go
-// Template file: prompts/customer_support.tmpl
-// Version: 1.0
-
-// System message template with conditionals and loops
+// The "content" field of prompts/customer_support.json, shown as a Go
+// string: a system message template with conditionals and loops
 systemTemplate := `You are a customer support agent for {{.Company}}.
 
 Guidelines:
@@ -116,8 +119,8 @@ This ordering is not arbitrary. Each slot is ordered by decreasing stability: th
 
 ```go
 import (
-    "github.com/lookatitude/beluga-ai/prompt"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/prompt"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 msgs := prompt.NewBuilder(

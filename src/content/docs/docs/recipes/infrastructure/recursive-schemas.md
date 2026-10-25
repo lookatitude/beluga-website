@@ -30,9 +30,9 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/codes"
 
-	"github.com/lookatitude/beluga-ai/schema"
+	"github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 var tracer = otel.Tracer("beluga.schema.graph")
@@ -86,7 +86,7 @@ func (gv *GraphValidator) ValidateGraph(ctx context.Context, startID string) err
 
 	if err := gv.validateNode(ctx, startID, 0); err != nil {
 		span.RecordError(err)
-		span.SetStatus(trace.StatusError, err.Error())
+		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("graph validation failed: %w", err)
 	}
 
@@ -96,7 +96,7 @@ func (gv *GraphValidator) ValidateGraph(ctx context.Context, startID string) err
 		log.Printf("Warning: %d unreachable nodes found", len(unreachable))
 	}
 
-	span.SetStatus(trace.StatusOK, "graph validation passed")
+	span.SetStatus(codes.Ok, "graph validation passed")
 	return nil
 }
 
@@ -220,5 +220,5 @@ func (gv *GraphValidator) validateNodeParallel(ctx context.Context, nodeID strin
 
 ## Related Recipes
 
-- **[Schema Validation Middleware](./schema-validation)** — Apply custom validation rules
-- **[Parallel Node Execution](./parallel-nodes)** — Execute graph nodes in parallel
+- **[Schema Validation Middleware](/docs/recipes/infrastructure/schema-validation/)** — Apply custom validation rules
+- **[Parallel Node Execution](/docs/recipes/infrastructure/parallel-nodes/)** — Execute graph nodes in parallel

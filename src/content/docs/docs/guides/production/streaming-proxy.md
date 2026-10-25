@@ -51,9 +51,9 @@ import (
     "sync"
     "time"
 
-    "github.com/lookatitude/beluga-ai/core"
-    "github.com/lookatitude/beluga-ai/llm"
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/core"
+    "github.com/lookatitude/beluga-ai/v2/llm"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // StreamingProxy implements high-availability streaming for LLM operations.
@@ -394,6 +394,6 @@ When both primary and backup providers are unhealthy, the proxy should fail grac
 
 ## Related Resources
 
-- [Error Recovery Service](/docs/guides/error-recovery-service/) for retry and circuit breaker patterns
-- [LLM Package Guide](/docs/guides/llm/) for model integration
-- [Observability Guide](/docs/guides/observability/) for monitoring streaming systems
+- [Error Recovery Service](/docs/guides/production/error-recovery-service/) for retry and circuit breaker patterns
+- [LLM Package Guide](/docs/guides/foundations/working-with-llms/) for model integration
+- [Observability Guide](/docs/guides/production/observability/) for monitoring streaming systems

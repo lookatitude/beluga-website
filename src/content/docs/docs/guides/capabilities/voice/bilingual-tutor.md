@@ -36,73 +36,106 @@ The architecture routes pronunciation analysis through a tool function rather th
 
 ### S2S Tutor Setup
 
-The tutor session is created through Beluga AI's S2S registry (`s2s.New("openai", nil)`) and configured with functional options. The pronunciation checking tool is registered as a tool definition that the S2S model can invoke when it detects potential pronunciation issues. The event loop pattern (`session.Recv()`) handles audio output, tool calls, and transcript events in a single unified loop.
+The tutor session is created through Beluga AI's S2S registry (`s2s.New("openai", s2s.Config{...})`) and configured with functional options on `Start`. The pronunciation checking tool is registered as a tool definition that the S2S model can invoke when it detects potential pronunciation issues. The event loop ranges over `session.Recv(ctx)` and handles audio output, tool calls, and transcript events in one place; tool results go back with `SendToolResult`. Pronunciation scoring itself (`analyzePronunciation`) is your own logic or service; Beluga does not include a pronunciation analyzer.
 
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 
-    "github.com/lookatitude/beluga-ai/schema"
-    "github.com/lookatitude/beluga-ai/tool"
-    "github.com/lookatitude/beluga-ai/voice/s2s"
+	"github.com/lookatitude/beluga-ai/v2/schema"
+	"github.com/lookatitude/beluga-ai/v2/tool"
+	"github.com/lookatitude/beluga-ai/v2/voice/s2s"
 
-    _ "github.com/lookatitude/beluga-ai/voice/s2s/providers/openai"
+	_ "github.com/lookatitude/beluga-ai/v2/voice/s2s/providers/openai"
 )
 
-func startTutorSession(ctx context.Context, studentID string, targetLanguage string) error {
-    engine, err := s2s.New("openai", nil)
-    if err != nil {
-        return fmt.Errorf("create s2s engine: %w", err)
-    }
-
-    pronunciationTool := tool.NewFuncTool[PronunciationInput](
-        "check_pronunciation",
-        "Analyze the student's pronunciation and provide feedback",
-        func(ctx context.Context, input PronunciationInput) (*tool.Result, error) {
-            feedback := analyzePronunciation(input.Word, input.Language)
-            return tool.TextResult(feedback), nil
-        },
-    )
-
-    session, err := engine.Start(ctx,
-        s2s.WithVoice("nova"),
-        s2s.WithInstructions(fmt.Sprintf(
-            "You are a patient, encouraging %s language tutor. "+
-                "Conduct conversations at the student's level. "+
-                "Gently correct grammar and pronunciation mistakes. "+
-                "Use simple vocabulary and speak clearly.",
-            targetLanguage,
-        )),
-        s2s.WithTools([]schema.ToolDefinition{
-            tool.ToDefinition(pronunciationTool),
-        }),
-    )
-    if err != nil {
-        return fmt.Errorf("start session: %w", err)
-    }
-    defer session.Close()
-
-    for event := range session.Recv() {
-        switch event.Type {
-        case s2s.EventAudioOutput:
-            transport.SendAudio(event.Audio)
-        case s2s.EventToolCall:
-            result := executeTool(ctx, event.ToolCall, pronunciationTool)
-            session.SendToolResult(ctx, result)
-        case s2s.EventTranscript:
-            trackProgress(ctx, studentID, event.Text)
-        }
-    }
-
-    return nil
+type PronunciationInput struct {
+	Word     string `json:"word" description:"The word to check pronunciation for" required:"true"`
+	Language string `json:"language" description:"The target language" required:"true"`
 }
 
-type PronunciationInput struct {
-    Word     string `json:"word" jsonschema:"description=The word to check pronunciation for"`
-    Language string `json:"language" jsonschema:"description=The target language"`
+// analyzePronunciation is your pronunciation-scoring logic or service.
+var analyzePronunciation func(ctx context.Context, word, language string) (string, error)
+
+func startTutorSession(ctx context.Context, studentID, targetLanguage string, speaker io.Writer) error {
+	engine, err := s2s.New("openai", s2s.Config{
+		Extra: map[string]any{"api_key": os.Getenv("OPENAI_API_KEY")},
+	})
+	if err != nil {
+		return fmt.Errorf("create s2s engine: %w", err)
+	}
+
+	pronunciationTool := tool.NewFuncTool[PronunciationInput](
+		"check_pronunciation",
+		"Analyze the student's pronunciation and provide feedback",
+		func(ctx context.Context, input PronunciationInput) (*tool.Result, error) {
+			feedback, err := analyzePronunciation(ctx, input.Word, input.Language)
+			if err != nil {
+				return tool.ErrorResult(err), nil
+			}
+			return tool.TextResult(feedback), nil
+		},
+	)
+
+	session, err := engine.Start(ctx,
+		s2s.WithVoice("alloy"),
+		s2s.WithInstructions(fmt.Sprintf(
+			"You are a patient, encouraging %s language tutor. "+
+				"Conduct conversations at the student's level. "+
+				"Gently correct grammar and pronunciation mistakes. "+
+				"Use simple vocabulary and speak clearly.",
+			targetLanguage,
+		)),
+		s2s.WithTools([]schema.ToolDefinition{
+			tool.ToDefinition(pronunciationTool),
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("start session: %w", err)
+	}
+	defer session.Close()
+
+	// Student audio is sent from your transport with session.SendAudio(ctx, pcm).
+	for event, err := range session.Recv(ctx) {
+		if err != nil {
+			return fmt.Errorf("session: %w", err)
+		}
+		switch event.Type {
+		case s2s.EventAudioOutput:
+			if _, err := speaker.Write(event.Audio); err != nil {
+				return fmt.Errorf("play audio: %w", err)
+			}
+		case s2s.EventToolCall:
+			result := checkPronunciation(ctx, pronunciationTool, *event.ToolCall)
+			if err := session.SendToolResult(ctx, result); err != nil {
+				return fmt.Errorf("send tool result: %w", err)
+			}
+		case s2s.EventTranscript:
+			trackProgress(ctx, studentID, event.Text)
+		}
+	}
+	return nil
+}
+
+// checkPronunciation runs the tool for a model tool call and wraps the result.
+func checkPronunciation(ctx context.Context, t tool.Tool, call schema.ToolCall) schema.ToolResult {
+	var input map[string]any
+	if err := json.Unmarshal([]byte(call.Arguments), &input); err != nil {
+		return schema.ToolResult{CallID: call.ID, IsError: true,
+			Content: []schema.ContentPart{schema.TextPart{Text: "invalid arguments: " + err.Error()}}}
+	}
+	res, err := t.Execute(ctx, input)
+	if err != nil {
+		return schema.ToolResult{CallID: call.ID, IsError: true,
+			Content: []schema.ContentPart{schema.TextPart{Text: err.Error()}}}
+	}
+	return schema.ToolResult{CallID: call.ID, Content: res.Content, IsError: res.IsError}
 }
 ```
 
@@ -132,16 +165,7 @@ func trackProgress(ctx context.Context, studentID string, transcript string) {
 - **Multi-language**: Configure S2S instructions and pronunciation models per target language
 - **Observability**: Track lesson metrics (duration, corrections, vocabulary coverage) with OpenTelemetry
 
-## Results
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Tutor cost per hour | $30-50 | $1.50 | 97% reduction |
-| Practice availability | 8-10 hrs/day | 24 hrs/day | 24/7 |
-| Student retention | 30-40% | 87% | 118-190% increase |
-| Conversation quality | 6.5/10 | 9.1/10 | 40% improvement |
-
-### Lessons Learned
+## Lessons Learned
 
 - **S2S for natural conversations**: Speech-to-speech provides the most natural interaction for language learning
 - **Adaptive difficulty early**: Fixed difficulty had lower engagement; implement adaptation from the start
@@ -149,6 +173,6 @@ func trackProgress(ctx context.Context, studentID string, transcript string) {
 
 ## Related Resources
 
-- [Hotel Concierge](/docs/guides/hotel-concierge/) for S2S voice conversation patterns
-- [Voice AI Applications](/docs/guides/voice-applications/) for voice pipeline architecture
-- [Voice Sessions Overview](/docs/guides/voice-sessions-overview/) for session management
+- [Hotel Concierge](/docs/guides/capabilities/voice/hotel-concierge/) for S2S voice conversation patterns
+- [Voice AI Applications](/docs/guides/capabilities/voice/voice-applications/) for voice pipeline architecture
+- [Voice Sessions Overview](/docs/guides/capabilities/voice/voice-sessions-overview/) for session management

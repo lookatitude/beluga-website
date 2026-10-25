@@ -17,7 +17,7 @@ A `TransactionMessage` type that carries structured financial data through the c
 ## Prerequisites
 
 - Familiarity with Go interfaces
-- Understanding of the [schema package](/docs/guides/schema) message types
+- Understanding of the [schema package](/docs/reference/api/foundation/schema/) message types
 
 ## The Message Interface
 
@@ -51,7 +51,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/lookatitude/beluga-ai/schema"
+    "github.com/lookatitude/beluga-ai/v2/schema"
 )
 
 // TransactionData holds structured financial payload.
