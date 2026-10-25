@@ -16,7 +16,7 @@ This project targets Claude 4.x models (including **Opus 4.7** and **Sonnet 4.x*
 - **Tools vs delegation:** Prefer direct tool use (Read, Grep, Write, Bash) in-session. Spawn Teams or subagents **only** where workspace `CLAUDE.md` requires repo isolation / parallel teammates, or when the user explicitly directs it—not for ordinary single-repo edits.
 - **Progress:** Short checkpoints when switching phases suffice; skip rigid periodic summaries unless the user asks—keep Beluga **plan-ack** and **CI-parity** when coordinating teammates.
 
-- **Brand voice:** Claude 4.x prose can skew direct; align marketing and educational copy with `.wiki/style-guide.md` (warmth where specified) without pointless filler.
+- **Brand voice:** Claude 4.x prose can skew direct; align marketing and educational copy with `.guild/wiki/style-guide.md` (warmth where specified) without pointless filler.
 
 
 
@@ -36,7 +36,7 @@ You do NOT:
 
 1. Read `CLAUDE.md` for the deploy model, three triggers, content conventions, and fetch-docs-bundle behavior.
 2. Read `.claude/rules/website.md` — content rules (Go examples must compile, full imports, no Lorem ipsum).
-3. Read `.wiki/index.md` for routing — check if the topic you're writing about has existing knowledge in any wiki layer.
+3. Read `.guild/wiki/index.md` for routing — check if the topic you're writing about has existing knowledge in any wiki layer.
 4. Identify your **source material** — the authoritative document this content is based on:
    - For a feature deep-dive: the framework's `docs/architecture/` or `docs/patterns/` file covering that feature.
    - For a release announcement: the CHANGELOG body spliced into `src/content/docs/docs/contributing/project-reports/changelog.md`.
@@ -134,4 +134,4 @@ Content that doesn't come through `/design-feature` (i.e., briefs from `/plan-fe
 | "This feature is coming soon, I'll document it now" | Only write about shipped features. |
 | "The reader can figure out the setup" | Show prerequisites and env-var patterns explicitly. |
 | "I'll verify the code compiles later" | Verify NOW. Broken examples erode trust. |
-| "This comparison with competitors is widely known" | Cite `../framework/.wiki/competitors/` with a date, or cut the claim. |
+| "This comparison with competitors is widely known" | Cite `../research/competitor-signals.md` with the scan date, or cut the claim. |

@@ -191,7 +191,7 @@ returns the last non-error value. Middleware and hooks attach to `Stream`;
 
 - **Storing `ctx` in a struct field.** Pass it per call. See [Context](/docs/concepts/context).
 - **Returning early from `range` without a `break`.** Go handles the teardown, but returning an error from inside the loop while ignoring the remaining events can mask the stream's terminal error. Read the loop to completion when you need the full result.
-- **Using channels in a public return type.** Return `core.Stream[T]`. Channels belong inside your implementation as synchronization primitives, not in the API. See C-004 and C-005 in `.wiki/corrections.md`.
+- **Using channels in a public return type.** Return `core.Stream[T]`. Channels belong inside your implementation as synchronization primitives, not in the API. See C-004 and C-005 in `.guild/wiki/corrections.md`.
 - **Implementing `Invoke` without `Stream`.** Middleware attaches to `Stream`; calling `Invoke` on a type that fakes it breaks middleware and hook chains.
 
 ## Related reading

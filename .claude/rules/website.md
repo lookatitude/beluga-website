@@ -33,7 +33,7 @@ alwaysApply: true
 ## Before editing
 
 - Read `CLAUDE.md` for the deploy model, three triggers, override list, and `fetch-docs-bundle.sh` failure modes.
-- Read `.wiki/index.md` — currently a scoped stub, but it tells you what knowledge lives where (website vs framework vs workspace).
+- Read `.guild/wiki/index.md` — currently a scoped stub, but it tells you what knowledge lives where (website vs framework vs workspace).
 - Explore the current `src/` tree — match existing conventions before adding anything new.
 
 ## Anti-rationalization

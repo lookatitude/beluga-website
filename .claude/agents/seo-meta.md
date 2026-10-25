@@ -38,7 +38,7 @@ Ensure every published page has correct, optimized metadata: Open Graph tags, Tw
 1. Read `CLAUDE.md` for site URL (`https://beluga-ai.org`), deploy model, and architecture notes.
 2. Read `astro.config.mjs` for the sitemap integration and any SEO-relevant config.
 3. Read `src/lib/og-image.ts` to understand what frontmatter fields drive OG image generation.
-4. Read `.wiki/index.md` for any SEO-specific notes (Phase 3+ stub — may grow).
+4. Read `.guild/wiki/index.md` for any SEO-specific notes (Phase 3+ stub — may grow).
 
 ## Checks per page
 

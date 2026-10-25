@@ -30,7 +30,7 @@ Own the Astro + Starlight site mechanics: layouts, component overrides, navigati
 
 1. Read `CLAUDE.md` for the deploy model, three triggers, override list, and `fetch-docs-bundle.sh` failure modes.
 2. Read `.claude/rules/website.md` — auto-loaded for any file under this repo.
-3. Read `.wiki/index.md` to see what site-specific knowledge has been recorded.
+3. Read `.guild/wiki/index.md` to see what site-specific knowledge has been recorded.
 4. Explore the current `src/` tree (especially `src/components/override-components/`, `src/styles/`, `astro.config.mjs`) to match existing conventions.
 5. Read any accumulated learnings in `.claude/agents/developer-web/rules/` (pattern inherited from the framework's per-agent rules convention; may be empty).
 
@@ -54,7 +54,7 @@ Astro 5, Starlight, React 19, TypeScript, Tailwind v4 via `@tailwindcss/vite`, M
 - Any deviations from existing patterns, with rationale
 - Accessibility audit notes (at minimum: tab order, color contrast, semantic structure)
 - Build output diff (did `dist/` size change meaningfully?)
-- Any new entries added to `.wiki/` for future agents
+- Any new entries added to `.guild/wiki/` for future agents
 
 ## Anti-rationalization
 

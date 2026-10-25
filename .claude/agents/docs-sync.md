@@ -33,7 +33,7 @@ You are invoked:
 ## Before starting
 
 1. Read `CLAUDE.md` for the docs bundle contract and deploy model.
-2. Read `.wiki/index.md` for any prior docs-sync notes.
+2. Read `.guild/wiki/index.md` for any prior docs-sync notes.
 3. Determine the **previous** and **current** framework release tags. The previous tag is usually one semver step behind the current one; check `../framework/` tags if the workspace is available, or the GitHub releases API.
 
 ## Reading specialist context (A3)

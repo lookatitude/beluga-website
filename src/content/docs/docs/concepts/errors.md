@@ -203,7 +203,7 @@ func handleErr(err error) {
 
 ## Common mistakes
 
-- **Returning raw `fmt.Errorf` from a public function.** `IsRetryable` returns `false` for all unclassified errors. Middleware cannot retry what it cannot classify. C-003 in `.wiki/corrections.md` documents 190 occurrences of this pattern found across 50+ files during the v2 migration.
+- **Returning raw `fmt.Errorf` from a public function.** `IsRetryable` returns `false` for all unclassified errors. Middleware cannot retry what it cannot classify. C-003 in `.guild/wiki/corrections.md` documents 190 occurrences of this pattern found across 50+ files during the v2 migration.
 - **Using error message strings for branching.** String-matching errors breaks as soon as provider SDK messages change. Use `ErrorCode` or `errors.As`.
 - **Swallowing errors silently.** Every error must either be returned, logged, or explicitly discarded with a comment explaining why. The rule is in `.claude/rules/go-packages.md`.
 - **Panicking for recoverable errors.** `panic` is for programmer errors (nil pointer, out-of-bounds). Provider failures, tool timeouts, and guard blocks are recoverable — return a `*core.Error`.
@@ -214,4 +214,4 @@ func handleErr(err error) {
 - [Resilience](/docs/reference/architecture/overview/resilience) — circuit breakers and retry middleware that consume `IsRetryable`.
 - [Extensibility](/docs/concepts/extensibility) — where `core.Error` fits in the middleware chain.
 - [`core/errors.go`](https://github.com/lookatitude/beluga-ai/blob/main/core/errors.go) — canonical source for all error types and codes.
-- [`.wiki/patterns/error-handling.md`](https://github.com/lookatitude/beluga-ai/blob/main/.wiki/patterns/error-handling.md) — patterns and anti-patterns with file:line references.
+- [`.guild/wiki/patterns/error-handling.md`](https://github.com/lookatitude/beluga-ai/blob/main/.guild/wiki/patterns/error-handling.md) — patterns and anti-patterns with file:line references.

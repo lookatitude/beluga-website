@@ -43,7 +43,7 @@ type Tool interface {
 ```
 
 Four methods. The invariant is hard: interfaces with more than four methods
-are split via embedding (C-001 in `.wiki/corrections.md` documents a real
+are split via embedding (C-001 in `.guild/wiki/corrections.md` documents a real
 violation and its fix). Smaller interfaces are easier to implement, easier to
 mock in tests, and encourage third-party providers.
 

@@ -9,7 +9,7 @@ $ARGUMENTS may be a free-form topic OR a Linear sub-issue ID. If it matches `^LO
 
 ## Claude 4.x invocation notes
 
-- **Voice:** Calibrate to `.wiki/style-guide.md`—Claude 4.x defaults can read terse; add warmth only where the style guide does, not as generic padding.
+- **Voice:** Calibrate to `.guild/wiki/style-guide.md`—Claude 4.x defaults can read terse; add warmth only where the style guide does, not as generic padding.
 - **Security claims:** Use defensive phrasing for threat content; avoid exploit walkthrough tone that can trip refusals or read as offensive.
 
 ### 1b. Validate content-type label (A3)

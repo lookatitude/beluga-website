@@ -12,19 +12,19 @@ This repo was split out of `beluga-ai` (framework) in 2026 — history was prese
 
 This repo owns the **communication layer** of the Beluga project: blog posts, tutorials, guides, marketing pages, and the docs site that wraps framework godocs and reports. It does **not** own framework code, Go patterns, or runnable example programs — those live in `beluga-ai` (framework) and `beluga-examples` (examples) respectively.
 
-When working on cross-repo concerns (a release flow incident, coordinating a framework API change with content updates, shared branch discipline), consult the **workspace wiki** at `../.guild/wiki/context/workspace-router.md` and the workspace `CLAUDE.md` at `../CLAUDE.md` — they are only visible when this repo is checked out inside the multi-repo Beluga workspace. Anything site-specific (Astro config, Starlight overrides, content voice, design system) stays here, in this repo's `.wiki/`.
+When working on cross-repo concerns (a release flow incident, coordinating a framework API change with content updates, shared branch discipline), consult the **workspace wiki** at `../.guild/wiki/context/workspace-router.md` and the workspace `CLAUDE.md` at `../CLAUDE.md` — they are only visible when this repo is checked out inside the multi-repo Beluga workspace. Anything site-specific (Astro config, Starlight overrides, content voice, design system) stays here, in this repo's `.guild/wiki/`.
 
 ## Wiki
 
-`.wiki/` holds website-specific knowledge: Starlight override conventions, content voice/style, design-system tokens, and any website-local corrections. The authoritative content voice reference lives at `.wiki/style-guide.md` — read it before drafting any blog / tutorial / guide / announcement; the `voice-steward` agent enforces it on content PRs. `.wiki/index.md` is the meta-router; most Go-side knowledge still lives in the framework wiki.
+`.guild/wiki/` holds website-specific knowledge: Starlight override conventions, content voice/style, design-system tokens, and any website-local corrections. The authoritative content voice reference lives at `.guild/wiki/style-guide.md` — read it before drafting any blog / tutorial / guide / announcement; the `voice-steward` agent enforces it on content PRs. `.guild/wiki/index.md` is the meta-router; most Go-side knowledge still lives in the framework wiki.
 
 ## Voice steward and style guide (A2)
 
-Every content PR invokes `voice-steward` (`.claude/agents/voice-steward.md`) as a pre-merge advisory gate — it reads `.wiki/style-guide.md` and posts a structured review comment covering tone, vocabulary, reading level, and cross-content consistency. It never blocks; the human approves the final merge. Update voice rules via normal PR to `.wiki/style-guide.md` (versioned in the file header). `voice-steward` is wired into `/tutorial`, `/guide`, `/blog`, and `/announce-release` automatically; it can also be invoked manually via `@agent-voice-steward` on any content diff.
+Every content PR invokes `voice-steward` (`.claude/agents/voice-steward.md`) as a pre-merge advisory gate — it reads `.guild/wiki/style-guide.md` and posts a structured review comment covering tone, vocabulary, reading level, and cross-content consistency. It never blocks; the human approves the final merge. Update voice rules via normal PR to `.guild/wiki/style-guide.md` (versioned in the file header). `voice-steward` is wired into `/tutorial`, `/guide`, `/blog`, and `/announce-release` automatically; it can also be invoked manually via `@agent-voice-steward` on any content diff.
 
 ## Claude 4.x and content agents
 
-Content and marketing agents (see `.claude/agents/`) include a **Prompting baseline (Claude 4.x)**. Newer models can read as more direct; the `voice-steward` and long-form agents are instructed to **steer copy toward** `.wiki/style-guide.md` (warmth, clarity) without padding. If a draft is for **sensitive security** topics, favor defensive framing so content stays teachable and policy-safe. **Vision / screenshots** in content: high-res images can consume more tokens in current models—keep assets only as large as needed for the layout.
+Content and marketing agents (see `.claude/agents/`) include a **Prompting baseline (Claude 4.x)**. Newer models can read as more direct; the `voice-steward` and long-form agents are instructed to **steer copy toward** `.guild/wiki/style-guide.md` (warmth, clarity) without padding. If a draft is for **sensitive security** topics, favor defensive framing so content stays teachable and policy-safe. **Vision / screenshots** in content: high-res images can consume more tokens in current models—keep assets only as large as needed for the layout.
 
 ## Release announcement automation (C2)
 
