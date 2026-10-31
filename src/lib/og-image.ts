@@ -21,6 +21,8 @@ export async function generateOgImage(
         style: {
           width: "100%",
           height: "100%",
+          // satori 0.63 adds padding outside height (0.25 did not); keep the 60px padding inside the 1200x630 canvas.
+          boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
