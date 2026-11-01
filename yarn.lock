@@ -1724,10 +1724,10 @@ astro-vtbot@^3.1.0:
     "@vtbag/turn-signal" "^1.3.1"
     "@vtbag/utensil-drawer" "^1.2.18"
 
-astro@^7.4.3:
-  version "7.4.3"
-  resolved "https://registry.yarnpkg.com/astro/-/astro-7.4.3.tgz#2237a4a92095699fa1d1dd5b813573b017a0c294"
-  integrity sha512-gIytSwggVMj+/Az9sXSyqFrxpHfO2KpvefEJNJfwvQGDMarNRoNvZOjxal1+52maOIRt2m4PlrVHvOVPisxtxw==
+astro@^7.4.4:
+  version "7.4.4"
+  resolved "https://registry.yarnpkg.com/astro/-/astro-7.4.4.tgz#ea5d07926aac4e5eddb998869a924a42a3604de7"
+  integrity sha512-e+BzhGCaIY/H1tV/BQPTbOPZVZ8wuu6+bbpc+3oSMH2UgoB1l9peSGASk6nswtYra9PO9OoMREhldKtQkZ5TVw==
   dependencies:
     "@astrojs/compiler-rs" "^0.5.1"
     "@astrojs/internal-helpers" "0.13.0"
