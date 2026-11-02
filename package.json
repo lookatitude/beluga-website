@@ -19,7 +19,7 @@
     "@astrojs/starlight-tailwind": "^5.0.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
-    "astro": "^7.4.3",
+    "astro": "^7.4.4",
     "astro-embed": "^0.14.0",
     "astro-font": "^1.2.0",
     "marked": "^18.1.2",
